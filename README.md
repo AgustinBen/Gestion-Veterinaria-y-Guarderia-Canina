@@ -25,6 +25,7 @@ Sistema de gestión para una veterinaria de barrio que combina atención clínic
 | Migración de datos   | Python + Pandas                             | Perfilado, limpieza y estandarización del Excel histórico del cliente antes de la carga a la base definitiva.                                                                      |
 | Control de versiones | Git + GitHub (Issues, Projects, Milestones) | Trazabilidad de tareas e historial de commits por integrante.                                                                                                                      |
 
+---
 ## Cómo levantar el proyecto localmente
 
 ### Backend
@@ -53,6 +54,7 @@ La aplicación queda disponible en `http://localhost:5173` (o el puerto que indi
 
 Copiar `.env.example` a `.env` en cada carpeta (`backend/` y `frontend/`) y completar los valores necesarios. **Nunca subir el archivo `.env` real al repositorio.**
 
+---
 ## Estructura del repositorio
 
 ```
@@ -67,6 +69,7 @@ Copiar `.env.example` a `.env` en cada carpeta (`backend/` y `frontend/`) y comp
 └── README.md
 ```
 
+---
 ## Flujo de trabajo con Git
 
 ### Ramas
@@ -117,16 +120,18 @@ El seguimiento de tareas se realiza en la sección **Projects** de este reposito
 - **Milestones**: Hito 0, Hito 1, Hito 2.
 - **Tipo de tarea**: Código, Documentación, Diagrama/Modelado, Testing.
 
+---
 ## Documentación del proyecto
 
-| Documento                              | Link                                                                                             |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Contextualización Inicial del Proyecto | [Ver documento](docs\Contextualizacion - Veterinaria y guardería canina - Proyecto PPP.pdf) |
-| Informe de Análisis de Arquitecturas   | _agregar link_                                                                                   |
-| Modelo Entidad-Relación (DER)          | _agregar link_                                                                                   |
-| Actas de entrevistas con el cliente    | _agregar link_                                                                                   |
+| Documento                              | Link                                                              |
+| -------------------------------------- | ----------------------------------------------------------------- |
+| Contextualización Inicial del Proyecto | [Ver documento](docs/contextualizacion-veterinaria-guarderia.pdf) |
+| Prototipado                            | _agregar link_                                                    |
+| Modelo Entidad-Relación (DER)          | _agregar link_                                                    |
+| Actas de entrevistas con el cliente    | _agregar link_                                                    |
 
-## Cronograma
+---
+## Cronograma 
 
 - **Hito 0** — Propuesta técnica y arquitectura (no evaluable / bloqueante).
 - **Hito 1 / Parcial 1** — MVP operativo inicial: migración de datos + CRUD de entidades principales + flujo operativo básico.
