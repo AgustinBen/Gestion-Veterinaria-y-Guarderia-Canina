@@ -126,7 +126,7 @@ El seguimiento de tareas se realiza en la sección **Projects** de este reposito
 | -------------------------------------- | ----------------------------------------------------------------- |
 | Contextualización Inicial del Proyecto | [Ver documento](docs/contextualizacion.pdf)                       |
 | Plan de trabajo                        | [Ver documento](docs/plan-de-trabajo.pdf)                         |
-| Primera presentación de venta          | [Ver presentación](docs/presentacion-venta-1.pptx)                |
+| Primera presentación de venta          | [Ver presentación](docs/presentacion-venta-1.pdf)                |
 | Presupuesto y formas de pago           | [Ver documento](docs/Presupuesto-y-pago.pdf)                      |
 
 ---
