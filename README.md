@@ -7,11 +7,11 @@ Sistema de gestión para una veterinaria de barrio que combina atención clínic
 ---
 ## Integrantes del equipo
 
-| Nombre                      | GitHub          |
-| --------------------------- | --------------- |
-| Ledesma Rodríguez, Emiliano | @EmiLuca        |
-| Vallejos, Aldana            | @AldanaVallejos |
-| Bengolea, Agustín           | @AgustinBen     |
+| Nombre                      | GitHub                                               |
+| --------------------------- | ---------------------------------------------------- |
+| Ledesma Rodríguez, Emiliano | [@EmiLuca](https://github.com/EmiLuca)               |
+| Vallejos, Aldana            | [@AldanaVallejos](https://github.com/AldanaVallejos) |
+| Bengolea, Agustín           | [@AgustinBen](https://github.com/AgustinBen)         |
 
 ---
 ## Stack tecnológico
@@ -126,12 +126,12 @@ El seguimiento de tareas se realiza en la sección **Projects** de este reposito
 | -------------------------------------- | ----------------------------------------------------------------- |
 | Contextualización Inicial del Proyecto | [Ver documento](docs/contextualizacion.pdf)                       |
 | Plan de trabajo                        | [Ver documento](docs/plan-de-trabajo.pdf)                         |
-| Primera presentación de venta          | [Ver presentación](docs/presentacion-venta-1.pdf)                |
+| Primera presentación de venta          | [Ver presentación](docs/presentacion-venta-1.pdf)                 |
 | Presupuesto y formas de pago           | [Ver documento](docs/Presupuesto-y-pago.pdf)                      |
 
 ---
 ## Cronograma 
 
-- **Hito 0** — Propuesta técnica y arquitectura (no evaluable / bloqueante).
-- **Hito 1 / Parcial 1** — MVP operativo inicial: migración de datos + CRUD de entidades principales + flujo operativo básico.
-- **Hito 2 / Parcial 2** — MVP completo: reglas de negocio complejas (cupos, anti-solapamiento, cuentas corrientes), reportería y control de acceso por roles.
+- **Hito 0** - Propuesta técnica y arquitectura (no evaluable / bloqueante).
+- **Hito 1 / Parcial 1** - MVP operativo inicial: migración de datos + CRUD de entidades principales + flujo operativo básico.
+- **Hito 2 / Parcial 2** - MVP completo: reglas de negocio complejas (cupos, anti-solapamiento, cuentas corrientes), reportería y control de acceso por roles.
