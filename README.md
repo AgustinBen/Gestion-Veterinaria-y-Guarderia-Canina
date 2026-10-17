@@ -12,7 +12,6 @@ Sistema de gestión para una veterinaria de barrio que combina atención clínic
 | Ledesma Rodríguez, Emiliano | @EmiLuca        |
 | Vallejos, Aldana            | @AldanaVallejos |
 | Bengolea, Agustín           | @AgustinBen     |
-| Herber, Lucca Nehuel        | @usuario        |
 
 ---
 ## Stack tecnológico
@@ -63,9 +62,9 @@ Copiar `.env.example` a `.env` en cada carpeta (`backend/` y `frontend/`) y comp
 ├── data-migration/     
 ├── docs/
 │   ├── contextualizacion/
-│   ├── entrevistas/
-│   ├── modelo-datos/
-│   └── arquitectura/
+│   ├── plan-de-trabajo/
+│   ├── presentacion-venta-1/
+│   └── Presupuesto-y-pago/
 └── README.md
 ```
 
@@ -125,10 +124,10 @@ El seguimiento de tareas se realiza en la sección **Projects** de este reposito
 
 | Documento                              | Link                                                              |
 | -------------------------------------- | ----------------------------------------------------------------- |
-| Contextualización Inicial del Proyecto | [Ver documento](docs/contextualizacion-veterinaria-guarderia.pdf) |
-| Prototipado                            | _agregar link_                                                    |
-| Modelo Entidad-Relación (DER)          | _agregar link_                                                    |
-| Actas de entrevistas con el cliente    | _agregar link_                                                    |
+| Contextualización Inicial del Proyecto | [Ver documento](docs/contextualizacion.pdf)                       |
+| Plan de trabajo                        | [Ver documento](docs/plan-de-trabajo.pdf)                         |
+| Primera presentación de venta          | [Ver presentación](docs/presentacion-venta-1.pptx)                |
+| Presupuesto y formas de pago           | [Ver documento](docs/Presupuesto-y-pago.pdf)                      |
 
 ---
 ## Cronograma 
