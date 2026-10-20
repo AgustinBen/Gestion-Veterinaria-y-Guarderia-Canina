@@ -34,6 +34,7 @@ Requisitos: Python 3.12
 ```powershell
 cd backend
 py -3.12 -m venv .venv
+python -m venv .venv  # si ya es 3.12+
 .venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
 uvicorn app.main:app --reload
@@ -45,11 +46,7 @@ La API queda disponible en `http://localhost:8000`, y la documentación interact
 
 ### Frontend
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+pendiente (T-09)
 
 La aplicación queda disponible en `http://localhost:5173` (o el puerto que indique la consola).
 
@@ -92,9 +89,9 @@ Copiar `.env.example` (ubicado en la raíz) a `.env` en `backend/` y completar l
 
 - **`main`**: rama estable, solo recibe merges desde `develop` en cada entrega de Hito. Protegida contra push directo.
 - **`develop`**: rama de integración activa, donde se juntan todas las features antes de pasar a `main`.
-- **`feature/nombre-corto`**, **`fix/nombre-corto`**, **`docs/nombre-corto`**: ramas individuales de trabajo, creadas desde `develop`, una por tarea/Issue.
+- **`feat-<nro>-<descripcion>`**, **`fix-<nro>-<descripcion>`**, **`chore-<nro>-<descripcion>`**, **`docs-<nro>-<descripcion>`**: ramas individuales de trabajo, creadas desde `develop`, una por tarea/Issue. No usar `feature/`.
 
-Ejemplo: `feature/abm-mascotas`, `fix/validacion-cupo-guarderia`, `docs/actualizar-der`.
+Ejemplo: `feat-12-abm-mascotas`, `fix-15-validacion-cupo-guarderia`, `docs-03-actualizar-der`.
 
 ### Commits — Conventional Commits
 
@@ -129,6 +126,17 @@ docs: agregar informe de análisis de arquitecturas
 - Todo cambio a `develop` o `main` entra por Pull Request, nunca por push directo.
 - Cada PR debe vincularse a un Issue del Project (`closes #N`) cuando corresponda.
 - Requiere al menos 1 aprobación de un integrante antes de mergear.
+
+## Comandos de calidad
+
+Los comandos de calidad se corren desde `backend/`:
+
+```powershell
+cd backend
+pytest
+ruff check .
+mypy app
+```
 
 ## Gestión de tareas
 
