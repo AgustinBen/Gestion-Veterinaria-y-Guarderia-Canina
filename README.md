@@ -1,6 +1,6 @@
-# 🐾 Huellitas — Sistema Integral de Gestión Veterinaria y Guardería Canina
+# 🐾 Huellitas - Sistema Integral de Gestión Veterinaria y Guardería Canina
 
-Proyecto desarrollado para la materia **Prácticas Pre-Profesionales 1 (PPP1)** — Licenciatura en Sistemas, Universidad Nacional de Lanús (2026).
+Proyecto desarrollado para la materia **Prácticas Pre-Profesionales 1 (PPP1)** - Licenciatura en Sistemas, Universidad Nacional de Lanús (2026).
 
 Sistema de gestión para una veterinaria de barrio que combina atención clínica (consultas, vacunas, cirugías) con servicio de guardería canina por día/noche, resolviendo los problemas de duplicación de datos, historial clínico desestructurado, sobreventa de cupos y falta de trazabilidad de cobros que hoy enfrenta el negocio.
 
@@ -29,42 +29,56 @@ Sistema de gestión para una veterinaria de barrio que combina atención clínic
 
 ### Backend
 
-```bash
+Requisitos: Python 3.12
+
+```powershell
 cd backend
-python -m venv venv
-source venv/bin/activate        # En Windows: venv\Scripts\activate
-pip install -r requirements.txt
+py -3.12 -m venv .venv
+python -m venv .venv  # si ya es 3.12+
+.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
 uvicorn app.main:app --reload
 ```
+
+> Si PowerShell bloquea la activación del entorno virtual (`ExecutionPolicy`), podés ejecutar los binarios directamente: `.venv\Scripts\pip.exe install -e ".[dev]"` y `.venv\Scripts\uvicorn.exe app.main:app --reload`. No modificamos políticas del sistema.
 
 La API queda disponible en `http://localhost:8000`, y la documentación interactiva en `http://localhost:8000/docs`.
 
 ### Frontend
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+pendiente (T-09)
 
 La aplicación queda disponible en `http://localhost:5173` (o el puerto que indique la consola).
 
 ### Variables de entorno
 
-Copiar `.env.example` a `.env` en cada carpeta (`backend/` y `frontend/`) y completar los valores necesarios. **Nunca subir el archivo `.env` real al repositorio.**
+Copiar `.env.example` (ubicado en la raíz) a `.env` en `backend/` y completar los valores necesarios. **Nunca subir el archivo `.env` real al repositorio.**
 
 ---
 ## Estructura del repositorio
 
 ```
-├── backend/            
-├── frontend/           
-├── data-migration/     
+├── backend/
+│   ├── app/
+│   │   ├── core/
+│   │   ├── main.py
+│   │   └── modules/
+│   │       ├── identidad/
+│   │       ├── padron/
+│   │       ├── migracion/
+│   │       ├── cobros/
+│   │       ├── panel/
+│   │       ├── guarderia/
+│   │       └── clinica/
+│   ├── pyproject.toml
+│   └── tests/
+├── frontend/
 ├── docs/
-│   ├── contextualizacion/
-│   ├── plan-de-trabajo/
-│   ├── presentacion-venta-1/
-│   └── Presupuesto-y-pago/
+│   ├── contextualizacion.pdf
+│   ├── plan-de-trabajo.pdf
+│   ├── presentacion-venta-1.pdf
+│   ├── Presupuesto-y-pago.pdf
+│   └── specs/
 └── README.md
 ```
 
@@ -75,9 +89,9 @@ Copiar `.env.example` a `.env` en cada carpeta (`backend/` y `frontend/`) y comp
 
 - **`main`**: rama estable, solo recibe merges desde `develop` en cada entrega de Hito. Protegida contra push directo.
 - **`develop`**: rama de integración activa, donde se juntan todas las features antes de pasar a `main`.
-- **`feature/nombre-corto`**, **`fix/nombre-corto`**, **`docs/nombre-corto`**: ramas individuales de trabajo, creadas desde `develop`, una por tarea/Issue.
+- **`feat-<nro>-<descripcion>`**, **`fix-<nro>-<descripcion>`**, **`chore-<nro>-<descripcion>`**, **`docs-<nro>-<descripcion>`**: ramas individuales de trabajo, creadas desde `develop`, una por tarea/Issue. No usar `feature/`.
 
-Ejemplo: `feature/abm-mascotas`, `fix/validacion-cupo-guarderia`, `docs/actualizar-der`.
+Ejemplo: `feat-12-abm-mascotas`, `fix-15-validacion-cupo-guarderia`, `docs-03-actualizar-der`.
 
 ### Commits — Conventional Commits
 
@@ -112,6 +126,17 @@ docs: agregar informe de análisis de arquitecturas
 - Todo cambio a `develop` o `main` entra por Pull Request, nunca por push directo.
 - Cada PR debe vincularse a un Issue del Project (`closes #N`) cuando corresponda.
 - Requiere al menos 1 aprobación de un integrante antes de mergear.
+
+## Comandos de calidad
+
+Los comandos de calidad se corren desde `backend/`:
+
+```powershell
+cd backend
+pytest
+ruff check .
+mypy app
+```
 
 ## Gestión de tareas
 
