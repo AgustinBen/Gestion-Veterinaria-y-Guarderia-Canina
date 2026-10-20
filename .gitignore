@@ -1,0 +1,34 @@
+# Archivos de entorno: siempre .env.example, nunca .env real
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Base de datos SQLite
+*.db
+*.db-wal
+*.db-shm
+
+# Datos y respaldos
+data/
+backups/
+uploads/
+*.xlsx
+*.xls
+
+# Frontend
+node_modules/
+
+# Sistema
+.DS_Store
+
+*.egg-info/
+build/
+dist/
