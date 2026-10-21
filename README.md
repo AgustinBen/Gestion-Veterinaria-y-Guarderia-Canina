@@ -112,6 +112,13 @@ docs: agregar informe de análisis de arquitecturas
 - Todo cambio a `develop` o `main` entra por Pull Request, nunca por push directo.
 - Cada PR debe vincularse a un Issue del Project (`closes #N`) cuando corresponda.
 - Requiere al menos 1 aprobación de un integrante antes de mergear.
+---
+
+## Trabajo con agentes (OpenCode)
+
+El equipo usa [OpenCode](https://opencode.ai) con seis agentes especializados, cada uno con
+**permisos acotados por rutas**. Las reglas de trabajo que tienen que cumplir están en
+[`AGENTS.md`](AGENTS.md), que OpenCode lee solo al abrir el repo.
 
 ## Gestión de tareas
 
