@@ -34,6 +34,7 @@ export function Sidebar({ sesion, secciones, inicio, onSalir }: Props) {
                   className={({ isActive }) =>
                     [estilos.enlace, isActive ? estilos.activo : null].filter(Boolean).join(' ')
                   }
+                  end
                   to={seccion.ruta}
                 >
                   {seccion.etiqueta}

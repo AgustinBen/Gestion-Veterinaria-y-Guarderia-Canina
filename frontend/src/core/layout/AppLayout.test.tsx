@@ -155,6 +155,30 @@ describe('AppLayout', () => {
     expect(within(inferior).getByRole('link', { name: 'Deudores' })).toBeInTheDocument();
   });
 
+  it('en Deudores solo se destaca Deudores, no Cobros', async () => {
+    const usuario = userEvent.setup();
+    renderizar('DUENIO', '/cobros/deudores');
+    const { lateral, inferior } = navegaciones();
+
+    expect(within(lateral).getByRole('link', { name: 'Deudores' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(lateral).getByRole('link', { name: 'Cobros' })).not.toHaveAttribute(
+      'aria-current',
+    );
+
+    await usuario.click(within(inferior).getByRole('button', { name: 'Más' }));
+
+    expect(within(inferior).getByRole('link', { name: 'Deudores' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(within(inferior).getByRole('link', { name: 'Cobros' })).not.toHaveAttribute(
+      'aria-current',
+    );
+  });
+
   it('el encabezado muestra la sección actual y la fecha de hoy', () => {
     renderizar('DUENIO', '/padron');
 

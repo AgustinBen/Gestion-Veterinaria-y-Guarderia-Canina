@@ -26,6 +26,7 @@ export function BottomNav({ secciones }: Props) {
             className={({ isActive }) =>
               [estilos.masEnlace, isActive ? estilos.activo : null].filter(Boolean).join(' ')
             }
+            end
             key={seccion.id}
             onClick={() => setAbierto(false)}
             to={seccion.ruta}
@@ -42,6 +43,7 @@ export function BottomNav({ secciones }: Props) {
               className={({ isActive }) =>
                 [estilos.item, isActive ? estilos.activo : null].filter(Boolean).join(' ')
               }
+              end
               to={seccion.ruta}
             >
               <span className={estilos.etiqueta}>{seccion.etiquetaCorta}</span>
