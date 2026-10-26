@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./huellitas.db"
     secret_key: str = "change-me"
     session_minutes: int = 60
+    password_min_length: int = 8
 
 
 @lru_cache
