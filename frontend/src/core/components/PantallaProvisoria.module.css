@@ -1,0 +1,60 @@
+.pagina {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 48rem;
+  min-width: 0;
+}
+
+.antetitulo {
+  color: var(--color-primary);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.filaTitulo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.filaTitulo h1 {
+  font-size: clamp(1.75rem, 6vw, var(--text-3xl));
+  overflow-wrap: anywhere;
+}
+
+.insignia {
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-pill);
+  background: var(--color-accent-soft);
+  color: var(--color-accent);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+}
+
+.descripcion {
+  max-width: 60ch;
+  color: var(--color-text-soft);
+}
+
+.panel {
+  margin-top: var(--space-2);
+  padding: var(--space-5);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.panelTitulo {
+  margin-bottom: var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.panelTexto {
+  max-width: 60ch;
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
