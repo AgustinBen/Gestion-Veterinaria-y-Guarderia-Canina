@@ -77,6 +77,23 @@ describe('ClienteApi', () => {
     expect(fetchFalso).toHaveBeenCalledTimes(1);
   });
 
+  it('en el login un 401 muestra el error de credenciales y no cierra la sesión', async () => {
+    const onNoAutorizado = vi.fn();
+    const { cliente, fetchFalso } = crearClientePrueba({ onNoAutorizado });
+
+    fetchFalso.mockResolvedValueOnce(respuestaJson({ detail: 'Credenciales inválidas' }, 401));
+
+    await expect(
+      cliente.post(
+        '/auth/login',
+        { username: 'ana', password: 'incorrecta' },
+        { sinNotificarNoAutorizado: true },
+      ),
+    ).rejects.toThrow('Credenciales inválidas');
+
+    expect(onNoAutorizado).not.toHaveBeenCalled();
+  });
+
   it('muestra el mensaje de permisos que devuelve el servidor en un 403', async () => {
     const { cliente, fetchFalso } = crearClientePrueba();
 
