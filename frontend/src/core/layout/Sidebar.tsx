@@ -1,0 +1,59 @@
+import { Link, NavLink } from 'react-router-dom';
+
+import type { Sesion } from '../auth/almacenSesion';
+import { etiquetaRol, type Seccion } from '../auth/permisos';
+import { PatitaIcon } from '../components/PatitaIcon';
+import estilos from './Sidebar.module.css';
+
+type Props = {
+  sesion: Sesion;
+  secciones: readonly Seccion[];
+  inicio: string;
+  onSalir: () => void;
+};
+
+export function Sidebar({ sesion, secciones, inicio, onSalir }: Props) {
+  return (
+    <aside className={estilos.sidebar}>
+      <div className={estilos.interior}>
+        <Link className={estilos.marca} to={inicio} aria-label="Huellitas, ir al inicio">
+          <span className={estilos.monograma} aria-hidden="true">
+            <PatitaIcon />
+          </span>
+          <span className={estilos.marcaTexto}>
+            <span className={estilos.marcaNombre}>Huellitas</span>
+            <span className={estilos.marcaBajada}>Veterinaria y guardería</span>
+          </span>
+        </Link>
+
+        <nav className={estilos.nav} aria-label="Navegación lateral">
+          <ul>
+            {secciones.map((seccion) => (
+              <li key={seccion.id}>
+                <NavLink
+                  className={({ isActive }) =>
+                    [estilos.enlace, isActive ? estilos.activo : null].filter(Boolean).join(' ')
+                  }
+                  end
+                  to={seccion.ruta}
+                >
+                  {seccion.etiqueta}
+                </NavLink>
+              </li>
+            ))}
+          </ul>
+        </nav>
+
+        <div className={estilos.pie}>
+          <div>
+            <p className={estilos.usuario}>{sesion.usuario}</p>
+            <p className={estilos.rol}>{etiquetaRol(sesion.rol)}</p>
+          </div>
+          <button className={estilos.botonSalir} type="button" onClick={onSalir}>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+    </aside>
+  );
+}
