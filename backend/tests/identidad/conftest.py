@@ -2,6 +2,7 @@
 
 import pytest
 
+import app.modules.identidad.models  # noqa: F401
 from app.core.config import get_settings
 
 
