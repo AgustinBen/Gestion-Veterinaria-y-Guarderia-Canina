@@ -10,9 +10,9 @@ from sqlalchemy.orm import Session
 
 from app.core import parametros
 from app.core.config import get_settings
-from app.modules.identidad import repository, security
+from app.modules.identidad import permisos, repository, security
 from app.modules.identidad.models import USERNAME_MAX_LENGTH, Usuario
-from app.modules.identidad.permisos import Rol
+from app.modules.identidad.permisos import Nivel, Recurso, Rol
 from app.modules.identidad.schemas import (
     ConfiguracionItem,
     ConfiguracionUpdate,
@@ -96,6 +96,16 @@ def usuario_actual(db: Session, token: str) -> UsuarioActual:
 def tiene_rol(usuario: UsuarioActual, *roles: Rol) -> bool:
     """Indica si el usuario tiene alguno de los roles. Sin roles: deniega."""
     return usuario.rol in roles
+
+
+def tiene_acceso(
+    usuario: UsuarioActual, recurso: Recurso, nivel: Nivel = Nivel.LECTURA
+) -> bool:
+    """Indica si el usuario alcanza el nivel requerido para el recurso.
+
+    Contrato público para consumo por otros módulos.
+    """
+    return permisos.puede(usuario.rol, recurso, nivel)
 
 
 def login(db: Session, username: str, password: str) -> LoginResponse:
