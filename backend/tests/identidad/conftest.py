@@ -3,6 +3,7 @@
 from datetime import datetime
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 import app.modules.identidad.models  # noqa: F401
@@ -52,6 +53,11 @@ def crear_usuario(db_session: Session):
 
 
 @pytest.fixture
+def duenio(crear_usuario):
+    return crear_usuario("duenio", rol=Rol.DUENIO)
+
+
+@pytest.fixture
 def token_de():
     """Genera un token para un usuario ya persistido."""
 
@@ -59,3 +65,39 @@ def token_de():
         return security.crear_token(usuario.id, usuario.rol, ahora=ahora)
 
     return _token
+
+
+@pytest.fixture
+def password_prueba() -> str:
+    return PASSWORD_PRUEBA
+
+
+@pytest.fixture
+def login(client: TestClient):
+    """Llama al endpoint de login con la contraseña de prueba."""
+
+    def _login(username: str, password: str = PASSWORD_PRUEBA):
+        return client.post(
+            "/api/auth/login",
+            json={"username": username, "password": password},
+        )
+
+    return _login
+
+
+@pytest.fixture
+def auth_de(client: TestClient):
+    """Devuelve el header Authorization de un usuario activo."""
+
+    def _auth(
+        usuario: Usuario, password: str = PASSWORD_PRUEBA
+    ) -> dict[str, str]:
+        respuesta = client.post(
+            "/api/auth/login",
+            json={"username": usuario.username, "password": password},
+        )
+        assert respuesta.status_code == 200
+        token = respuesta.json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+
+    return _auth

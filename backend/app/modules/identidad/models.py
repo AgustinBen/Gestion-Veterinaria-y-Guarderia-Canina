@@ -10,13 +10,15 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.base import Base
 from app.modules.identidad.permisos import Rol
 
+USERNAME_MAX_LENGTH = 50
+
 
 class Usuario(Base):
     __tablename__ = "usuario"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(
-        String(50), unique=True, index=True, nullable=False
+        String(USERNAME_MAX_LENGTH), unique=True, index=True, nullable=False
     )
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
     rol: Mapped[Rol] = mapped_column(
