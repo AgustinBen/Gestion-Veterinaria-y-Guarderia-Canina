@@ -8,7 +8,7 @@ import {
   type Sesion,
 } from './almacenSesion';
 import { AuthContext, type Credenciales } from './contexto';
-import { leerRolMock, leerTokenMock, leerUsuarioMock } from './mock';
+import { cerrarSesionApi, iniciarSesionApi, solicitarUsuarioActual } from './servicioAuth';
 
 type Props = {
   children: ReactNode;
@@ -29,27 +29,72 @@ export function AuthProvider({ children }: Props) {
     };
   }, []);
 
+  // Revalida contra el backend la sesión guardada en localStorage: token
+  // vencido, usuario desactivado, rol cambiado o restos del login mock.
+  useEffect(() => {
+    const guardada = leerSesion();
+
+    if (!guardada) {
+      return;
+    }
+
+    let activo = true;
+
+    solicitarUsuarioActual()
+      .then((usuario) => {
+        if (!activo) {
+          return;
+        }
+
+        const sincronizada: Sesion = {
+          token: guardada.token,
+          rol: usuario.rol,
+          usuario: usuario.username,
+        };
+
+        guardarSesion(sincronizada);
+        setSesion((actual) =>
+          actual && actual.token === guardada.token ? sincronizada : actual,
+        );
+      })
+      .catch(() => {
+        // Un 401 ya disparó EVENTO_SESION_EXPIRADA. Ante un error de red se
+        // conserva la sesión local para no expulsar al usuario sin conexión.
+      });
+
+    return () => {
+      activo = false;
+    };
+  }, []);
+
   const iniciarSesion = useCallback(async (credenciales: Credenciales) => {
-    if (!credenciales.usuario.trim() || credenciales.password.length === 0) {
+    const usuario = credenciales.usuario.trim();
+
+    if (!usuario || credenciales.password.length === 0) {
       throw new Error('Ingresá usuario y contraseña.');
     }
 
-    // Mock provisorio hasta T-10: el rol sale de VITE_MOCK_ROL.
-    const rol = leerRolMock();
-    const nuevaSesion: Sesion = {
-      token: leerTokenMock(),
-      rol,
-      usuario: leerUsuarioMock(rol),
-    };
+    const { token, rol } = await iniciarSesionApi({
+      username: usuario,
+      password: credenciales.password,
+    });
+
+    const nuevaSesion: Sesion = { token, rol, usuario };
 
     guardarSesion(nuevaSesion);
     setSesion(nuevaSesion);
   }, []);
 
   const cerrarSesion = useCallback(() => {
+    const token = sesion?.token;
+
     borrarSesion();
     setSesion(null);
-  }, []);
+
+    if (token) {
+      void cerrarSesionApi(token).catch(() => undefined);
+    }
+  }, [sesion]);
 
   const valor = useMemo(
     () => ({ sesion, iniciarSesion, cerrarSesion }),
