@@ -1,0 +1,68 @@
+#!/bin/sh
+# pre-commit: corre la suite del backend y, si hay cambios en frontend/, la del frontend.
+# Si algo falla, bloquea el commit. Bypass: git commit --no-verify (el CI de T-04 es la red).
+#
+# Corre sobre el árbol de trabajo (git no permite testear solo lo staged sin mover archivos).
+
+raiz=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  echo "pre-commit: no se pudo ubicar la raíz del repositorio." >&2
+  exit 1
+}
+cd "$raiz" || exit 1
+
+cambiados=$(git diff --cached --name-only)
+
+if printf '%s\n' "$cambiados" | grep -Eq '^backend/'; then
+  if [ -x backend/.venv/Scripts/python.exe ]; then
+    python="$raiz/backend/.venv/Scripts/python.exe"
+  elif [ -x backend/.venv/bin/python ]; then
+    python="$raiz/backend/.venv/bin/python"
+  elif command -v python3 >/dev/null 2>&1; then
+    python=python3
+  elif command -v python >/dev/null 2>&1; then
+    python=python
+  else
+    echo "pre-commit: no se encontró Python para correr pytest." >&2
+    echo '  cd backend && py -3.12 -m venv .venv && .venv/Scripts/pip install -e ".[dev]"' >&2
+    exit 1
+  fi
+
+  if ! "$python" -m pytest --version >/dev/null 2>&1; then
+    echo "pre-commit: pytest no está instalado en '$python'." >&2
+    echo '  cd backend && python -m venv .venv && .venv/Scripts/pip install -e ".[dev]"' >&2
+    exit 1
+  fi
+
+  echo "pre-commit: pytest -q (backend)"
+  if ! (cd backend && "$python" -m pytest -q); then
+    echo "pre-commit: pytest falló; commit bloqueado." >&2
+    exit 1
+  fi
+else
+  echo "pre-commit: sin cambios en backend/, se saltea pytest."
+fi
+
+if printf '%s\n' "$cambiados" | grep -Eq '^frontend/'; then
+  if [ ! -f frontend/package.json ]; then
+    echo "pre-commit: hay cambios en frontend/ pero falta frontend/package.json." >&2
+    exit 1
+  fi
+
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "pre-commit: hay cambios en frontend/ y npm no está instalado." >&2
+    exit 1
+  fi
+
+  if [ ! -d frontend/node_modules ]; then
+    echo "pre-commit: falta frontend/node_modules; corré 'npm install' en frontend/." >&2
+    exit 1
+  fi
+
+  echo "pre-commit: npm test -- --run (frontend)"
+  if ! (cd frontend && npm test -- --run); then
+    echo "pre-commit: los tests del frontend fallaron; commit bloqueado." >&2
+    exit 1
+  fi
+else
+  echo "pre-commit: sin cambios en frontend/, se saltea npm test."
+fi

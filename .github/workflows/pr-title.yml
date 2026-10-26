@@ -1,0 +1,65 @@
+name: PR
+
+on:
+  pull_request:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  titulo:
+    name: Título del PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar Conventional Commits
+        env:
+          TITULO: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+
+          tipos='feat|fix|docs|refactor|test|chore|ci|perf|build'
+          scopes='identidad|padron|migracion|cobros|panel|guarderia|clinica|core|front|ci'
+          patron="^($tipos)(\(($scopes)\))?!?: .+$"
+
+          if [[ "$TITULO" =~ $patron ]]; then
+            echo "Título válido: $TITULO"
+            exit 0
+          fi
+
+          echo "::error::Título de PR inválido: '$TITULO'"
+          echo "Formato: <tipo>(<scope>): <descripción en imperativo>"
+          echo "Ejemplo: feat(guarderia): rechazar reservas que superan el cupo"
+          echo "Tipos: feat, fix, docs, refactor, test, chore, ci, perf, build"
+          echo "Scopes: identidad, padron, migracion, cobros, panel, guarderia, clinica, core, front, ci"
+          echo "El scope es opcional, pero si se usa tiene que ser uno de la lista."
+          exit 1
+
+  rama:
+    name: Nombre de rama y base
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validar rama y base
+        env:
+          RAMA: ${{ github.head_ref }}
+          BASE: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+
+          patron='^(feat|fix|chore|docs)-[0-9]+-[a-z0-9-]+$'
+
+          if [[ "$RAMA" == "develop" || "$RAMA" == "main" ]]; then
+            echo "Rama de integración '$RAMA': no se valida el patrón."
+          elif [[ "$RAMA" =~ $patron ]]; then
+            echo "Rama válida: $RAMA"
+          else
+            echo "::error::Nombre de rama inválido: '$RAMA'"
+            echo "Formato: <tipo>-<nro-ticket>-<descripcion>, por ejemplo feat-3-hooks-de-git."
+            echo "Tipos de rama: feat, fix, chore, docs."
+            exit 1
+          fi
+
+          if [[ "$BASE" == "main" && "$RAMA" != "develop" ]]; then
+            echo "::error::A main solo se mergea desde develop (esta PR viene de '$RAMA')."
+            exit 1
+          fi

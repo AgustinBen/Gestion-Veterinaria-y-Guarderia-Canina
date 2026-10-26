@@ -98,7 +98,7 @@ Ejemplo: `feat-12-abm-mascotas`, `fix-15-validacion-cupo-guarderia`, `docs-03-ac
 Usamos el estándar [Conventional Commits](https://www.conventionalcommits.org/es/) para todo el historial:
 
 ```
-<tipo>: <descripción breve en minúsculas>
+<tipo>(<scope>): <descripción breve en imperativo y minúsculas>
 
 [cuerpo opcional con más detalle]
 ```
@@ -113,18 +113,25 @@ Usamos el estándar [Conventional Commits](https://www.conventionalcommits.org/e
 | `refactor` | Cambio de código que no agrega funcionalidad ni corrige un bug |
 | `test` | Agregar o corregir tests |
 | `chore` | Tareas de mantenimiento (dependencias, configuración) |
+| `ci` | Cambios en workflows, hooks y configuración de integración |
+| `perf` | Mejora de rendimiento |
+| `build` | Cambios en el sistema de build o dependencias de empaquetado |
+
+**Scopes:** `identidad`, `padron`, `migracion`, `cobros`, `panel`, `guarderia`, `clinica`, `core`, `front`, `ci`. El scope es opcional, pero si se usa tiene que ser uno de la lista. Un cambio incompatible se marca con `!` antes de los dos puntos: `feat(core)!: ...`.
 
 Ejemplos:
 ```
-feat: agregar validación de cupo diario en reservas de guardería
-fix: corregir duplicado de dueño al buscar por teléfono
-docs: agregar informe de análisis de arquitecturas
+feat(guarderia): rechazar reservas que superan el cupo
+fix(padron): corregir duplicado de dueño al buscar por teléfono
+docs(core): agregar informe de análisis de arquitecturas
+chore(ci): agregar hooks de git
 ```
 
 ### Pull Requests
 
 - Todo cambio a `develop` o `main` entra por Pull Request, nunca por push directo.
 - Cada PR debe vincularse a un Issue del Project (`closes #N`) cuando corresponda.
+- El título del PR sigue Conventional Commits y el nombre de la rama sigue `<tipo>-<nro-ticket>-<descripcion>`; `.github/workflows/pr-title.yml` lo valida.
 - Requiere al menos 1 aprobación de un integrante antes de mergear.
 ---
 
@@ -144,6 +151,26 @@ pytest
 ruff check .
 mypy app
 ```
+
+## Hooks de Git
+
+Los hooks versionados viven en `.githooks/` y se activan una sola vez por clon:
+
+```powershell
+git config core.hooksPath .githooks
+```
+
+En Git Bash también podés correr `sh scripts/setup-hooks.sh`, que hace lo mismo y ajusta los permisos de ejecución.
+
+| Hook | Qué hace |
+|---|---|
+| `commit-msg` | Rechaza mensajes que no cumplen Conventional Commits, con los tipos y scopes de este repo. |
+| `pre-commit` | Si hay cambios en `backend/`, corre `pytest -q`; si hay cambios en `frontend/`, corre `npm test -- --run`. Si algo falla, bloquea el commit. |
+
+- `pre-commit` corre sobre el árbol de trabajo, no solo sobre lo que está en el índice.
+- Necesita `backend/.venv` con las dependencias de dev y, para el frontend, `frontend/node_modules`.
+- Para saltear los hooks: `git commit --no-verify`. No reemplazan al CI (T-04), que es la red de seguridad.
+- La protección de ramas se configura en GitHub: `main` y `develop` solo reciben PR con 1 aprobación y ramas actualizadas, sin push directo ni force push, y a `main` solo se mergea desde `develop`.
 
 ## Gestión de tareas
 
