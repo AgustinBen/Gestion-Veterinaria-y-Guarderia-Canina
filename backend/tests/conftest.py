@@ -1,15 +1,12 @@
-import os
-import tempfile
 from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.base import Base
-from app.core.config import get_settings
 from app.core.db import get_db
 from app.main import app
 
