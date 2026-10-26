@@ -1,0 +1,51 @@
+#!/bin/sh
+# commit-msg: rechaza mensajes que no cumplen Conventional Commits (AGENTS.md, sección 4).
+# Bypass: git commit --no-verify. El CI (T-04) es la red de seguridad.
+
+archivo=$1
+if [ -z "$archivo" ]; then
+  echo "commit-msg: falta el archivo con el mensaje del commit." >&2
+  exit 1
+fi
+
+# Primera línea real del mensaje: sin comentarios ni líneas en blanco.
+titulo=$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' "$archivo" \
+  | grep -v '^#' \
+  | grep -v '^[[:space:]]*$' \
+  | head -n 1)
+
+# git rechaza los mensajes vacíos; no hace falta duplicar ese error.
+if [ -z "$titulo" ]; then
+  exit 0
+fi
+
+# Commits que genera Git o un rebase interactivo.
+case "$titulo" in
+  Merge\ * | Revert\ * | fixup!\ * | squash!\ *)
+    exit 0
+    ;;
+esac
+
+tipos='feat|fix|docs|refactor|test|chore|ci|perf|build'
+scopes='identidad|padron|migracion|cobros|panel|guarderia|clinica|core|front|ci'
+patron="^($tipos)(\(($scopes)\))?!?: .+$"
+
+if printf '%s\n' "$titulo" | grep -Eq "$patron"; then
+  exit 0
+fi
+
+cat >&2 <<'EOF'
+commit-msg: el mensaje no cumple Conventional Commits.
+
+Formato:  <tipo>(<scope>): <descripción en imperativo>
+Ejemplo:  feat(guarderia): rechazar reservas que superan el cupo
+
+Tipos:    feat, fix, docs, refactor, test, chore, ci, perf, build
+Scopes:   identidad, padron, migracion, cobros, panel, guarderia, clinica, core, front, ci
+Breaking: feat(core)!: cambiar el contrato (con scope)
+
+El scope es opcional, pero si se usa tiene que ser uno de la lista.
+Para saltear el hook (no recomendado): git commit --no-verify
+EOF
+
+exit 1
