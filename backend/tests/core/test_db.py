@@ -1,4 +1,6 @@
+import pytest
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
 
 def test_pragmas_y_foreign_key_en_conexion(client):
@@ -14,16 +16,20 @@ def test_pragmas_y_foreign_key_en_conexion(client):
 
 
 def test_insertar_fk_inexistente_falla(db_session):
-    from sqlalchemy import text
-
     # crear tabla con FK
     db_session.execute(text("CREATE TABLE padre (id INTEGER PRIMARY KEY)"))
-    db_session.execute(text("CREATE TABLE hijo (id INTEGER PRIMARY KEY, padre_id INTEGER NOT NULL, FOREIGN KEY(padre_id) REFERENCES padre(id))"))
+    db_session.execute(
+        text(
+            "CREATE TABLE hijo ("
+            "id INTEGER PRIMARY KEY, "
+            "padre_id INTEGER NOT NULL, "
+            "FOREIGN KEY(padre_id) REFERENCES padre(id))"
+        )
+    )
     db_session.commit()
-    try:
+
+    with pytest.raises(IntegrityError):
         db_session.execute(text("INSERT INTO hijo (id, padre_id) VALUES (1, 999)"))
         db_session.commit()
-        assert False, "debería fallar por FK"
-    except Exception:
-        db_session.rollback()
-        assert True
+
+    db_session.rollback()

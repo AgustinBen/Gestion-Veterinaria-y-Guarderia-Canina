@@ -1,7 +1,9 @@
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.engine.interfaces import DBAPIConnection
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import ConnectionPoolEntry
 
 from app.core.config import get_settings
 
@@ -12,7 +14,9 @@ engine = create_engine(settings.database_url, connect_args=connect_args, future=
 
 
 @event.listens_for(engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, connection_record) -> None:
+def _set_sqlite_pragma(
+    dbapi_connection: DBAPIConnection, connection_record: ConnectionPoolEntry
+) -> None:
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
     cursor.execute("PRAGMA journal_mode=WAL")
