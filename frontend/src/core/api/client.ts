@@ -5,6 +5,11 @@ export type MetodoHttp = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type OpcionesSolicitud = {
   headers?: HeadersInit;
   signal?: AbortSignal;
+  /**
+   * No cierra la sesión ante un 401. Se usa en el login: una contraseña
+   * incorrecta también devuelve 401 y no debe tratarse como sesión vencida.
+   */
+  sinNotificarNoAutorizado?: boolean;
 };
 
 export type OpcionesPost = OpcionesSolicitud & {
@@ -206,6 +211,15 @@ export class ClienteApi {
     }
 
     if (respuesta.status === 401) {
+      if (opciones.sinNotificarNoAutorizado) {
+        const detalle = await leerDetalle(respuesta);
+
+        throw new ApiError(detalle ?? 'Usuario o contraseña incorrectos.', {
+          tipo: 'http',
+          estado: 401,
+        });
+      }
+
       this.onNoAutorizado();
       throw new ApiError('Tu sesión venció. Volvé a iniciar sesión.', {
         tipo: 'http',
