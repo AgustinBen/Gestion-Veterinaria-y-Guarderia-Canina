@@ -175,6 +175,11 @@ export class ClienteApi {
   ): Promise<T> {
     const headers = new Headers(opciones.headers);
     const sinSesion = opciones.sinSesion ?? opciones.sinNotificarNoAutorizado ?? false;
+
+    if (sinSesion) {
+      headers.delete('Authorization');
+    }
+
     const token = sinSesion ? null : this.getToken();
 
     headers.set('Accept', 'application/json');
