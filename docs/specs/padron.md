@@ -68,6 +68,7 @@ Todas reciben `db: Session` primero. Los DTO son clases de `schemas.py`. `emplea
 ```python
 # Lecturas (cobros, guarderia, clinica)
 buscar_personas(db, texto: str | None = None, dni: str | None = None, telefono: str | None = None, limite: int = 20) -> list[PersonaResumen]
+buscar_pacientes(db, texto: str | None = None, limite: int = 20) -> list[PacienteResumen]  # AGREGADO para GET /api/pacientes
 obtener_persona(db, persona_id: int) -> PersonaDetalle | None
 obtener_paciente(db, paciente_id: int) -> PacienteDetalle | None      # especie, raza, tamaño, peso, edad calculada. Sin factor_cupo
 titulares_vigentes(db, paciente_id: int) -> list[TitularVigente]     # persona_id, nombre, tipo, principal, desde
