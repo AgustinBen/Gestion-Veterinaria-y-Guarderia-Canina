@@ -1,10 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthProvider } from './AuthContext';
 import { borrarSesion, guardarSesion } from './almacenSesion';
 import { RequireRole } from './RequireRole';
+import { solicitarUsuarioActual } from './servicioAuth';
+
+vi.mock('./servicioAuth', () => ({
+  iniciarSesionApi: vi.fn(),
+  cerrarSesionApi: vi.fn().mockResolvedValue(undefined),
+  solicitarUsuarioActual: vi.fn(),
+}));
 
 function renderizar(ruta: string) {
   return render(
@@ -45,6 +52,9 @@ function renderizar(ruta: string) {
 
 beforeEach(() => {
   borrarSesion();
+  vi.mocked(solicitarUsuarioActual).mockRejectedValue(
+    new Error('La verificación de sesión no aplica en este test.'),
+  );
 });
 
 describe('RequireRole', () => {
