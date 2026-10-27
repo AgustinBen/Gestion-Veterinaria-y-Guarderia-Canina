@@ -190,6 +190,33 @@ describe('ClienteApi', () => {
     await expect(cliente.delete('/guarderia/reservas/1')).resolves.toBeUndefined();
   });
 
+  it('expone el detalle estructurado de un error de negocio', async () => {
+    const { cliente, fetchFalso } = crearClientePrueba();
+
+    fetchFalso.mockResolvedValueOnce(
+      respuestaJson(
+        {
+          detail: {
+            codigo: 'DNI_DUPLICADO',
+            persona: { id: 4, nombre: 'Ana', apellido: 'Paz' },
+          },
+        },
+        409,
+      ),
+    );
+
+    const error = await cliente
+      .post('/personas', { dni: '12345678' })
+      .catch((fallo: unknown) => fallo);
+
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      tipo: 'http',
+      estado: 409,
+      detalle: { codigo: 'DNI_DUPLICADO' },
+    });
+  });
+
   it('avisa cuando el servidor devuelve JSON inválido', async () => {
     const { cliente, fetchFalso } = crearClientePrueba();
 
