@@ -1,5 +1,7 @@
 # 🐾 Huellitas - Sistema Integral de Gestión Veterinaria y Guardería Canina
 
+[![CI](https://github.com/AgustinBen/Gestion-Veterinaria-y-Guarderia-Canina/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/AgustinBen/Gestion-Veterinaria-y-Guarderia-Canina/actions/workflows/ci.yml)
+
 Proyecto desarrollado para la materia **Prácticas Pre-Profesionales 1 (PPP1)** - Licenciatura en Sistemas, Universidad Nacional de Lanús (2026).
 
 Sistema de gestión para una veterinaria de barrio que combina atención clínica (consultas, vacunas, cirugías) con servicio de guardería canina por día/noche, resolviendo los problemas de duplicación de datos, historial clínico desestructurado, sobreventa de cupos y falta de trazabilidad de cobros que hoy enfrenta el negocio.
