@@ -28,6 +28,16 @@ def test_migracion_upgrade_downgrade_y_seeds(tmp_path):
     with engine.begin() as conn:
         r = conn.execute(text("SELECT nombre FROM especie ORDER BY id"))
         assert [x[0] for x in r] == ["Perro", "Gato"]
+        r = conn.execute(
+            text(
+                "SELECT clave, valor FROM configuracion "
+                "WHERE modulo = 'padron' ORDER BY clave"
+            )
+        )
+        assert [tuple(x) for x in r] == [
+            ("padron.codigo_area_defecto", "11"),
+            ("padron.umbral_nombre_parecido", "0.85"),
+        ]
     # downgrade
     res2 = subprocess.run(
         [sys.executable, "-m", "alembic", "downgrade", "base"],
