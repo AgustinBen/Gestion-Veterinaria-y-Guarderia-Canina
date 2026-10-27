@@ -73,7 +73,7 @@ def test_username_es_unico(db_session: Session) -> None:
 
 
 def test_empleado_id_no_tiene_foreign_key(db_session: Session) -> None:
-    # T-11 agrega la FK. En T-10 un entero cualquiera debe poder guardarse.
+    # En T-10 un entero cualquiera debe poder guardarse.
     usuario = _crear(db_session, username="veterinaria", empleado_id=999_999)
 
     assert usuario.empleado_id == 999_999
