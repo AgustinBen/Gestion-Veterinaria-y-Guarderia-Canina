@@ -9,3 +9,4 @@ def test_health_devuelve_ok() -> None:
 
     assert respuesta.status_code == 200
     assert respuesta.json() == {"status": "ok"}
+    assert False
