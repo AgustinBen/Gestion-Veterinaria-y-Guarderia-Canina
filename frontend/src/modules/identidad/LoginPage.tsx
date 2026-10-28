@@ -3,8 +3,10 @@ import { Navigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../core/auth/contexto';
 import { rutaInicial } from '../../core/auth/permisos';
+import { ApiError } from '../../core/api/client';
 import { PatitaIcon } from '../../core/components/PatitaIcon';
 import estilos from './LoginPage.module.css';
+
 
 function leerDestino(state: unknown): string | null {
   if (typeof state !== 'object' || state === null || !('desde' in state)) {
@@ -38,6 +40,10 @@ export function LoginPage() {
     try {
       await iniciarSesion({ usuario, password });
     } catch (fallo) {
+      if (fallo instanceof ApiError && fallo.estado === 401) {
+        setError('Usuario o contraseña incorrectos.');
+        return;
+      }
       setError(fallo instanceof Error ? fallo.message : 'No se pudo iniciar sesión.');
     } finally {
       setEnviando(false);
