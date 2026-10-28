@@ -1,12 +1,19 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthProvider } from '../auth/AuthContext';
 import { borrarSesion, guardarSesion } from '../auth/almacenSesion';
 import type { Rol } from '../auth/permisos';
+import { solicitarUsuarioActual } from '../auth/servicioAuth';
 import { AppLayout } from './AppLayout';
+
+vi.mock('../auth/servicioAuth', () => ({
+  iniciarSesionApi: vi.fn(),
+  cerrarSesionApi: vi.fn().mockResolvedValue(undefined),
+  solicitarUsuarioActual: vi.fn(),
+}));
 
 function renderizar(rol: Rol, ruta = '/padron') {
   guardarSesion({ token: 'token-test', rol, usuario: 'Prueba' });
@@ -52,6 +59,9 @@ function enlacesLateral(): string[] {
 
 beforeEach(() => {
   borrarSesion();
+  vi.mocked(solicitarUsuarioActual).mockRejectedValue(
+    new Error('La verificación de sesión no aplica en este test.'),
+  );
 });
 
 describe('AppLayout', () => {

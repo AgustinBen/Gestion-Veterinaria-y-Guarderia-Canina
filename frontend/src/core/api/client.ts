@@ -5,6 +5,13 @@ export type MetodoHttp = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 export type OpcionesSolicitud = {
   headers?: HeadersInit;
   signal?: AbortSignal;
+  /**
+   * No cierra la sesión ante un 401. Se usa en el login: una contraseña
+   * incorrecta también devuelve 401 y no debe tratarse como sesión vencida.
+   */
+  sinNotificarNoAutorizado?: boolean;
+  /** Alias de sinNotificarNoAutorizado. */
+  sinSesion?: boolean;
 };
 
 export type OpcionesPost = OpcionesSolicitud & {
@@ -167,7 +174,13 @@ export class ClienteApi {
     idempotencyKey: string | undefined,
   ): Promise<T> {
     const headers = new Headers(opciones.headers);
-    const token = this.getToken();
+    const sinSesion = opciones.sinSesion ?? opciones.sinNotificarNoAutorizado ?? false;
+
+    if (sinSesion) {
+      headers.delete('Authorization');
+    }
+
+    const token = sinSesion ? null : this.getToken();
 
     headers.set('Accept', 'application/json');
 
@@ -206,6 +219,14 @@ export class ClienteApi {
     }
 
     if (respuesta.status === 401) {
+      const sinSesion = opciones.sinSesion ?? opciones.sinNotificarNoAutorizado ?? false;
+      if (sinSesion) {
+        const detalle = await leerDetalle(respuesta);
+        throw new ApiError(detalle ?? 'Usuario o contraseña incorrectos.', {
+          tipo: 'http',
+          estado: 401,
+        });
+      }
       this.onNoAutorizado();
       throw new ApiError('Tu sesión venció. Volvé a iniciar sesión.', {
         tipo: 'http',

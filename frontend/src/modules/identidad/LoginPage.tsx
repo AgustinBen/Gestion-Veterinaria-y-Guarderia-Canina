@@ -2,10 +2,11 @@ import { useState, type FormEvent } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 
 import { useAuth } from '../../core/auth/contexto';
-import { leerRolMock } from '../../core/auth/mock';
-import { etiquetaRol, rutaInicial, type Rol } from '../../core/auth/permisos';
+import { rutaInicial } from '../../core/auth/permisos';
+import { ApiError } from '../../core/api/client';
 import { PatitaIcon } from '../../core/components/PatitaIcon';
 import estilos from './LoginPage.module.css';
+
 
 function leerDestino(state: unknown): string | null {
   if (typeof state !== 'object' || state === null || !('desde' in state)) {
@@ -25,15 +26,6 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
-  let rolMock: Rol | null = null;
-  let errorRol: string | null = null;
-
-  try {
-    rolMock = leerRolMock();
-  } catch (fallo) {
-    errorRol = fallo instanceof Error ? fallo.message : 'Configuración del mock inválida.';
-  }
-
   const destino = leerDestino(ubicacion.state) ?? (sesion ? rutaInicial(sesion.rol) : null);
 
   if (sesion && destino) {
@@ -48,6 +40,10 @@ export function LoginPage() {
     try {
       await iniciarSesion({ usuario, password });
     } catch (fallo) {
+      if (fallo instanceof ApiError && fallo.estado === 401) {
+        setError('Usuario o contraseña incorrectos.');
+        return;
+      }
       setError(fallo instanceof Error ? fallo.message : 'No se pudo iniciar sesión.');
     } finally {
       setEnviando(false);
@@ -68,7 +64,7 @@ export function LoginPage() {
         </div>
 
         <h1 id="login-titulo">Iniciar sesión</h1>
-        <p className={estilos.texto}>Ingresá con tu usuario para entrar al sistema.</p>
+        <p className={estilos.texto}>Ingresá con tu usuario y contraseña para entrar al sistema.</p>
 
         <form className={estilos.formulario} onSubmit={manejarEnvio}>
           <div className={estilos.campo}>
@@ -103,22 +99,10 @@ export function LoginPage() {
             </p>
           ) : null}
 
-          {errorRol ? (
-            <p className={estilos.error} role="alert">
-              {errorRol}
-            </p>
-          ) : null}
-
-          <button className={estilos.boton} type="submit" disabled={enviando || errorRol !== null}>
+          <button className={estilos.boton} type="submit" disabled={enviando}>
             {enviando ? 'Ingresando…' : 'Ingresar'}
           </button>
         </form>
-
-        <p className={estilos.notaMock}>
-          Login provisorio (mock). Rol configurado:{' '}
-          <strong>{rolMock ? etiquetaRol(rolMock) : 'inválido'}</strong>. Se cambia con{' '}
-          <code>VITE_MOCK_ROL</code> y reiniciando el servidor.
-        </p>
       </section>
     </main>
   );
