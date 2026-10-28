@@ -14,9 +14,11 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Index,
     Integer,
     String,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy import Enum as SAEnum
@@ -48,11 +50,15 @@ class Cargo(Base):
     __tablename__ = "cargo"
     __table_args__ = (
         CheckConstraint("total_inicial > 0", name="ck_cargo_total_inicial_positivo"),
+        CheckConstraint(
+            "typeof(total_inicial) = 'integer'",
+            name="ck_cargo_total_inicial_entero",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    persona_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    paciente_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    persona_id: Mapped[int] = mapped_column(ForeignKey("persona.id"), nullable=False)
+    paciente_id: Mapped[int | None] = mapped_column(ForeignKey("paciente.id"), nullable=True)
     concepto: Mapped[str] = mapped_column(String(255), nullable=False)
     total_inicial: Mapped[int] = mapped_column(Integer, nullable=False)
     origen: Mapped[OrigenCargo] = mapped_column(
@@ -64,7 +70,7 @@ class Cargo(Base):
     texto_original: Mapped[str | None] = mapped_column(String(500), nullable=True)
     referencia_tipo: Mapped[str | None] = mapped_column(String(50), nullable=True)
     referencia_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    creado_por: Mapped[int] = mapped_column(Integer, nullable=False)
+    creado_por: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
@@ -72,6 +78,10 @@ class AjustePrecio(Base):
     __tablename__ = "ajuste_precio"
     __table_args__ = (
         CheckConstraint("precio_nuevo > 0", name="ck_ajuste_precio_nuevo_positivo"),
+        CheckConstraint(
+            "typeof(precio_anterior) = 'integer' AND typeof(precio_nuevo) = 'integer'",
+            name="ck_ajuste_precio_importes_enteros",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -79,7 +89,7 @@ class AjustePrecio(Base):
     precio_anterior: Mapped[int] = mapped_column(Integer, nullable=False)
     precio_nuevo: Mapped[int] = mapped_column(Integer, nullable=False)
     motivo: Mapped[str] = mapped_column(String(255), nullable=False)
-    usuario_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
@@ -87,8 +97,20 @@ class Pago(Base):
     __tablename__ = "pago"
     __table_args__ = (
         CheckConstraint("monto > 0", name="ck_pago_monto_positivo"),
+        CheckConstraint("typeof(monto) = 'integer'", name="ck_pago_monto_entero"),
+        CheckConstraint(
+            "(tipo = 'REVERSO' AND pago_revertido_id IS NOT NULL) "
+            "OR (tipo = 'PAGO' AND pago_revertido_id IS NULL)",
+            name="ck_pago_referencia_reverso",
+        ),
         Index("ix_pago_cargo_id", "cargo_id"),
         Index("ix_pago_fecha", "fecha"),
+        UniqueConstraint("id", "cargo_id", name="uq_pago_id_cargo"),
+        ForeignKeyConstraint(
+            ["pago_revertido_id", "cargo_id"],
+            ["pago.id", "pago.cargo_id"],
+            name="fk_pago_revertido_mismo_cargo",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -98,12 +120,14 @@ class Pago(Base):
         SAEnum(TipoPago, name="tipo_pago", native_enum=False, length=20, create_constraint=False, validate_strings=True),
         nullable=False,
     )
-    pago_revertido_id: Mapped[int | None] = mapped_column(ForeignKey("pago.id"), nullable=True)
+    pago_revertido_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     medio_pago_id: Mapped[int] = mapped_column(ForeignKey("medio_pago.id"), nullable=False)
     es_sena: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
-    usuario_id: Mapped[int] = mapped_column(Integer, nullable=False)
-    empleado_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
+    empleado_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empleado.persona_id"), nullable=True
+    )
     clave_idempotencia: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -113,22 +137,28 @@ class ServicioPrestado(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     cargo_id: Mapped[int] = mapped_column(ForeignKey("cargo.id"), nullable=False)
-    empleado_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleado.persona_id"), nullable=False)
     descripcion: Mapped[str] = mapped_column(String(255), nullable=False)
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
 
 
 class GastoExterno(Base):
     __tablename__ = "gasto_externo"
+    __table_args__ = (
+        CheckConstraint(
+            "typeof(monto) = 'integer' AND monto >= 0",
+            name="ck_gasto_externo_monto_entero_no_negativo",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    empleado_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleado.persona_id"), nullable=False)
     descripcion: Mapped[str] = mapped_column(String(255), nullable=False)
     monto: Mapped[int] = mapped_column(Integer, nullable=False)
     fecha: Mapped[date] = mapped_column(Date, nullable=False)
     cargo_id: Mapped[int | None] = mapped_column(ForeignKey("cargo.id"), nullable=True)
     pago_id: Mapped[int | None] = mapped_column(ForeignKey("pago.id"), nullable=True)
-    registrado_por: Mapped[int] = mapped_column(Integer, nullable=False)
+    registrado_por: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
 
 
 # Índice único parcial para clave_idempotencia (solo donde no es NULL)

@@ -52,6 +52,10 @@ def upgrade() -> None:
         sa.Column('creado_por', sa.Integer(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
         sa.CheckConstraint('total_inicial > 0', name=op.f('ck_cargo_total_inicial_positivo')),
+        sa.CheckConstraint("typeof(total_inicial) = 'integer'", name=op.f('ck_cargo_total_inicial_entero')),
+        sa.ForeignKeyConstraint(['persona_id'], ['persona.id'], name=op.f('fk_cargo_persona_id_persona')),
+        sa.ForeignKeyConstraint(['paciente_id'], ['paciente.id'], name=op.f('fk_cargo_paciente_id_paciente')),
+        sa.ForeignKeyConstraint(['creado_por'], ['usuario.id'], name=op.f('fk_cargo_creado_por_usuario')),
         sa.PrimaryKeyConstraint('id', name=op.f('pk_cargo')),
     )
     op.create_index('ix_cargo_persona_id', 'cargo', ['persona_id'], unique=False)
@@ -67,7 +71,12 @@ def upgrade() -> None:
         sa.Column('usuario_id', sa.Integer(), nullable=False),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
         sa.CheckConstraint('precio_nuevo > 0', name=op.f('ck_ajuste_precio_nuevo_positivo')),
+        sa.CheckConstraint(
+            "typeof(precio_anterior) = 'integer' AND typeof(precio_nuevo) = 'integer'",
+            name=op.f('ck_ajuste_precio_importes_enteros'),
+        ),
         sa.ForeignKeyConstraint(['cargo_id'], ['cargo.id'], name=op.f('fk_ajuste_precio_cargo_id_cargo')),
+        sa.ForeignKeyConstraint(['usuario_id'], ['usuario.id'], name=op.f('fk_ajuste_precio_usuario_id_usuario')),
         sa.PrimaryKeyConstraint('id', name=op.f('pk_ajuste_precio')),
     )
     op.create_index('ix_ajuste_precio_cargo_id', 'ajuste_precio', ['cargo_id'], unique=False)
@@ -87,9 +96,22 @@ def upgrade() -> None:
         sa.Column('clave_idempotencia', sa.String(length=64), nullable=True),
         sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('(CURRENT_TIMESTAMP)'), nullable=False),
         sa.CheckConstraint('monto > 0', name=op.f('ck_pago_monto_positivo')),
+        sa.CheckConstraint("typeof(monto) = 'integer'", name=op.f('ck_pago_monto_entero')),
+        sa.CheckConstraint(
+            "(tipo = 'REVERSO' AND pago_revertido_id IS NOT NULL) "
+            "OR (tipo = 'PAGO' AND pago_revertido_id IS NULL)",
+            name=op.f('ck_pago_referencia_reverso'),
+        ),
         sa.ForeignKeyConstraint(['cargo_id'], ['cargo.id'], name=op.f('fk_pago_cargo_id_cargo')),
-        sa.ForeignKeyConstraint(['pago_revertido_id'], ['pago.id'], name=op.f('fk_pago_pago_revertido_id_pago')),
         sa.ForeignKeyConstraint(['medio_pago_id'], ['medio_pago.id'], name=op.f('fk_pago_medio_pago_id_medio_pago')),
+        sa.ForeignKeyConstraint(
+            ['pago_revertido_id', 'cargo_id'],
+            ['pago.id', 'pago.cargo_id'],
+            name=op.f('fk_pago_revertido_mismo_cargo'),
+        ),
+        sa.ForeignKeyConstraint(['usuario_id'], ['usuario.id'], name=op.f('fk_pago_usuario_id_usuario')),
+        sa.ForeignKeyConstraint(['empleado_id'], ['empleado.persona_id'], name=op.f('fk_pago_empleado_id_empleado')),
+        sa.UniqueConstraint('id', 'cargo_id', name=op.f('uq_pago_id_cargo')),
         sa.PrimaryKeyConstraint('id', name=op.f('pk_pago')),
     )
     op.create_index('ix_pago_cargo_id', 'pago', ['cargo_id'], unique=False)
@@ -104,6 +126,7 @@ def upgrade() -> None:
         sa.Column('descripcion', sa.String(length=255), nullable=False),
         sa.Column('fecha', sa.Date(), nullable=False),
         sa.ForeignKeyConstraint(['cargo_id'], ['cargo.id'], name=op.f('fk_servicio_prestado_cargo_id_cargo')),
+        sa.ForeignKeyConstraint(['empleado_id'], ['empleado.persona_id'], name=op.f('fk_servicio_prestado_empleado_id_empleado')),
         sa.PrimaryKeyConstraint('id', name=op.f('pk_servicio_prestado')),
     )
     op.create_index('ix_servicio_prestado_cargo_id', 'servicio_prestado', ['cargo_id'], unique=False)
@@ -118,8 +141,14 @@ def upgrade() -> None:
         sa.Column('cargo_id', sa.Integer(), nullable=True),
         sa.Column('pago_id', sa.Integer(), nullable=True),
         sa.Column('registrado_por', sa.Integer(), nullable=False),
+        sa.CheckConstraint(
+            "typeof(monto) = 'integer' AND monto >= 0",
+            name=op.f('ck_gasto_externo_monto_entero_no_negativo'),
+        ),
         sa.ForeignKeyConstraint(['cargo_id'], ['cargo.id'], name=op.f('fk_gasto_externo_cargo_id_cargo')),
         sa.ForeignKeyConstraint(['pago_id'], ['pago.id'], name=op.f('fk_gasto_externo_pago_id_pago')),
+        sa.ForeignKeyConstraint(['empleado_id'], ['empleado.persona_id'], name=op.f('fk_gasto_externo_empleado_id_empleado')),
+        sa.ForeignKeyConstraint(['registrado_por'], ['usuario.id'], name=op.f('fk_gasto_externo_registrado_por_usuario')),
         sa.PrimaryKeyConstraint('id', name=op.f('pk_gasto_externo')),
     )
     op.create_index('ix_gasto_externo_cargo_id', 'gasto_externo', ['cargo_id'], unique=False)
