@@ -1,0 +1,107 @@
+"""Schemas del módulo cobros."""
+
+from __future__ import annotations
+
+from datetime import date, datetime
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class MedioPagoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    codigo: str
+    nombre: str
+    activo: bool
+
+
+class CargoCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    persona_id: int
+    concepto: str
+    total_centavos: int
+    paciente_id: int | None = None
+    referencia_tipo: str | None = None
+    referencia_id: int | None = None
+
+
+class CargoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    persona_id: int
+    paciente_id: int | None
+    concepto: str
+    total_inicial: int
+    origen: str
+    referencia_tipo: str | None
+    referencia_id: int | None
+    creado_por: int
+    created_at: datetime
+
+
+class CargoDetalleOut(BaseModel):
+    id: int
+    persona_id: int
+    paciente_id: int | None
+    concepto: str
+    total_inicial: int
+    origen: str
+    referencia_tipo: str | None
+    referencia_id: int | None
+    creado_por: int
+    created_at: datetime
+    total_vigente: int
+    total_pagado: int
+    saldo: int
+
+
+class PagoCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    monto_centavos: int
+    medio: str
+    es_sena: bool = False
+    fecha: date | None = None
+
+
+class PagoRevertir(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: str = Field(min_length=1)
+
+
+class PagoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    cargo_id: int
+    monto: int
+    tipo: str
+    pago_revertido_id: int | None
+    medio_pago_id: int
+    es_sena: bool
+    fecha: date
+    usuario_id: int
+    empleado_id: int | None
+    clave_idempotencia: str | None
+    created_at: datetime
+
+
+class CargoCuentaOut(BaseModel):
+    cargo: CargoDetalleOut
+    pagos: list[PagoOut]
+
+
+class CuentaClienteOut(BaseModel):
+    persona_id: int
+    saldo_total: int
+    cargos: list[CargoCuentaOut]
+
+
+class CuentaPacienteOut(BaseModel):
+    paciente_id: int
+    saldo_total: int
+    cargos: list[CargoCuentaOut]

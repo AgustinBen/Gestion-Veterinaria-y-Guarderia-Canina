@@ -3,6 +3,7 @@ from dataclasses import dataclass
 import pytest
 from sqlalchemy.orm import Session
 
+from app.modules.cobros import seed as cobros_seed
 from app.modules.identidad import service as identidad_service
 from app.modules.identidad.permisos import Rol
 from app.modules.identidad.schemas import UsuarioCrear
@@ -22,6 +23,7 @@ class ReferenciasCobros:
 @pytest.fixture
 def referencias_cobros(db_session: Session) -> ReferenciasCobros:
     sembrar_especies_tamanios_tipo_contacto(db_session)
+    cobros_seed.sembrar_medios_pago(db_session)
 
     persona = padron_service.crear_persona(
         db_session,
