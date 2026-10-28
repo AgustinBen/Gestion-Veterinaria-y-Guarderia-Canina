@@ -6,7 +6,9 @@ import threading
 import time
 from collections.abc import Callable
 
+import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.modules.cobros import repository, service
@@ -339,6 +341,36 @@ def test_service_ajustar_precio_queda_disponible_para_otros_modulos(
     assert ajuste.precio_nuevo == 35000
     detalle = service.obtener_cargo_detalle(db_session, cargo.id)
     assert detalle["total_vigente"] == 35000
+
+
+def test_ajuste_falla_y_no_persiste_si_no_puede_iniciar_transaccion(
+    db_session: Session,
+    referencias_cobros,
+) -> None:
+    cargo = service.crear_cargo(
+        db_session,
+        persona_id=referencias_cobros.persona_id,
+        concepto="Guardería",
+        total_centavos=30000,
+        paciente_id=referencias_cobros.paciente_id,
+        usuario_id=referencias_cobros.usuario_id,
+    )
+    conexion = db_session.connection()
+    conexion.exec_driver_sql("BEGIN")
+
+    with pytest.raises(service.TransaccionNoDisponible) as error:
+        service.ajustar_precio(
+            db_session,
+            cargo_id=cargo.id,
+            nuevo_total_centavos=35000,
+            motivo="Ajuste sin bloqueo",
+            usuario_id=referencias_cobros.usuario_id,
+            rol=Rol.DUENIO,
+        )
+
+    assert isinstance(error.value.__cause__, SQLAlchemyError)
+    assert "Intente nuevamente" in str(error.value)
+    assert repository.ajustes_de_cargo(db_session, cargo.id) == []
 
 
 def test_concurrencia_pago_y_ajuste(

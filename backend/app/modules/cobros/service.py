@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date
 
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.modules.cobros import models, repository
@@ -84,6 +84,14 @@ class ReversoNoPermitido(CobrosError):
 
 class AccesoDenegado(CobrosError):
     pass
+
+
+class TransaccionNoDisponible(CobrosError):
+    def __init__(self) -> None:
+        super().__init__(
+            "No se pudo iniciar una transacción segura para ajustar el precio. "
+            "Intente nuevamente."
+        )
 
 
 def _validar_monto_positivo(monto_centavos: int) -> int:
@@ -196,8 +204,9 @@ def ajustar_precio(
     # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite)
     try:
         db.execute(text("BEGIN IMMEDIATE"))
-    except Exception:
-        pass
+    except SQLAlchemyError as exc:
+        db.rollback()
+        raise TransaccionNoDisponible() from exc
 
     try:
         _obtener_cargo_o_error(db, cargo_id)
