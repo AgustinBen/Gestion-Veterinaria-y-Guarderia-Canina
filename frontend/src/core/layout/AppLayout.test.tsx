@@ -33,6 +33,10 @@ function renderizar(rol: Rol, ruta = '/padron') {
             <Route path="/cobros" element={<h1>Cobros</h1>} />
             <Route path="/cobros/deudores" element={<h1>Deudores</h1>} />
             <Route path="/migracion" element={<h1>Migración</h1>} />
+            <Route
+              path="/identidad/crear-cuenta"
+              element={<h1>Crear cuenta</h1>}
+            />
           </Route>
         </Routes>
       </MemoryRouter>
@@ -82,7 +86,7 @@ describe('AppLayout', () => {
     expect(await screen.findByRole('heading', { name: 'Login' })).toBeInTheDocument();
   });
 
-  it('DUENIO ve sus 7 secciones en el orden pedido', () => {
+  it('DUENIO ve sus 8 secciones en el orden pedido', () => {
     renderizar('DUENIO');
 
     expect(enlacesLateral()).toEqual([
@@ -93,6 +97,7 @@ describe('AppLayout', () => {
       'Historia clínica',
       'Cobros',
       'Deudores',
+      'Crear cuenta',
     ]);
   });
 
@@ -153,7 +158,7 @@ describe('AppLayout', () => {
     }
   });
 
-  it('DUENIO encuentra Historia clínica, Cobros y Deudores en Más', async () => {
+  it('DUENIO encuentra Historia clínica, Cobros, Deudores y Crear cuenta en Más', async () => {
     const usuario = userEvent.setup();
     renderizar('DUENIO');
     const { inferior } = navegaciones();
@@ -163,6 +168,15 @@ describe('AppLayout', () => {
     expect(within(inferior).getByRole('link', { name: 'Historia clínica' })).toBeInTheDocument();
     expect(within(inferior).getByRole('link', { name: 'Cobros' })).toBeInTheDocument();
     expect(within(inferior).getByRole('link', { name: 'Deudores' })).toBeInTheDocument();
+    expect(within(inferior).getByRole('link', { name: 'Crear cuenta' })).toBeInTheDocument();
+  });
+
+  it.each(['PERSONAL', 'VETERINARIO'] as const)('%s no ve Crear cuenta', (rol) => {
+    renderizar(rol);
+    const { lateral, inferior } = navegaciones();
+
+    expect(within(lateral).queryByRole('link', { name: 'Crear cuenta' })).not.toBeInTheDocument();
+    expect(within(inferior).queryByRole('link', { name: 'Crear cuenta' })).not.toBeInTheDocument();
   });
 
   it('en Deudores solo se destaca Deudores, no Cobros', async () => {
@@ -215,6 +229,7 @@ describe('AppLayout', () => {
     ['/guarderia/calendario', 'Calendario'],
     ['/guarderia/nueva', 'Nueva reserva'],
     ['/historia-clinica', 'Historia clínica'],
+    ['/identidad/crear-cuenta', 'Crear cuenta'],
     ['/turnos', 'Turnos'],
     ['/migracion', 'Migración'],
   ] as const)('el encabezado corresponde a la sección de %s', (ruta, etiqueta) => {
