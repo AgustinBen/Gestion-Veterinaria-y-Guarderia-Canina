@@ -94,6 +94,46 @@ def obtener_cargo(
     return _cargo_detalle_a_out(detalle)
 
 
+@router.post("/cargos/{cargo_id}/ajustes", response_model=schemas.AjustePrecioOut)
+def ajustar_precio(
+    cargo_id: int,
+    datos: schemas.AjustePrecioCrear,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(_escribir_deudas_cobros()),
+) -> schemas.AjustePrecioOut:
+    try:
+        ajuste = service.ajustar_precio(
+            db,
+            cargo_id=cargo_id,
+            nuevo_total_centavos=datos.nuevo_total_centavos,
+            motivo=datos.motivo,
+            usuario_id=usuario.id,
+            rol=usuario.rol,
+        )
+    except service.CargoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cargo no encontrado") from exc
+    except service.AjusteNoPermitido as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except service.CobrosError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+    return schemas.AjustePrecioOut.model_validate(ajuste)
+
+
+@router.get("/cargos/{cargo_id}/ajustes", response_model=list[schemas.AjustePrecioOut])
+def listar_ajustes(
+    cargo_id: int,
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_leer_deudas_cobros()),
+) -> list[schemas.AjustePrecioOut]:
+    try:
+        ajustes = service.listar_ajustes(db, cargo_id)
+    except service.CargoNoEncontrado as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cargo no encontrado") from exc
+    except service.CobrosError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+    return [schemas.AjustePrecioOut.model_validate(ajuste) for ajuste in ajustes]
+
+
 @router.post("/cargos/{cargo_id}/pagos", response_model=schemas.PagoOut)
 def registrar_pago(
     cargo_id: int,

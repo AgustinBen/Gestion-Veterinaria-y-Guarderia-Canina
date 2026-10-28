@@ -12,7 +12,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.modules.cobros import models, repository
-from app.modules.cobros.dinero import DineroError, validar_positivo
+from app.modules.cobros.dinero import DineroError, formatear_pesos, validar_positivo
+from app.modules.identidad.permisos import Rol
 from app.modules.padron import service as padron_service
 
 
@@ -38,6 +39,35 @@ class CargoYaSaldado(CobrosError):
     def __init__(self, saldo_restante: int) -> None:
         super().__init__(f"El cargo ya se encuentra saldado. Saldo restante: {saldo_restante}")
         self.saldo_restante = saldo_restante
+
+
+class CargoPagadoCompleto(CobrosError):
+    def __init__(self) -> None:
+        super().__init__("El cargo ya está pagado por completo")
+
+
+class TotalMenorAPagado(CobrosError):
+    def __init__(self, total_pagado: int) -> None:
+        super().__init__(
+            "El nuevo total no puede ser menor a lo ya pagado "
+            f"({formatear_pesos(total_pagado)})"
+        )
+        self.total_pagado = total_pagado
+
+
+class MotivoRequerido(CobrosError):
+    def __init__(self) -> None:
+        super().__init__("Falta el motivo del ajuste")
+
+
+class TotalSinCambios(CobrosError):
+    def __init__(self) -> None:
+        super().__init__("El nuevo total es igual al total vigente")
+
+
+class AjusteNoPermitido(CobrosError):
+    def __init__(self) -> None:
+        super().__init__("Solo el Dueño puede bajar el precio del cargo")
 
 
 class MedioPagoInvalido(CobrosError):
@@ -138,6 +168,73 @@ def obtener_cargo_detalle(db: Session, cargo_id: int) -> dict[str, object]:
         "total_pagado": total_pag,
         "saldo": saldo_c,
     }
+
+
+ROLES_QUE_PUEDEN_BAJAR: frozenset[Rol] = frozenset({Rol.DUENIO})
+
+
+def ajustar_precio(
+    db: Session,
+    *,
+    cargo_id: int,
+    nuevo_total_centavos: int,
+    motivo: str,
+    usuario_id: int,
+    rol: Rol,
+) -> models.AjustePrecio:
+    """Ajusta el precio vigente de un cargo con auditoría.
+
+    Reglas (RN-22): solo mientras haya saldo, nunca por debajo de lo ya pagado,
+    con motivo obligatorio y el total nuevo distinto del vigente. Bajar el precio
+    solo lo permite el Dueño.
+    """
+    nuevo_total = _validar_monto_positivo(nuevo_total_centavos)
+    motivo_limpio = motivo.strip()
+    if not motivo_limpio:
+        raise MotivoRequerido()
+
+    # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite)
+    try:
+        db.execute(text("BEGIN IMMEDIATE"))
+    except Exception:
+        pass
+
+    try:
+        _obtener_cargo_o_error(db, cargo_id)
+        total_vigente = repository.total_vigente(db, cargo_id)
+        total_pagado = repository.total_pagado(db, cargo_id)
+
+        if total_vigente - total_pagado <= 0:
+            raise CargoPagadoCompleto()
+        if nuevo_total == total_vigente:
+            raise TotalSinCambios()
+        if nuevo_total < total_vigente and rol not in ROLES_QUE_PUEDEN_BAJAR:
+            raise AjusteNoPermitido()
+        if nuevo_total < total_pagado:
+            raise TotalMenorAPagado(total_pagado)
+
+        ajuste = repository.crear_ajuste(
+            db,
+            cargo_id=cargo_id,
+            precio_anterior=total_vigente,
+            precio_nuevo=nuevo_total,
+            motivo=motivo_limpio,
+            usuario_id=usuario_id,
+        )
+        db.commit()
+        db.refresh(ajuste)
+        return ajuste
+    except (CobrosError, IntegrityError):
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        raise
+
+
+def listar_ajustes(db: Session, cargo_id: int) -> list[models.AjustePrecio]:
+    _obtener_cargo_o_error(db, cargo_id)
+    return repository.ajustes_de_cargo(db, cargo_id)
 
 
 def listar_medios_pago(db: Session) -> list[models.MedioPago]:
