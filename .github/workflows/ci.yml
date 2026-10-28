@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [develop, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configurar Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/pyproject.toml
+      - name: Instalar dependencias
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Tipos
+        run: mypy app
+      - name: Tests con cobertura
+        run: pytest -q --cov=app --cov-report=xml
+      - name: Subir cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobertura-backend
+          path: backend/coverage.xml
+          if-no-files-found: warn
+
+  detectar-frontend:
+    name: Detectar frontend
+    runs-on: ubuntu-latest
+    outputs:
+      existe: ${{ steps.package.outputs.existe }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Ver si existe frontend/package.json
+        id: package
+        run: echo "existe=${{ hashFiles('frontend/package.json') != '' }}" >> "$GITHUB_OUTPUT"
+
+  frontend:
+    name: Frontend
+    needs: detectar-frontend
+    if: needs.detectar-frontend.outputs.existe == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configurar Node LTS
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Tipos
+        run: npx tsc --noEmit
+      - name: Tests
+        run: npm test -- --run

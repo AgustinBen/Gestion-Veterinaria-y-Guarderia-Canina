@@ -36,7 +36,7 @@ function validarRol(rol: unknown): Rol {
 export async function iniciarSesionApi(credenciales: CredencialesApi): Promise<SesionApi> {
   const respuesta = await api.post<RespuestaLogin>('/auth/login', credenciales, {
     // Un 401 acá significa credenciales incorrectas, no sesión vencida.
-    sinNotificarNoAutorizado: true,
+    sinSesion: true,
   });
 
   return {
