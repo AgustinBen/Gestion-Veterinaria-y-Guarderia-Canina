@@ -124,3 +124,26 @@ class CuentaPacienteOut(BaseModel):
     paciente_id: int
     saldo_total: int
     cargos: list[CargoCuentaOut]
+
+
+class PersonaDeudorOut(BaseModel):
+    id: int
+    nombre: str
+    apellido: str
+    telefono_principal: str | None
+
+
+class DeudorOut(BaseModel):
+    persona: PersonaDeudorOut
+    saldo_total_centavos: int
+    cantidad_cargos_pendientes: int
+    deuda_mas_antigua: date
+    saldo_migracion_centavos: int
+
+
+class ResumenDeuda(BaseModel):
+    debe: bool
+    saldo_total_centavos: int
+    cargos_pendientes: int
+    deuda_mas_antigua: date | None
+    incluye_migracion: bool

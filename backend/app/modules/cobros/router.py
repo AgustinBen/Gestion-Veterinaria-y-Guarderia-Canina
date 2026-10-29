@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.db import get_db
@@ -57,6 +58,47 @@ def listar_medios_pago(
 ) -> list[schemas.MedioPagoOut]:
     medios = service.listar_medios_pago(db)
     return [schemas.MedioPagoOut.model_validate(m) for m in medios]
+
+
+@router.get("/deudores", response_model=list[schemas.DeudorOut])
+def listar_deudores(
+    orden: Literal["monto", "antiguedad"] = Query(default="monto"),
+    solo_migracion: bool = Query(default=False),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_leer_deudas_cobros()),
+) -> list[schemas.DeudorOut]:
+    try:
+        return service.listar_deudores(
+            db,
+            orden=orden,
+            solo_migracion=solo_migracion,
+            limite=limit,
+            desplazamiento=offset,
+        )
+    except service.OrdenDeudoresInvalida as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+
+@router.get("/personas/{persona_id}/deuda", response_model=schemas.ResumenDeuda)
+def resumen_deuda(
+    persona_id: int,
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_leer_deudas_cobros()),
+) -> schemas.ResumenDeuda:
+    try:
+        return service.resumen_deuda(db, persona_id)
+    except service.PersonaNoEncontrada as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except service.CobrosError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
 
 
 @router.post("/cargos", response_model=schemas.CargoOut, status_code=status.HTTP_201_CREATED)

@@ -318,6 +318,26 @@ def obtener_persona(db: Session, persona_id: int) -> schemas.PersonaDetalle | No
     return _detalle_persona(db, persona)
 
 
+def obtener_personas_resumen(
+    db: Session, ids: list[int]
+) -> dict[int, schemas.PersonaResumen]:
+    personas = repository.obtener_personas_por_ids(db, ids)
+    telefonos = repository.obtener_telefonos_por_ids(
+        db, [persona.id for persona in personas]
+    )
+    return {
+        persona.id: schemas.PersonaResumen(
+            id=persona.id,
+            nombre=persona.nombre,
+            apellido=persona.apellido,
+            dni=persona.dni,
+            dni_pendiente=persona.dni is None,
+            telefonos=telefonos.get(persona.id, []),
+        )
+        for persona in personas
+    }
+
+
 def pacientes_de_persona(
     db: Session, persona_id: int
 ) -> list[schemas.PacienteResumen]:

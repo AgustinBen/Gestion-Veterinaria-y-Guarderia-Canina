@@ -121,3 +121,28 @@ def test_obtener_persona_y_paciente_inexistentes_devuelven_none(db_session) -> N
     assert service.obtener_persona(db_session, 999) is None
     assert service.obtener_paciente(db_session, 999) is None
     assert service.obtener_empleado(db_session, 999) is None
+
+
+def test_obtener_personas_resumen_trae_telefonos_en_lote(
+    db_session, persona_payload
+) -> None:
+    primera = service.crear_persona(
+        db_session, schemas.PersonaNueva(**persona_payload())
+    )
+    segunda = service.crear_persona(
+        db_session,
+        schemas.PersonaNueva(
+            nombre="Beto",
+            apellido="Gomez",
+            dni="30999888",
+            telefonos=["11 6666-7777", "11 6666-8888"],
+        ),
+    )
+
+    resumen = service.obtener_personas_resumen(
+        db_session, [segunda.id, primera.id, 999999]
+    )
+
+    assert list(resumen) == [primera.id, segunda.id]
+    assert resumen[primera.id].telefonos == ["1144445555"]
+    assert resumen[segunda.id].telefonos == ["1166667777", "1166668888"]
