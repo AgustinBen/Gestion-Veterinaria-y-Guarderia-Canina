@@ -74,6 +74,7 @@ obtener_paciente(db, paciente_id: int) -> PacienteDetalle | None      # especie,
 titulares_vigentes(db, paciente_id: int) -> list[TitularVigente]     # persona_id, nombre, tipo, principal, desde
 obtener_empleado(db, empleado_id: int) -> EmpleadoDetalle | None
 pacientes_de_persona(db, persona_id: int) -> list[PacienteResumen]   # AGREGADO, a validar con Aldana (multimascota)
+obtener_personas_resumen(db, ids: list[int]) -> dict[int, PersonaResumen]   # AGREGADO para T-21 (listado de deudores, lectura por lote sin N+1)
 # Escrituras (routers y migracion)
 crear_persona(db, datos: PersonaNueva, *, confirmar_duplicado: bool = False, migrado: bool = False) -> PersonaDetalle   # lanza DniDuplicado o PosibleDuplicado(coincidencias)
 crear_paciente(db, datos: PacienteNuevo, titular_persona_id: int) -> PacienteDetalle

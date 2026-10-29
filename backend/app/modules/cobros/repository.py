@@ -44,7 +44,7 @@ def saldo(db: Session, cargo_id: int) -> int:
     return total_vigente(db, cargo_id) - total_pagado(db, cargo_id)
 
 
-def _cargos_con_saldo(db: Session) -> Any:
+def _cargos_con_saldo() -> Any:
     ultimo_ajuste = (
         select(models.AjustePrecio.precio_nuevo)
         .where(models.AjustePrecio.cargo_id == models.Cargo.id)
@@ -98,7 +98,7 @@ def listar_deudores(
     limite: int,
     desplazamiento: int,
 ) -> list[Any]:
-    cargos = _cargos_con_saldo(db)
+    cargos = _cargos_con_saldo()
     pendientes = select(cargos).where(cargos.c.saldo > 0).subquery()
     migrado = case(
         (pendientes.c.origen == models.OrigenCargo.MIGRACION, pendientes.c.saldo),
@@ -126,7 +126,7 @@ def listar_deudores(
 
 
 def resumen_deuda(db: Session, persona_id: int) -> Any:
-    cargos = _cargos_con_saldo(db)
+    cargos = _cargos_con_saldo()
     pendientes = select(cargos).where(
         cargos.c.persona_id == persona_id, cargos.c.saldo > 0
     ).subquery()

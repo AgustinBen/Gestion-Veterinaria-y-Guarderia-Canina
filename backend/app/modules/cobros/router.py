@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
@@ -61,7 +62,7 @@ def listar_medios_pago(
 
 @router.get("/deudores", response_model=list[schemas.DeudorOut])
 def listar_deudores(
-    orden: str = Query(default="monto"),
+    orden: Literal["monto", "antiguedad"] = Query(default="monto"),
     solo_migracion: bool = Query(default=False),
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),

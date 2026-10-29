@@ -161,16 +161,8 @@ def saldo_cargo(db: Session, cargo_id: int) -> int:
 
 
 def saldo_pendiente(db: Session, persona_id: int) -> int:
-    persona = padron_service.obtener_persona(db, persona_id)
-    if persona is None:
-        raise CobrosError("Persona no encontrada")
-    cargos = repository.cargos_de_persona(db, persona_id)
-    total = 0
-    for cargo in cargos:
-        s = repository.saldo(db, cargo.id)
-        if s > 0:
-            total += s
-    return total
+    # Una sola fórmula de saldo: delega en resumen_deuda (T-21).
+    return resumen_deuda(db, persona_id).saldo_total_centavos
 
 
 def resumen_deuda(db: Session, persona_id: int) -> schemas.ResumenDeuda:
