@@ -99,7 +99,9 @@ const PERMISOS_POR_ROL: Readonly<Record<Rol, Readonly<Record<SeccionId, NivelAcc
     // enumera las secciones de PERSONAL sin historia clínica.
     'historia-clinica': null,
     cobros: 'escritura',
-    deudores: 'escritura',
+    // El listado global de deudores es información financiera: solo DUENIO.
+    // Personal sigue viendo la deuda del cliente dentro de su cuenta.
+    deudores: null,
     migracion: null,
     'crear-cuenta': null,
   },
@@ -124,7 +126,10 @@ const PERMISOS_POR_ROL: Readonly<Record<Rol, Readonly<Record<SeccionId, NivelAcc
  * Fuera del menú pero accesibles por URL (los permisos siguen vigentes):
  * - Migración: tarea administrativa de una sola vez, solo DUENIO.
  * - Turnos para DUENIO: la agenda la operan recepción y veterinaria.
- * - Deudores para PERSONAL: el listado de deudores se consulta desde Cobros.
+ *
+ * Deudores no figura en el menú de PERSONAL y tampoco tiene permiso: el
+ * listado global es información financiera (solo DUENIO). La deuda de un
+ * cliente se sigue viendo desde su cuenta de cobros.
  */
 const MENU_POR_ROL: Readonly<Record<Rol, readonly SeccionId[]>> = {
   DUENIO: [

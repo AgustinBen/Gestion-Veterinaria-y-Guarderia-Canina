@@ -27,6 +27,10 @@ def _leer_deudas_cobros() -> Callable[..., UsuarioActual]:
     return require_acceso(Recurso.DEUDAS_COBROS, Nivel.LECTURA)
 
 
+def _leer_finanzas() -> Callable[..., UsuarioActual]:
+    return require_acceso(Recurso.FINANZAS, Nivel.LECTURA)
+
+
 def _cargo_detalle_a_out(detalle: dict[str, object]) -> schemas.CargoDetalleOut:
     cargo = detalle["cargo"]
     origen = getattr(cargo, "origen")
@@ -67,7 +71,9 @@ def listar_deudores(
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
-    _usuario: UsuarioActual = Depends(_leer_deudas_cobros()),
+    # El listado global de deudores es información financiera: solo el Dueño.
+    # Personal sigue viendo la deuda del cliente dentro de su cuenta.
+    _usuario: UsuarioActual = Depends(_leer_finanzas()),
 ) -> list[schemas.DeudorOut]:
     try:
         return service.listar_deudores(

@@ -42,6 +42,7 @@
 | Usuarios/configuración | Sí | No | No |
 | Panel/finanzas/gastos a externos | Sí | No | No |
 | Deudas y cobros | Sí | Sí | No |
+| Listado global de deudores | Sí | No | No |
 | Padrón | Sí | Sí | Solo lectura |
 | Reservas/cupo guardería | Sí | Sí | Solo lectura |
 | Habilitar plaza de emergencia | Sí | No | Sí |
