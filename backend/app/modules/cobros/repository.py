@@ -42,6 +42,37 @@ def saldo(db: Session, cargo_id: int) -> int:
     return total_vigente(db, cargo_id) - total_pagado(db, cargo_id)
 
 
+def crear_ajuste(
+    db: Session,
+    *,
+    cargo_id: int,
+    precio_anterior: int,
+    precio_nuevo: int,
+    motivo: str,
+    usuario_id: int,
+) -> models.AjustePrecio:
+    ajuste = models.AjustePrecio(
+        cargo_id=cargo_id,
+        precio_anterior=precio_anterior,
+        precio_nuevo=precio_nuevo,
+        motivo=motivo,
+        usuario_id=usuario_id,
+    )
+    db.add(ajuste)
+    db.flush()
+    return ajuste
+
+
+def ajustes_de_cargo(db: Session, cargo_id: int) -> list[models.AjustePrecio]:
+    return list(
+        db.execute(
+            select(models.AjustePrecio)
+            .where(models.AjustePrecio.cargo_id == cargo_id)
+            .order_by(models.AjustePrecio.created_at.asc(), models.AjustePrecio.id.asc())
+        ).scalars().all()
+    )
+
+
 def obtener_cargo(db: Session, cargo_id: int) -> models.Cargo | None:
     return db.get(models.Cargo, cargo_id)
 

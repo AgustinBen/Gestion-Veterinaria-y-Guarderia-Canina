@@ -58,6 +58,25 @@ class CargoDetalleOut(BaseModel):
     saldo: int
 
 
+class AjustePrecioCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nuevo_total_centavos: int
+    motivo: str
+
+
+class AjustePrecioOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    cargo_id: int
+    precio_anterior: int
+    precio_nuevo: int
+    motivo: str
+    usuario_id: int
+    created_at: datetime
+
+
 class PagoCrear(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
