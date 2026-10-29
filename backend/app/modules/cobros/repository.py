@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from sqlalchemy import func, select
+from typing import Any
+
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.modules.cobros import models
@@ -40,6 +42,112 @@ def total_pagado(db: Session, cargo_id: int) -> int:
 
 def saldo(db: Session, cargo_id: int) -> int:
     return total_vigente(db, cargo_id) - total_pagado(db, cargo_id)
+
+
+def _cargos_con_saldo(db: Session) -> Any:
+    ultimo_ajuste = (
+        select(models.AjustePrecio.precio_nuevo)
+        .where(models.AjustePrecio.cargo_id == models.Cargo.id)
+        .order_by(models.AjustePrecio.created_at.desc(), models.AjustePrecio.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+    total_vigente_expr = func.coalesce(ultimo_ajuste, models.Cargo.total_inicial)
+    pagos_netos_expr = func.coalesce(
+        func.sum(
+            case(
+                (models.Pago.tipo == models.TipoPago.PAGO, models.Pago.monto),
+                else_=0,
+            )
+        ),
+        0,
+    ) - func.coalesce(
+        func.sum(
+            case(
+                (models.Pago.tipo == models.TipoPago.REVERSO, models.Pago.monto),
+                else_=0,
+            )
+        ),
+        0,
+    )
+    return (
+        select(
+            models.Cargo.id.label("cargo_id"),
+            models.Cargo.persona_id.label("persona_id"),
+            models.Cargo.origen.label("origen"),
+            models.Cargo.created_at.label("created_at"),
+            (total_vigente_expr - pagos_netos_expr).label("saldo"),
+        )
+        .outerjoin(models.Pago, models.Pago.cargo_id == models.Cargo.id)
+        .group_by(
+            models.Cargo.id,
+            models.Cargo.persona_id,
+            models.Cargo.origen,
+            models.Cargo.created_at,
+            models.Cargo.total_inicial,
+        )
+        .subquery()
+    )
+
+
+def listar_deudores(
+    db: Session,
+    *,
+    orden: str,
+    solo_migracion: bool,
+    limite: int,
+    desplazamiento: int,
+) -> list[Any]:
+    cargos = _cargos_con_saldo(db)
+    pendientes = select(cargos).where(cargos.c.saldo > 0).subquery()
+    migrado = case(
+        (pendientes.c.origen == models.OrigenCargo.MIGRACION, pendientes.c.saldo),
+        else_=0,
+    )
+    stmt = select(
+        pendientes.c.persona_id,
+        func.sum(pendientes.c.saldo).label("saldo_total_centavos"),
+        func.count(pendientes.c.cargo_id).label("cantidad_cargos_pendientes"),
+        func.min(pendientes.c.created_at).label("deuda_mas_antigua"),
+        func.sum(migrado).label("saldo_migracion_centavos"),
+    ).group_by(pendientes.c.persona_id)
+    if solo_migracion:
+        stmt = stmt.having(func.sum(migrado) > 0)
+    if orden == "antiguedad":
+        stmt = stmt.order_by(
+            func.min(pendientes.c.created_at).asc(), pendientes.c.persona_id
+        )
+    else:
+        stmt = stmt.order_by(
+            func.sum(pendientes.c.saldo).desc(), pendientes.c.persona_id
+        )
+    stmt = stmt.limit(limite).offset(desplazamiento)
+    return list(db.execute(stmt).all())
+
+
+def resumen_deuda(db: Session, persona_id: int) -> Any:
+    cargos = _cargos_con_saldo(db)
+    pendientes = select(cargos).where(
+        cargos.c.persona_id == persona_id, cargos.c.saldo > 0
+    ).subquery()
+    stmt = select(
+        func.coalesce(func.sum(pendientes.c.saldo), 0).label("saldo_total_centavos"),
+        func.count(pendientes.c.cargo_id).label("cargos_pendientes"),
+        func.min(pendientes.c.created_at).label("deuda_mas_antigua"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        pendientes.c.origen == models.OrigenCargo.MIGRACION,
+                        pendientes.c.saldo,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("saldo_migracion_centavos"),
+    )
+    return db.execute(stmt).one()
 
 
 def crear_ajuste(

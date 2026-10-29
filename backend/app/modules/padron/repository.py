@@ -42,6 +42,19 @@ def listar_personas(
     return list(db.execute(stmt).scalars().all())
 
 
+def obtener_personas_por_ids(
+    db: Session, ids: list[int]
+) -> list[models.Persona]:
+    if not ids:
+        return []
+    stmt = (
+        select(models.Persona)
+        .where(models.Persona.id.in_(ids))
+        .order_by(models.Persona.id)
+    )
+    return list(db.execute(stmt).scalars().all())
+
+
 def buscar_personas(
     db: Session,
     *,
@@ -139,6 +152,24 @@ def telefonos_de_persona(db: Session, persona_id: int) -> list[models.Telefono]:
         .order_by(models.Telefono.id)
     )
     return list(db.execute(stmt).scalars().all())
+
+
+def obtener_telefonos_por_ids(
+    db: Session, ids: list[int]
+) -> dict[int, list[str]]:
+    if not ids:
+        return {}
+    stmt = (
+        select(models.Telefono)
+        .where(models.Telefono.persona_id.in_(ids))
+        .order_by(models.Telefono.persona_id, models.Telefono.id)
+    )
+    telefonos: dict[int, list[str]] = {persona_id: [] for persona_id in ids}
+    for telefono in db.execute(stmt).scalars().all():
+        telefonos.setdefault(telefono.persona_id, []).append(
+            telefono.numero_normalizado
+        )
+    return telefonos
 
 
 def listar_telefonos(db: Session) -> list[models.Telefono]:

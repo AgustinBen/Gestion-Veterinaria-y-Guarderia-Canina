@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.modules.cobros import models, repository
+from app.modules.cobros import models, repository, schemas
 from app.modules.cobros.dinero import DineroError, formatear_pesos, validar_positivo
 from app.modules.identidad.permisos import Rol
 from app.modules.padron import service as padron_service
@@ -22,6 +22,10 @@ class CobrosError(Exception):
 
 
 class CargoNoEncontrado(CobrosError):
+    pass
+
+
+class PersonaNoEncontrada(CobrosError):
     pass
 
 
@@ -94,6 +98,10 @@ class TransaccionNoDisponible(CobrosError):
         )
 
 
+class OrdenDeudoresInvalida(CobrosError):
+    pass
+
+
 def _validar_monto_positivo(monto_centavos: int) -> int:
     try:
         return validar_positivo(monto_centavos)
@@ -163,6 +171,72 @@ def saldo_pendiente(db: Session, persona_id: int) -> int:
         if s > 0:
             total += s
     return total
+
+
+def resumen_deuda(db: Session, persona_id: int) -> schemas.ResumenDeuda:
+    persona = padron_service.obtener_persona(db, persona_id)
+    if persona is None:
+        raise PersonaNoEncontrada("Persona no encontrada")
+    fila = repository.resumen_deuda(db, persona_id)
+    saldo_total = int(fila.saldo_total_centavos or 0)
+    cargos = int(fila.cargos_pendientes or 0)
+    fecha = fila.deuda_mas_antigua
+    if fecha is not None and hasattr(fecha, "date"):
+        fecha = fecha.date()
+    return schemas.ResumenDeuda(
+        debe=saldo_total > 0,
+        saldo_total_centavos=saldo_total,
+        cargos_pendientes=cargos,
+        deuda_mas_antigua=fecha,
+        incluye_migracion=int(fila.saldo_migracion_centavos or 0) > 0,
+    )
+
+
+def listar_deudores(
+    db: Session,
+    *,
+    orden: str,
+    solo_migracion: bool,
+    limite: int,
+    desplazamiento: int,
+) -> list[schemas.DeudorOut]:
+    if orden not in {"monto", "antiguedad"}:
+        raise OrdenDeudoresInvalida("Orden inválido")
+    filas = repository.listar_deudores(
+        db,
+        orden=orden,
+        solo_migracion=solo_migracion,
+        limite=limite,
+        desplazamiento=desplazamiento,
+    )
+    ids = [int(fila.persona_id) for fila in filas]
+    personas = padron_service.obtener_personas_resumen(db, ids)
+    resultado: list[schemas.DeudorOut] = []
+    for fila in filas:
+        persona = personas.get(int(fila.persona_id))
+        if persona is None:
+            continue
+        telefonos = persona.telefonos
+        resultado.append(
+            schemas.DeudorOut(
+                persona=schemas.PersonaDeudorOut(
+                    id=persona.id,
+                    nombre=persona.nombre,
+                    apellido=persona.apellido,
+                    # El teléfono principal es el primer teléfono por id.
+                    telefono_principal=telefonos[0] if telefonos else None,
+                ),
+                saldo_total_centavos=int(fila.saldo_total_centavos),
+                cantidad_cargos_pendientes=int(fila.cantidad_cargos_pendientes),
+                deuda_mas_antigua=(
+                    fila.deuda_mas_antigua.date()
+                    if hasattr(fila.deuda_mas_antigua, "date")
+                    else fila.deuda_mas_antigua
+                ),
+                saldo_migracion_centavos=int(fila.saldo_migracion_centavos or 0),
+            )
+        )
+    return resultado
 
 
 def obtener_cargo_detalle(db: Session, cargo_id: int) -> dict[str, object]:
