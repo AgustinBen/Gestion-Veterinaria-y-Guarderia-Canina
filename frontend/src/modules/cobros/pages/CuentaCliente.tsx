@@ -37,10 +37,11 @@ type DatosPagina = {
   error: string;
 };
 
-type Carga = DatosPagina & { intento: number };
+type Carga = DatosPagina & { intento: number; personaId: number | null };
 
 const CARGA_INICIAL: Carga = {
   intento: 0,
+  personaId: null,
   estado: 'cargando',
   persona: null,
   cuenta: null,
@@ -102,6 +103,7 @@ export function CuentaCliente() {
 
         setCarga({
           intento,
+          personaId: id,
           estado: 'listo',
           persona,
           cuenta,
@@ -117,6 +119,7 @@ export function CuentaCliente() {
 
         setCarga({
           intento,
+          personaId: id,
           estado: 'error',
           persona: null,
           cuenta: null,
@@ -155,7 +158,8 @@ export function CuentaCliente() {
     );
   }
 
-  const vigente = carga.intento === intento ? carga : null;
+  const vigente =
+    carga.intento === intento && carga.personaId === id ? carga : null;
   const estado: Estado = vigente?.estado ?? 'cargando';
   const persona = vigente?.persona ?? null;
   const cuenta = vigente?.cuenta ?? null;

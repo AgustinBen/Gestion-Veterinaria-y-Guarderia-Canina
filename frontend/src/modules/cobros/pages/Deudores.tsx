@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Alerta } from '../../../core/components/ui/Alerta';
@@ -15,6 +15,9 @@ type Carga = {
   estado: Estado;
   filas: Deudor[];
   error: string;
+  hayMas: boolean;
+  cargandoMas: boolean;
+  errorCargarMas: string;
 };
 
 /** "2026-03-05" → "05/03/2026" sin pasar por zonas horarias. */
@@ -31,16 +34,22 @@ const ORDENES: readonly { id: OrdenDeudores; etiqueta: string }[] = [
   { id: 'antiguedad', etiqueta: 'Por antigüedad' },
 ];
 
+const LIMITE_POR_PAGINA = 100;
+
 /** Listado de clientes con deuda. La deuda solo avisa: nunca bloquea (RN-23). */
 export function Deudores() {
   const [orden, setOrden] = useState<OrdenDeudores>('monto');
   const [intento, setIntento] = useState(0);
+  const cargandoMasRef = useRef(false);
   const clave = `${orden}:${intento}`;
   const [carga, setCarga] = useState<Carga>({
     clave,
     estado: 'cargando',
     filas: [],
     error: '',
+    hayMas: false,
+    cargandoMas: false,
+    errorCargarMas: '',
   });
 
   useEffect(() => {
@@ -48,13 +57,26 @@ export function Deudores() {
     let activo = true;
     const claveConsulta = `${orden}:${intento}`;
 
-    listarDeudores({ orden, signal: control.signal })
+    listarDeudores({
+      orden,
+      limite: LIMITE_POR_PAGINA,
+      offset: 0,
+      signal: control.signal,
+    })
       .then((filas) => {
         if (!activo || control.signal.aborted) {
           return;
         }
 
-        setCarga({ clave: claveConsulta, estado: 'listo', filas, error: '' });
+        setCarga({
+          clave: claveConsulta,
+          estado: 'listo',
+          filas,
+          error: '',
+          hayMas: filas.length === LIMITE_POR_PAGINA,
+          cargandoMas: false,
+          errorCargarMas: '',
+        });
       })
       .catch((fallo) => {
         if (!activo || control.signal.aborted) {
@@ -66,6 +88,9 @@ export function Deudores() {
           estado: 'error',
           filas: [],
           error: mensajeDeError(fallo),
+          hayMas: false,
+          cargandoMas: false,
+          errorCargarMas: '',
         });
       });
 
@@ -79,6 +104,54 @@ export function Deudores() {
   const estado: Estado = vigente?.estado ?? 'cargando';
   const deudores = vigente?.filas ?? [];
   const error = vigente?.error ?? '';
+  const hayMas = vigente?.hayMas ?? false;
+  const cargandoMas = vigente?.cargandoMas ?? false;
+  const errorCargarMas = vigente?.errorCargarMas ?? '';
+
+  async function cargarMas() {
+    if (cargandoMasRef.current || !vigente || !hayMas) {
+      return;
+    }
+
+    cargandoMasRef.current = true;
+    setCarga((actual) =>
+      actual.clave === clave
+        ? { ...actual, cargandoMas: true, errorCargarMas: '' }
+        : actual,
+    );
+
+    try {
+      const siguientes = await listarDeudores({
+        orden,
+        limite: LIMITE_POR_PAGINA,
+        offset: deudores.length,
+      });
+
+      setCarga((actual) =>
+        actual.clave === clave
+          ? {
+              ...actual,
+              filas: [...actual.filas, ...siguientes],
+              hayMas: siguientes.length === LIMITE_POR_PAGINA,
+              cargandoMas: false,
+              errorCargarMas: '',
+            }
+          : actual,
+      );
+    } catch (fallo) {
+      setCarga((actual) =>
+        actual.clave === clave
+          ? {
+              ...actual,
+              cargandoMas: false,
+              errorCargarMas: mensajeDeError(fallo),
+            }
+          : actual,
+      );
+    } finally {
+      cargandoMasRef.current = false;
+    }
+  }
 
   return (
     <section className={estilos.pagina} aria-labelledby="titulo-deudores">
@@ -149,73 +222,105 @@ export function Deudores() {
       ) : null}
 
       {deudores.length > 0 ? (
-        <div className={estilos.tablaMarco}>
-          <table className={estilos.tabla}>
-            <caption className="sr-only">Clientes con deuda pendiente</caption>
-            <thead>
-              <tr>
-                <th scope="col">Cliente</th>
-                <th scope="col" className={estilos.numero}>
-                  Saldo
-                </th>
-                <th scope="col" className={estilos.numero}>
-                  Cargos
-                </th>
-                <th scope="col" className={estilos.numero}>
-                  Deuda más antigua
-                </th>
-                <th scope="col" className={estilos.numero}>
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {deudores.map((deudor) => (
-                <tr key={deudor.persona.id}>
-                  <td data-etiqueta="Cliente">
-                    <span className={estilos.concepto}>
-                      <span className={estilos.filaResultado}>
-                        <strong>
-                          {deudor.persona.apellido}, {deudor.persona.nombre}
-                        </strong>
-                        {deudor.saldo_migracion_centavos > 0 ? (
-                          <span
-                            className={`${estilos.insignia} ${estilos.insigniaAviso}`}
-                          >
-                            Deuda migrada
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className={estilos.textoSuave}>
-                        {deudor.persona.telefono_principal
-                          ? `Tel. ${deudor.persona.telefono_principal}`
-                          : 'Sin teléfono registrado'}
-                      </span>
-                    </span>
-                  </td>
-                  <td className={estilos.numero} data-etiqueta="Saldo">
-                    <strong>{formatearDinero(deudor.saldo_total_centavos)}</strong>
-                  </td>
-                  <td className={estilos.numero} data-etiqueta="Cargos">
-                    {deudor.cantidad_cargos_pendientes}
-                  </td>
-                  <td className={estilos.numero} data-etiqueta="Deuda más antigua">
-                    {formatearFecha(deudor.deuda_mas_antigua)}
-                  </td>
-                  <td className={estilos.numero} data-etiqueta="Acciones">
-                    <Link
-                      className={estilos.enlace}
-                      to={`/cobros/cliente/${deudor.persona.id}`}
-                    >
-                      Ver cuenta de {deudor.persona.apellido},{' '}
-                      {deudor.persona.nombre}
-                    </Link>
-                  </td>
+        <>
+          <div className={estilos.tablaMarco}>
+            <table className={estilos.tabla}>
+              <caption className="sr-only">Clientes con deuda pendiente</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Cliente</th>
+                  <th scope="col" className={estilos.numero}>
+                    Saldo
+                  </th>
+                  <th scope="col" className={estilos.numero}>
+                    Cargos
+                  </th>
+                  <th scope="col" className={estilos.numero}>
+                    Deuda más antigua
+                  </th>
+                  <th scope="col" className={estilos.numero}>
+                    Acciones
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {deudores.map((deudor) => (
+                  <tr key={deudor.persona.id}>
+                    <td data-etiqueta="Cliente">
+                      <span className={estilos.concepto}>
+                        <span className={estilos.filaResultado}>
+                          <strong>
+                            {deudor.persona.apellido}, {deudor.persona.nombre}
+                          </strong>
+                          {deudor.saldo_migracion_centavos > 0 ? (
+                            <span
+                              className={`${estilos.insignia} ${estilos.insigniaAviso}`}
+                            >
+                              Deuda migrada
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className={estilos.textoSuave}>
+                          {deudor.persona.telefono_principal
+                            ? `Tel. ${deudor.persona.telefono_principal}`
+                            : 'Sin teléfono registrado'}
+                        </span>
+                      </span>
+                    </td>
+                    <td className={estilos.numero} data-etiqueta="Saldo">
+                      <strong>{formatearDinero(deudor.saldo_total_centavos)}</strong>
+                    </td>
+                    <td className={estilos.numero} data-etiqueta="Cargos">
+                      {deudor.cantidad_cargos_pendientes}
+                    </td>
+                    <td className={estilos.numero} data-etiqueta="Deuda más antigua">
+                      {formatearFecha(deudor.deuda_mas_antigua)}
+                    </td>
+                    <td className={estilos.numero} data-etiqueta="Acciones">
+                      <Link
+                        className={estilos.enlace}
+                        to={`/cobros/cliente/${deudor.persona.id}`}
+                      >
+                        Ver cuenta de {deudor.persona.apellido},{' '}
+                        {deudor.persona.nombre}
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {errorCargarMas ? (
+            <Alerta
+              acciones={
+                <Boton
+                  cargando={cargandoMas}
+                  disabled={cargandoMas}
+                  onClick={cargarMas}
+                  variante="secundario"
+                >
+                  Reintentar carga
+                </Boton>
+              }
+              role="alert"
+              tono="error"
+            >
+              {errorCargarMas}
+            </Alerta>
+          ) : null}
+
+          {hayMas && !errorCargarMas ? (
+            <Boton
+              cargando={cargandoMas}
+              disabled={cargandoMas}
+              onClick={cargarMas}
+              variante="secundario"
+            >
+              Cargar más deudores
+            </Boton>
+          ) : null}
+        </>
       ) : null}
     </section>
   );
