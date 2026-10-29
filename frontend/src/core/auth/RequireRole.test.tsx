@@ -44,6 +44,14 @@ function renderizar(ruta: string) {
               </RequireRole>
             }
           />
+          <Route
+            path="/identidad/crear-cuenta"
+            element={
+              <RequireRole seccion="crear-cuenta">
+                <h1>Crear cuenta</h1>
+              </RequireRole>
+            }
+          />
         </Routes>
       </MemoryRouter>
     </AuthProvider>,
@@ -113,5 +121,24 @@ describe('RequireRole', () => {
     renderizar('/guarderia/nueva');
 
     expect(await screen.findByRole('heading', { name: 'Nueva reserva' })).toBeInTheDocument();
+  });
+
+  it.each(['PERSONAL', 'VETERINARIO'] as const)(
+    '%s no puede entrar a Crear cuenta por URL',
+    async (rol) => {
+      guardarSesion({ token: 'token-test', rol, usuario: 'Prueba' });
+
+      renderizar('/identidad/crear-cuenta');
+
+      expect(await screen.findByRole('heading', { name: 'Sin acceso' })).toBeInTheDocument();
+    },
+  );
+
+  it('DUENIO puede entrar a Crear cuenta', async () => {
+    guardarSesion({ token: 'token-test', rol: 'DUENIO', usuario: 'Prueba' });
+
+    renderizar('/identidad/crear-cuenta');
+
+    expect(await screen.findByRole('heading', { name: 'Crear cuenta' })).toBeInTheDocument();
   });
 });
