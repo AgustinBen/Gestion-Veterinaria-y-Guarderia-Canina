@@ -240,10 +240,12 @@ export class ClienteApi {
     if (respuesta.status === 401) {
       const sinSesion = opciones.sinSesion ?? opciones.sinNotificarNoAutorizado ?? false;
       if (sinSesion) {
-        const detalle = await leerDetalle(respuesta);
-        throw new ApiError(detalle ?? 'Usuario o contraseña incorrectos.', {
+        const { mensaje, detalle } = await leerCuerpoError(respuesta);
+
+        throw new ApiError(mensaje ?? 'Usuario o contraseña incorrectos.', {
           tipo: 'http',
           estado: 401,
+          detalle,
         });
       }
       this.onNoAutorizado();
