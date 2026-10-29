@@ -43,6 +43,7 @@ type OpcionesErrorApi = {
   estado?: number;
   reintentable?: boolean;
   causa?: unknown;
+  detalle?: unknown;
 };
 
 export class ApiError extends Error {
@@ -50,6 +51,11 @@ export class ApiError extends Error {
   readonly estado: number | null;
   readonly reintentable: boolean;
   readonly causa?: unknown;
+  /**
+   * Valor de `detail` devuelto por la API. Puede ser un objeto con un código
+   * de negocio (por ejemplo en padrón), no solo un texto.
+   */
+  readonly detalle?: unknown;
 
   constructor(mensaje: string, opciones: OpcionesErrorApi) {
     super(mensaje);
@@ -60,6 +66,10 @@ export class ApiError extends Error {
 
     if (opciones.causa !== undefined) {
       this.causa = opciones.causa;
+    }
+
+    if (opciones.detalle !== undefined) {
+      this.detalle = opciones.detalle;
     }
   }
 }
@@ -76,20 +86,29 @@ function generarClaveIdempotencia(): string {
   return `idem-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function leerDetalle(respuesta: Response): Promise<string | undefined> {
+type CuerpoError = {
+  mensaje?: string;
+  detalle?: unknown;
+};
+
+async function leerCuerpoError(respuesta: Response): Promise<CuerpoError> {
   try {
     const datos: unknown = await respuesta.json();
 
     if (typeof datos !== 'object' || datos === null) {
-      return undefined;
+      return {};
     }
 
     const posible = datos as { detail?: unknown; mensaje?: unknown };
     const detalle = posible.detail ?? posible.mensaje;
 
-    return typeof detalle === 'string' && detalle.trim().length > 0 ? detalle : undefined;
+    return {
+      detalle,
+      mensaje:
+        typeof detalle === 'string' && detalle.trim().length > 0 ? detalle : undefined,
+    };
   } catch {
-    return undefined;
+    return {};
   }
 }
 
@@ -221,10 +240,12 @@ export class ClienteApi {
     if (respuesta.status === 401) {
       const sinSesion = opciones.sinSesion ?? opciones.sinNotificarNoAutorizado ?? false;
       if (sinSesion) {
-        const detalle = await leerDetalle(respuesta);
-        throw new ApiError(detalle ?? 'Usuario o contraseña incorrectos.', {
+        const { mensaje, detalle } = await leerCuerpoError(respuesta);
+
+        throw new ApiError(mensaje ?? 'Usuario o contraseña incorrectos.', {
           tipo: 'http',
           estado: 401,
+          detalle,
         });
       }
       this.onNoAutorizado();
@@ -235,22 +256,24 @@ export class ClienteApi {
     }
 
     if (respuesta.status === 403) {
-      const detalle = await leerDetalle(respuesta);
+      const { mensaje, detalle } = await leerCuerpoError(respuesta);
 
-      throw new ApiError(detalle ?? 'No tenés permiso para realizar esta acción.', {
+      throw new ApiError(mensaje ?? 'No tenés permiso para realizar esta acción.', {
         tipo: 'http',
         estado: 403,
+        detalle,
       });
     }
 
     if (!respuesta.ok) {
-      const detalle = await leerDetalle(respuesta);
+      const { mensaje, detalle } = await leerCuerpoError(respuesta);
 
       throw new ApiError(
-        detalle ?? `Error ${respuesta.status} al comunicarse con el servidor.`,
+        mensaje ?? `Error ${respuesta.status} al comunicarse con el servidor.`,
         {
           tipo: 'http',
           estado: respuesta.status,
+          detalle,
         },
       );
     }
