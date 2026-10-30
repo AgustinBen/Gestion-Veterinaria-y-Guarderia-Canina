@@ -1,5 +1,6 @@
 import { Link, Navigate, Outlet, useLocation } from 'react-router-dom';
 
+import { useContadorDeudores } from '../../modules/cobros/useContadorDeudores';
 import { useAuth } from '../auth/contexto';
 import { rutaInicial, seccionDeRuta, seccionesVisibles } from '../auth/permisos';
 import { BottomNav } from './BottomNav';
@@ -23,6 +24,13 @@ function fechaIsoLocal(fecha: Date): string {
 export function AppLayout() {
   const { sesion, cerrarSesion } = useAuth();
   const ubicacion = useLocation();
+  const hayDeudoresEnMenu =
+    sesion !== null &&
+    seccionesVisibles(sesion.rol).some((seccion) => seccion.id === 'deudores');
+  const contadorDeudores = useContadorDeudores(
+    hayDeudoresEnMenu,
+    ubicacion.pathname,
+  );
 
   if (!sesion) {
     return (
@@ -50,6 +58,7 @@ export function AppLayout() {
           sesion={sesion}
           secciones={secciones}
           inicio={inicio}
+          contadorDeudores={contadorDeudores}
           onSalir={cerrarSesion}
         />
 
@@ -107,7 +116,10 @@ export function AppLayout() {
           </main>
         </div>
 
-        <BottomNav secciones={secciones} />
+        <BottomNav
+          secciones={secciones}
+          contadorDeudores={contadorDeudores}
+        />
       </div>
     </>
   );

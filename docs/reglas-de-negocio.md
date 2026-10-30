@@ -79,6 +79,7 @@ Fecha: 2026-10-25. Fuentes: enunciado, documentos de alcance y plan, apuntes de 
 | Usuarios y configuración | Sí | No | No |
 | Finanzas, métricas, gastos a externos y detalle de servicios por cliente | Sí | No | No |
 | Deudas y cobros | Sí | Sí | No |
+| Listado global de deudores (pantalla Deudores) | Sí | No | No |
 | Subir el precio de un servicio (RN-22) | Sí | Sí | No |
 | Bajar el precio de un servicio (RN-22) | Sí | No | No |
 | Padrón (dueños y mascotas) | Sí | Sí | Solo lectura |
@@ -86,6 +87,8 @@ Fecha: 2026-10-25. Fuentes: enunciado, documentos de alcance y plan, apuntes de 
 | Habilitar plaza de emergencia (RN-14, provisional) | Sí | No | No |
 | Turnos veterinarios | Sí | Sí | Sí |
 | Historia clínica | Sí | Solo lectura (a validar con el cliente) | Sí, con escritura |
+
+El **listado global de deudores** se considera información financiera/detalle por cliente: solo lo ve el Dueño. Personal conserva el acceso a deudas y cobros y ve la deuda dentro de la cuenta de cada cliente.
 
 ## 4. Fuera del MVP 1
 Karma de confiabilidad, notificaciones, portal para dueños, política automatizada de cancelaciones, reportes avanzados y cupo según el tamaño del animal.
@@ -123,6 +126,7 @@ Karma de confiabilidad, notificaciones, portal para dueños, política automatiz
 | 2026-10-25 | Aldana y Emiliano aprueban RN-12, RN-15, RN-21, RN-22, RN-40 (matriz) y RN-50, que pasan de `SUPUESTO` o `PROPUESTA` a `DECIDIDA`. | Revisión cruzada del PR de specs de T-05. Siguen siendo decisiones del equipo, no confirmaciones del cliente. |
 | 2026-10-25 | RN-22: subir el precio lo puede hacer quien cobra (Dueño o Personal); bajarlo solo el Dueño. | Emiliano propuso que el precio solo pudiera subir para evitar pérdidas; Aldana lo leyó como la regla escrita (sube o baja). Se eligió una opción intermedia: se mantienen los descuentos (hay una bonificación del 50% en el Excel) pero con control del Dueño. |
 | 2026-10-25 | RN-14: la plaza de emergencia solo la habilita el Dueño (antes, Veterinario o Dueño). **Provisional.** | Decisión de Agustín, "por ahora". Se aparta del requisito original ("firmada por el veterinario a cargo"); queda como pregunta 11 al cliente. |
+| 2026-10-29 | El listado global de deudores es solo del Dueño; Personal conserva deudas y cobros en la cuenta del cliente. | Evitar que Personal acceda al listado global desde el botón "Ver deudores" de Cobros. Se considera información financiera/detalle por cliente. |
 
 ## 7. Documentos a corregir (tickets y agentes con texto viejo)
 - `AGENTS.md` (PR #15 de Aldana): plaza de emergencia solo para Dueño (rol, matriz y regla de guardería); precio: subir cualquier rol con permiso de cobro, bajar solo Dueño; encabezado que no diga que todo `SUPUESTO` es `DECIDIDA` y remita a este documento; cerrar el bloque de código de la sección 4; reponer la sección de seguridad y datos (secretos, `.env`, `.db`, Excel real fuera del repo, contraseñas con hash).

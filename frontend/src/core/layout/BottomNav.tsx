@@ -8,9 +8,10 @@ const MAX_PRINCIPALES = 4;
 
 type Props = {
   secciones: readonly Seccion[];
+  contadorDeudores: number | null;
 };
 
-export function BottomNav({ secciones }: Props) {
+export function BottomNav({ secciones, contadorDeudores }: Props) {
   const [abierto, setAbierto] = useState(false);
   const ubicacion = useLocation();
   const principales = secciones.slice(0, MAX_PRINCIPALES);
@@ -21,35 +22,63 @@ export function BottomNav({ secciones }: Props) {
     <nav className={estilos.barra} aria-label="Navegación inferior">
       <div className={estilos.masPanel} id="mas-secciones" hidden={!abierto}>
         <p className={estilos.masTitulo}>Más secciones</p>
-        {secundarias.map((seccion) => (
-          <NavLink
-            className={({ isActive }) =>
-              [estilos.masEnlace, isActive ? estilos.activo : null].filter(Boolean).join(' ')
-            }
-            end
-            key={seccion.id}
-            onClick={() => setAbierto(false)}
-            to={seccion.ruta}
-          >
-            {seccion.etiqueta}
-          </NavLink>
-        ))}
+        {secundarias.map((seccion) => {
+          const contador =
+            seccion.id === 'deudores' ? contadorDeudores : null;
+
+          return (
+            <NavLink
+              aria-label={contador ? `${seccion.etiqueta}: ${contador}` : undefined}
+              className={({ isActive }) =>
+                [estilos.masEnlace, isActive ? estilos.activo : null]
+                  .filter(Boolean)
+                  .join(' ')
+              }
+              end
+              key={seccion.id}
+              onClick={() => setAbierto(false)}
+              to={seccion.ruta}
+            >
+              {seccion.etiqueta}
+              {contador ? (
+                <span aria-hidden="true" className={estilos.contador}>
+                  {contador}
+                </span>
+              ) : null}
+            </NavLink>
+          );
+        })}
       </div>
 
       <ul className={estilos.lista}>
-        {principales.map((seccion) => (
-          <li key={seccion.id}>
-            <NavLink
-              className={({ isActive }) =>
-                [estilos.item, isActive ? estilos.activo : null].filter(Boolean).join(' ')
-              }
-              end
-              to={seccion.ruta}
-            >
-              <span className={estilos.etiqueta}>{seccion.etiquetaCorta}</span>
-            </NavLink>
-          </li>
-        ))}
+        {principales.map((seccion) => {
+          const contador =
+            seccion.id === 'deudores' ? contadorDeudores : null;
+
+          return (
+            <li key={seccion.id}>
+              <NavLink
+                aria-label={
+                  contador ? `${seccion.etiquetaCorta}: ${contador}` : undefined
+                }
+                className={({ isActive }) =>
+                  [estilos.item, isActive ? estilos.activo : null]
+                    .filter(Boolean)
+                    .join(' ')
+                }
+                end
+                to={seccion.ruta}
+              >
+                <span className={estilos.etiqueta}>{seccion.etiquetaCorta}</span>
+                {contador ? (
+                  <span aria-hidden="true" className={estilos.contador}>
+                    {contador}
+                  </span>
+                ) : null}
+              </NavLink>
+            </li>
+          );
+        })}
 
         {secundarias.length > 0 ? (
           <li>
