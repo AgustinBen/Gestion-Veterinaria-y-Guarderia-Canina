@@ -15,6 +15,12 @@ vi.mock('../auth/servicioAuth', () => ({
   solicitarUsuarioActual: vi.fn(),
 }));
 
+const contadorDeudoresMock = vi.hoisted(() => vi.fn());
+
+vi.mock('../../modules/cobros/useContadorDeudores', () => ({
+  useContadorDeudores: contadorDeudoresMock,
+}));
+
 function renderizar(rol: Rol, ruta = '/padron') {
   guardarSesion({ token: 'token-test', rol, usuario: 'Prueba' });
 
@@ -66,6 +72,8 @@ beforeEach(() => {
   vi.mocked(solicitarUsuarioActual).mockRejectedValue(
     new Error('La verificación de sesión no aplica en este test.'),
   );
+  contadorDeudoresMock.mockReset();
+  contadorDeudoresMock.mockReturnValue(null);
 });
 
 describe('AppLayout', () => {
@@ -101,6 +109,46 @@ describe('AppLayout', () => {
     ]);
   });
 
+  it('DUENIO ve la cantidad de deudores en el menú', async () => {
+    const usuario = userEvent.setup();
+    contadorDeudoresMock.mockReturnValue(7);
+    renderizar('DUENIO');
+    const { lateral, inferior } = navegaciones();
+
+    expect(
+      within(lateral).getByRole('link', { name: 'Deudores: 7' }),
+    ).toBeInTheDocument();
+
+    await usuario.click(within(inferior).getByRole('button', { name: 'Más' }));
+
+    expect(
+      within(inferior).getByRole('link', { name: 'Deudores: 7' }),
+    ).toBeInTheDocument();
+  });
+
+  it('no muestra número cuando no hay deudores', () => {
+    contadorDeudoresMock.mockReturnValue(0);
+    renderizar('DUENIO');
+    const { lateral } = navegaciones();
+
+    expect(within(lateral).getByRole('link', { name: 'Deudores' })).toHaveTextContent(
+      /^Deudores$/,
+    );
+  });
+
+  it.each([
+    ['DUENIO', true],
+    ['PERSONAL', false],
+    ['VETERINARIO', false],
+  ] as const)(
+    '%s consulta el contador solo si Deudores está en su menú',
+    (rol, activo) => {
+      renderizar(rol);
+
+      expect(contadorDeudoresMock).toHaveBeenCalledWith(activo, '/padron');
+    },
+  );
+
   it.each(['PERSONAL', 'VETERINARIO'] as const)('%s no ve Panel', (rol) => {
     renderizar(rol);
     const { lateral, inferior } = navegaciones();
@@ -129,12 +177,6 @@ describe('AppLayout', () => {
       expect(within(lateral).queryByRole('link', { name: nombre })).not.toBeInTheDocument();
       expect(within(inferior).queryByRole('link', { name: nombre })).not.toBeInTheDocument();
     }
-  });
-
-  it('PERSONAL puede entrar a Deudores por URL aunque no esté en el menú', () => {
-    renderizar('PERSONAL', '/cobros/deudores');
-
-    expect(screen.getByRole('heading', { name: 'Deudores' })).toBeInTheDocument();
   });
 
   it('VETERINARIO ve Dueños y mascotas, Calendario, Turnos e Historia clínica', () => {

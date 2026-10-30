@@ -357,9 +357,10 @@ def test_listado_masivo_y_permisos(
         ),
     )
     db_session.commit()
+    # El listado global es información financiera: solo el Dueño.
     assert client.get(
         "/api/deudores", headers=_auth_token(client, "personal-deudores")
-    ).status_code == 200
+    ).status_code == 403
     assert client.get(
         "/api/deudores", headers=_auth_token(client, "vet-deudores")
     ).status_code == 403

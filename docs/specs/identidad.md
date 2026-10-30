@@ -23,6 +23,7 @@ Autenticar usuarios, aplicar roles en todos los endpoints y dejar que el Dueño 
 | Usuarios y configuración | Sí | No | No |
 | Finanzas, métricas, gastos a externos y detalle de servicios por cliente | Sí | No | No |
 | Deudas y cobros | Sí | Sí | No |
+| Listado global de deudores (pantalla Deudores) | Sí | No | No |
 | Padrón (dueños y mascotas) | Sí | Sí | Lectura |
 | Reservas y cupo de guardería | Sí | Sí | Lectura |
 | Subir el precio de un servicio | Sí | Sí | No |
@@ -30,6 +31,8 @@ Autenticar usuarios, aplicar roles en todos los endpoints y dejar que el Dueño 
 | Habilitar plaza de emergencia (provisional) | Sí | No | No |
 | Turnos veterinarios | Sí | Sí | Sí |
 | Historia clínica | Sí | Lectura (PENDIENTE CLIENTE) | Sí, con escritura |
+
+El **listado global de deudores** es información financiera: solo lo ve el Dueño. Personal conserva Cobros y la deuda dentro de la cuenta del cliente.
 
 ## Entidades y campos
 `usuario` (`*` = obligatorio):
