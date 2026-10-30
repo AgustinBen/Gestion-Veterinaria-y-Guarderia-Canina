@@ -1,18 +1,24 @@
 import type { RouteObject } from 'react-router-dom';
 
 import { RequireRole } from '../../core/auth/RequireRole';
-import { PantallaProvisoria } from '../../core/components/PantallaProvisoria';
+import { Cobrar } from './pages/Cobrar';
+import { CuentaCliente } from './pages/CuentaCliente';
+import { Deudores } from './pages/Deudores';
 
 export const cobrosRoutes: RouteObject[] = [
   {
     path: '/cobros',
     element: (
-      <RequireRole seccion="cobros">
-        <PantallaProvisoria
-          seccion="cobros"
-          titulo="Cobros"
-          descripcion="Servicios, pagos, medios de pago y saldos calculados automáticamente."
-        />
+      <RequireRole nivel="escritura" seccion="cobros">
+        <Cobrar />
+      </RequireRole>
+    ),
+  },
+  {
+    path: '/cobros/cliente/:personaId',
+    element: (
+      <RequireRole nivel="escritura" seccion="cobros">
+        <CuentaCliente />
       </RequireRole>
     ),
   },
@@ -20,11 +26,7 @@ export const cobrosRoutes: RouteObject[] = [
     path: '/cobros/deudores',
     element: (
       <RequireRole seccion="deudores">
-        <PantallaProvisoria
-          seccion="deudores"
-          titulo="Deudores"
-          descripcion="Clientes con saldo pendiente. La deuda muestra una alerta visible y nunca bloquea."
-        />
+        <Deudores />
       </RequireRole>
     ),
   },

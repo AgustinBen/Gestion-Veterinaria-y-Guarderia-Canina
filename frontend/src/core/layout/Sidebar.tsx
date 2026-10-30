@@ -9,10 +9,17 @@ type Props = {
   sesion: Sesion;
   secciones: readonly Seccion[];
   inicio: string;
+  contadorDeudores: number | null;
   onSalir: () => void;
 };
 
-export function Sidebar({ sesion, secciones, inicio, onSalir }: Props) {
+export function Sidebar({
+  sesion,
+  secciones,
+  inicio,
+  contadorDeudores,
+  onSalir,
+}: Props) {
   return (
     <aside className={estilos.sidebar}>
       <div className={estilos.interior}>
@@ -28,19 +35,34 @@ export function Sidebar({ sesion, secciones, inicio, onSalir }: Props) {
 
         <nav className={estilos.nav} aria-label="Navegación lateral">
           <ul>
-            {secciones.map((seccion) => (
-              <li key={seccion.id}>
-                <NavLink
-                  className={({ isActive }) =>
-                    [estilos.enlace, isActive ? estilos.activo : null].filter(Boolean).join(' ')
-                  }
-                  end
-                  to={seccion.ruta}
-                >
-                  {seccion.etiqueta}
-                </NavLink>
-              </li>
-            ))}
+            {secciones.map((seccion) => {
+              const contador =
+                seccion.id === 'deudores' ? contadorDeudores : null;
+
+              return (
+                <li key={seccion.id}>
+                  <NavLink
+                    aria-label={
+                      contador ? `${seccion.etiqueta}: ${contador}` : undefined
+                    }
+                    className={({ isActive }) =>
+                      [estilos.enlace, isActive ? estilos.activo : null]
+                        .filter(Boolean)
+                        .join(' ')
+                    }
+                    end
+                    to={seccion.ruta}
+                  >
+                    {seccion.etiqueta}
+                    {contador ? (
+                      <span aria-hidden="true" className={estilos.contador}>
+                        {contador}
+                      </span>
+                    ) : null}
+                  </NavLink>
+                </li>
+              );
+            })}
           </ul>
         </nav>
 
