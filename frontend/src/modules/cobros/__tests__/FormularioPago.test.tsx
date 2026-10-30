@@ -54,7 +54,14 @@ const PAGO: Pago = {
 };
 
 function renderizar(onPagado = vi.fn(), onCancelar = vi.fn()) {
-  render(<FormularioPago cargo={CARGO} onCancelar={onCancelar} onPagado={onPagado} />);
+  render(
+    <FormularioPago
+      cargo={CARGO}
+      onCancelar={onCancelar}
+      onEnviandoChange={vi.fn()}
+      onPagado={onPagado}
+    />,
+  );
 
   return { onPagado, onCancelar };
 }
@@ -144,6 +151,7 @@ describe('FormularioPago', () => {
 
     await waitFor(() => expect(registrarPago).toHaveBeenCalledTimes(1));
     expect(screen.getByRole('button', { name: 'Procesando…' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled();
   });
 
   it('muestra el saldo restante cuando la API rechaza por saldo insuficiente', async () => {

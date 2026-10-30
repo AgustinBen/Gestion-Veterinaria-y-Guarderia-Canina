@@ -78,6 +78,7 @@ export function CuentaCliente() {
   const [carga, setCarga] = useState<Carga>(CARGA_INICIAL);
   const [cargoPago, setCargoPago] = useState<CargoDetalle | null>(null);
   const [cargoAjuste, setCargoAjuste] = useState<CargoDetalle | null>(null);
+  const [registrandoPago, setRegistrandoPago] = useState(false);
   const [aviso, setAviso] = useState('');
 
   useEffect(() => {
@@ -288,11 +289,13 @@ export function CuentaCliente() {
       {cargoPago ? (
         <DialogoConfirmacion
           abierto
+          bloquearCierre={registrandoPago}
           onCerrar={() => setCargoPago(null)}
           titulo={`Cobrar: ${cargoPago.concepto}`}
         >
           <FormularioPago
             cargo={cargoPago}
+            onEnviandoChange={setRegistrandoPago}
             onCancelar={() => setCargoPago(null)}
             onPagado={() => {
               setCargoPago(null);

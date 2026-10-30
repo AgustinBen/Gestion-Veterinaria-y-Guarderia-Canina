@@ -7,6 +7,7 @@ type Props = {
   titulo: string;
   descripcion?: ReactNode;
   onCerrar: () => void;
+  bloquearCierre?: boolean;
   children: ReactNode;
   pie?: ReactNode;
 };
@@ -16,6 +17,7 @@ export function DialogoConfirmacion({
   titulo,
   descripcion,
   onCerrar,
+  bloquearCierre = false,
   children,
   pie,
 }: Props) {
@@ -27,7 +29,7 @@ export function DialogoConfirmacion({
     }
 
     const manejarTecla = (evento: KeyboardEvent) => {
-      if (evento.key === 'Escape') {
+      if (evento.key === 'Escape' && !bloquearCierre) {
         onCerrar();
       }
     };
@@ -35,7 +37,7 @@ export function DialogoConfirmacion({
     document.addEventListener('keydown', manejarTecla);
 
     return () => document.removeEventListener('keydown', manejarTecla);
-  }, [abierto, onCerrar]);
+  }, [abierto, bloquearCierre, onCerrar]);
 
   if (!abierto) {
     return null;
@@ -45,7 +47,7 @@ export function DialogoConfirmacion({
     <div
       className={estilos.modalFondo}
       onMouseDown={(evento) => {
-        if (evento.target === evento.currentTarget) {
+        if (!bloquearCierre && evento.target === evento.currentTarget) {
           onCerrar();
         }
       }}
@@ -66,6 +68,7 @@ export function DialogoConfirmacion({
           <button
             aria-label="Cerrar"
             className={estilos.modalCerrar}
+            disabled={bloquearCierre}
             onClick={onCerrar}
             type="button"
           >

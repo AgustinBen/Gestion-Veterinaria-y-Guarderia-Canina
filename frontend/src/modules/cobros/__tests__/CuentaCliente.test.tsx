@@ -7,12 +7,14 @@ import {
   obtenerCuentaCliente,
   obtenerPersona,
   obtenerResumenDeuda,
+  registrarPago,
 } from '../api';
 import { CuentaCliente } from '../pages/CuentaCliente';
 import type {
   CargoDetalle,
   CuentaCliente as CuentaClienteDatos,
   PersonaBusqueda,
+  Pago,
   ResumenDeuda,
 } from '../tipos';
 
@@ -25,6 +27,7 @@ vi.mock('../api', async (importOriginal) => {
     obtenerCuentaCliente: vi.fn(),
     obtenerPersona: vi.fn(),
     obtenerResumenDeuda: vi.fn(),
+    registrarPago: vi.fn(),
   };
 });
 
@@ -42,6 +45,21 @@ const CARGO: CargoDetalle = {
   total_vigente: 10000,
   total_pagado: 2000,
   saldo: 8000,
+};
+
+const PAGO: Pago = {
+  id: 40,
+  cargo_id: 12,
+  monto: 8000,
+  tipo: 'PAGO',
+  pago_revertido_id: null,
+  medio_pago_id: 1,
+  es_sena: false,
+  fecha: '2026-10-28',
+  usuario_id: 1,
+  empleado_id: null,
+  clave_idempotencia: 'clave',
+  created_at: '2026-10-28T10:00:00',
 };
 
 function persona(id: number): PersonaBusqueda {
@@ -91,8 +109,11 @@ beforeEach(() => {
   vi.mocked(obtenerPersona).mockReset();
   vi.mocked(obtenerCuentaCliente).mockReset();
   vi.mocked(obtenerResumenDeuda).mockReset();
+  vi.mocked(registrarPago).mockReset();
 
-  vi.mocked(listarMediosPago).mockResolvedValue([]);
+  vi.mocked(listarMediosPago).mockResolvedValue([
+    { id: 1, codigo: 'EFECTIVO', nombre: 'Efectivo', activo: true },
+  ]);
   vi.mocked(obtenerPersona).mockImplementation((id) =>
     Promise.resolve(persona(id)),
   );
@@ -163,5 +184,37 @@ describe('CuentaCliente', () => {
         screen.getByRole('heading', { name: 'Prueba, Cliente4' }),
       ).toBeInTheDocument(),
     );
+  });
+
+  it('impide cerrar el diálogo mientras el pago está en curso', async () => {
+    const pagoDiferido = promesaDiferida<Pago>();
+    vi.mocked(registrarPago).mockReturnValue(pagoDiferido.promesa);
+
+    render(
+      <MemoryRouter initialEntries={['/cobros/cliente/3']}>
+        <Routes>
+          <Route element={<CuentaCliente />} path="/cobros/cliente/:personaId" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await screen.findByRole('heading', { name: 'Prueba, Cliente3' });
+    fireEvent.click(screen.getByRole('button', { name: 'Cobrar' }));
+
+    const dialogo = await screen.findByRole('dialog');
+    fireEvent.click(await screen.findByRole('button', { name: 'Registrar pago' }));
+
+    await waitFor(() => expect(registrarPago).toHaveBeenCalledTimes(1));
+    expect(screen.getByRole('button', { name: 'Cancelar' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cerrar' })).toBeDisabled();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.mouseDown(dialogo.parentElement!);
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await act(async () => pagoDiferido.resolver(PAGO));
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(await screen.findByText('Pago registrado.')).toBeInTheDocument();
   });
 });

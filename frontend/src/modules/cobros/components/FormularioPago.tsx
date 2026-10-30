@@ -18,6 +18,7 @@ import estilos from '../cobros.module.css';
 type Props = {
   cargo: CargoDetalle;
   onPagado: (pago: Pago) => void;
+  onEnviandoChange: (enviando: boolean) => void;
   onCancelar: () => void;
 };
 
@@ -36,7 +37,12 @@ const ID_SENA = 'pago-sena';
  * editar. La deuda la calcula siempre el backend: acá no se guarda ningún
  * saldo, solo se muestra lo que la API devuelve.
  */
-export function FormularioPago({ cargo, onPagado, onCancelar }: Props) {
+export function FormularioPago({
+  cargo,
+  onPagado,
+  onEnviandoChange,
+  onCancelar,
+}: Props) {
   const [medios, setMedios] = useState<EstadoMedios>({
     estado: 'cargando',
     medios: [],
@@ -122,6 +128,7 @@ export function FormularioPago({ cargo, onPagado, onCancelar }: Props) {
     setErrorEnvio('');
     enviandoRef.current = true;
     setEnviando(true);
+    onEnviandoChange(true);
 
     try {
       const pago = await registrarPago(
@@ -142,6 +149,7 @@ export function FormularioPago({ cargo, onPagado, onCancelar }: Props) {
     } finally {
       enviandoRef.current = false;
       setEnviando(false);
+      onEnviandoChange(false);
     }
   }
 
@@ -227,7 +235,7 @@ export function FormularioPago({ cargo, onPagado, onCancelar }: Props) {
       ) : null}
 
       <div className={estilos.acciones}>
-        <Boton onClick={onCancelar} variante="secundario">
+        <Boton disabled={enviando} onClick={onCancelar} variante="secundario">
           Cancelar
         </Boton>
         <Boton cargando={enviando} type="submit">
