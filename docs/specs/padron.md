@@ -71,6 +71,7 @@ buscar_personas(db, texto: str | None = None, dni: str | None = None, telefono: 
 buscar_pacientes(db, texto: str | None = None, limite: int = 20) -> list[PacienteResumen]  # AGREGADO para GET /api/pacientes
 obtener_persona(db, persona_id: int) -> PersonaDetalle | None
 obtener_paciente(db, paciente_id: int) -> PacienteDetalle | None      # especie, raza, tamaño, peso, edad calculada. Sin factor_cupo
+obtener_pacientes(db, ids: list[int]) -> dict[int, PacienteDetalle]    # fichas por lote, omite IDs inexistentes
 titulares_vigentes(db, paciente_id: int) -> list[TitularVigente]     # persona_id, nombre, tipo, principal, desde
 obtener_empleado(db, empleado_id: int) -> EmpleadoDetalle | None
 pacientes_de_persona(db, persona_id: int) -> list[PacienteResumen]   # AGREGADO, a validar con Aldana (multimascota)

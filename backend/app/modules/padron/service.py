@@ -165,34 +165,58 @@ def _detalle_persona(db: Session, persona: models.Persona) -> schemas.PersonaDet
 def _detalle_paciente(
     db: Session, paciente: models.Paciente
 ) -> schemas.PacienteDetalle:
-    especie = repository.obtener_especie(db, paciente.especie_id)
-    raza = (
-        repository.obtener_raza(db, paciente.raza_id)
-        if paciente.raza_id is not None
-        else None
+    return _detalle_pacientes(db, [paciente])[paciente.id]
+
+
+def _detalle_pacientes(
+    db: Session,
+    pacientes: list[models.Paciente],
+) -> dict[int, schemas.PacienteDetalle]:
+    if not pacientes:
+        return {}
+
+    especies = repository.obtener_especies_por_ids(
+        db, list({paciente.especie_id for paciente in pacientes})
     )
-    tamanio = (
-        repository.obtener_tamanio(db, paciente.tamanio_id)
-        if paciente.tamanio_id is not None
-        else None
+    razas = repository.obtener_razas_por_ids(
+        db,
+        [paciente.raza_id for paciente in pacientes if paciente.raza_id is not None],
     )
-    edad_anios, edad_meses = calcular_edad(paciente.fecha_nacimiento_aprox)
-    return schemas.PacienteDetalle(
-        id=paciente.id,
-        nombre=paciente.nombre,
-        especie_id=paciente.especie_id,
-        especie_nombre=especie.nombre if especie else "",
-        raza_id=paciente.raza_id,
-        raza_nombre=raza.nombre if raza else None,
-        tamanio_id=paciente.tamanio_id,
-        tamanio_nombre=tamanio.nombre if tamanio else None,
-        peso_kg=paciente.peso_kg,  # type: ignore[arg-type]
-        fecha_nacimiento_aprox=paciente.fecha_nacimiento_aprox,
-        castrado=paciente.castrado,
-        activo=paciente.activo,
-        edad_anios=edad_anios,
-        edad_meses=edad_meses,
+    tamanios = repository.obtener_tamanios_por_ids(
+        db,
+        [
+            paciente.tamanio_id
+            for paciente in pacientes
+            if paciente.tamanio_id is not None
+        ],
     )
+    detalles: dict[int, schemas.PacienteDetalle] = {}
+    for paciente in pacientes:
+        especie = especies.get(paciente.especie_id)
+        raza = razas.get(paciente.raza_id) if paciente.raza_id is not None else None
+        tamanio = (
+            tamanios.get(paciente.tamanio_id)
+            if paciente.tamanio_id is not None
+            else None
+        )
+        edad_anios, edad_meses = calcular_edad(paciente.fecha_nacimiento_aprox)
+        detalles[paciente.id] = schemas.PacienteDetalle(
+            id=paciente.id,
+            nombre=paciente.nombre,
+            especie_id=paciente.especie_id,
+            especie_nombre=especie.nombre if especie else "",
+            raza_id=paciente.raza_id,
+            raza_nombre=raza.nombre if raza else None,
+            tamanio_id=paciente.tamanio_id,
+            tamanio_nombre=tamanio.nombre if tamanio else None,
+            peso_kg=paciente.peso_kg,  # type: ignore[arg-type]
+            fecha_nacimiento_aprox=paciente.fecha_nacimiento_aprox,
+            castrado=paciente.castrado,
+            activo=paciente.activo,
+            edad_anios=edad_anios,
+            edad_meses=edad_meses,
+        )
+    return detalles
 
 
 def _detalle_empleado(
@@ -352,6 +376,14 @@ def obtener_paciente(db: Session, paciente_id: int) -> schemas.PacienteDetalle |
     if paciente is None:
         return None
     return _detalle_paciente(db, paciente)
+
+
+def obtener_pacientes(
+    db: Session, ids: list[int]
+) -> dict[int, schemas.PacienteDetalle]:
+    """Obtiene varias fichas de paciente con consultas agrupadas por catálogo."""
+    pacientes = repository.obtener_pacientes_por_ids(db, sorted(set(ids)))
+    return _detalle_pacientes(db, pacientes)
 
 
 def buscar_pacientes(

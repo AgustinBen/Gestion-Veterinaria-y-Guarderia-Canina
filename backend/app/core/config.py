@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,6 +11,7 @@ class Settings(BaseSettings):
     secret_key: str = "change-me"
     session_minutes: int = 60
     password_min_length: int = 8
+    guarderia_calendario_max_dias: int = Field(default=366, gt=0)
 
 
 @lru_cache
