@@ -13,6 +13,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -95,6 +96,7 @@ class ReservaPaciente(Base):
         ForeignKey("paciente.id"), primary_key=True
     )
     cuidados_extras: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    tipo_cuidado: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 # RN-11b: la regla de plazas por animal vive solo en la función de T-24.
