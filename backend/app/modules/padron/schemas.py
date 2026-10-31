@@ -90,14 +90,44 @@ class PacienteResumen(BaseModel):
 
 
 class TitularVigente(BaseModel):
-    """Titular vigente de una mascota."""
+    """Titular de una mascota. ``hasta`` nulo indica que sigue vigente."""
 
+    id: int
     persona_id: int
     nombre: str
     apellido: str
     tipo: str
     principal: bool
     desde: date
+    hasta: date | None
+
+
+class TitularNuevo(BaseModel):
+    """Alta de un titular o contacto alternativo (T-13)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    persona_id: int
+    tipo_contacto_id: int | None = None
+    principal: bool = False
+
+
+class TitularSeleccion(BaseModel):
+    """Persona sobre la que se opera una titularidad existente."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    persona_id: int
+
+
+class TransferenciaNueva(BaseModel):
+    """Cambio de titular. Sin ``de_persona_id`` se toma el principal vigente."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    persona_id: int
+    de_persona_id: int | None = None
+    tipo_contacto_id: int | None = None
 
 
 class PersonaResumen(BaseModel):
