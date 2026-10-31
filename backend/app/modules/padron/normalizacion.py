@@ -47,8 +47,9 @@ def normalizar_telefono(numero: str, codigo_area_defecto: str) -> str:
     """Normaliza a 10 dígitos según la spec de padrón.
 
     Quita el 54 inicial, el 9 de móvil, el 0 inicial y el 15 de móvil
-    (después del código de área). Si quedan 8 dígitos, antepone el código
-    de área por defecto configurado.
+    (después del código de área o al inicio cuando el número viene sin
+    código de área). Si quedan 8 dígitos, antepone el código de área por
+    defecto configurado.
     """
     digitos = _NO_DIGITOS.sub("", numero or "")
     if not digitos:
@@ -60,6 +61,9 @@ def normalizar_telefono(numero: str, codigo_area_defecto: str) -> str:
         digitos = digitos[1:]
     if digitos.startswith("0"):
         digitos = digitos[1:]
+    if len(digitos) == 10 and digitos.startswith("15"):
+        # Número móvil escrito sin código de área: "15-6677-2233".
+        digitos = digitos[2:]
     if len(digitos) == 12:
         for indice in (2, 3, 4):
             if digitos[indice : indice + 2] == "15":

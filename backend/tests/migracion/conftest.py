@@ -2,10 +2,17 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
 from openpyxl import Workbook
+from sqlalchemy.orm import Session
+
+from app.core import parametros
+from app.modules.migracion.normalizacion import NormalizadorTelefono
+from app.modules.padron import service as padron_service
+from app.modules.padron.seed import sembrar_parametros_padron
 
 COLUMNAS_CLIENTES = (
     "ID_Registro",
@@ -262,3 +269,14 @@ def excel_ficticio(tmp_path: Path) -> Path:
     ruta = tmp_path / "excel_ficticio.xlsx"
     _crear_excel(ruta)
     return ruta
+
+
+@pytest.fixture
+def normalizador_telefono(
+    db_session: Session,
+) -> Generator[NormalizadorTelefono, None, None]:
+    """Normalizador oficial de padrón, con su configuración sembrada."""
+    parametros._limpiar_cache()
+    sembrar_parametros_padron(db_session)
+    yield lambda texto: padron_service.normalizar_telefono(db_session, texto)
+    parametros._limpiar_cache()
