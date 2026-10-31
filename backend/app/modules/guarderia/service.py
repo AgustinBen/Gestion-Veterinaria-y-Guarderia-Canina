@@ -47,12 +47,10 @@ def _obtener_pacientes(
     db: Session,
     paciente_ids: list[int],
 ) -> dict[int, PacienteDetalle]:
-    pacientes: dict[int, PacienteDetalle] = {}
-    for paciente_id in set(paciente_ids):
-        paciente = padron_service.obtener_paciente(db, paciente_id)
-        if paciente is None:
-            raise PacienteNoEncontrado(f"El paciente {paciente_id} no existe")
-        pacientes[paciente_id] = paciente
+    pacientes = padron_service.obtener_pacientes(db, paciente_ids)
+    faltantes = sorted(set(paciente_ids) - pacientes.keys())
+    if faltantes:
+        raise PacienteNoEncontrado(f"El paciente {faltantes[0]} no existe")
     return pacientes
 
 
@@ -178,13 +176,16 @@ def verificar_cupo(
         raise DatosInvalidos("El pedido no puede repetir pacientes")
 
     tramos = franjas_del_tramo(desde[0], desde[1], hasta[0], hasta[1])
-    pacientes_pedido = _obtener_pacientes(db, paciente_ids)
     ocupaciones = repository.listar_ocupaciones(
         db, desde[0], hasta[0]
     )
-    pacientes_ocupados = _completar_pacientes_de_ocupaciones(
-        db, ocupaciones, pacientes_pedido
-    )
+    ids_pacientes = set(paciente_ids) | {
+        ocupacion.paciente_id for ocupacion in ocupaciones
+    }
+    pacientes_ocupados = _obtener_pacientes(db, list(ids_pacientes))
+    pacientes_pedido = {
+        paciente_id: pacientes_ocupados[paciente_id] for paciente_id in paciente_ids
+    }
     ocupacion_por_franja: dict[tuple[date, Franja], int] = {}
     for ocupacion in ocupaciones:
         clave = (ocupacion.fecha, ocupacion.franja)
