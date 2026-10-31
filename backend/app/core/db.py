@@ -1,6 +1,7 @@
-from collections.abc import Generator
+from collections.abc import Generator, Iterator
+from contextlib import contextmanager
 
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine.interfaces import DBAPIConnection
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import ConnectionPoolEntry
@@ -34,3 +35,18 @@ def get_db() -> Generator[Session, None, None]:
         yield db
     finally:
         db.close()
+
+
+@contextmanager
+def transaccion_inmediata(db: Session) -> Iterator[None]:
+    """Serializa una escritura SQLite y confirma o revierte la unidad completa."""
+    if db.get_bind().dialect.name != "sqlite":
+        raise RuntimeError("La transacción inmediata requiere SQLite")
+
+    try:
+        db.execute(text("BEGIN IMMEDIATE"))
+        yield
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise

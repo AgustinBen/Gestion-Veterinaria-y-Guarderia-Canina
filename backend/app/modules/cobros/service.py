@@ -78,6 +78,10 @@ class MedioPagoInvalido(CobrosError):
     pass
 
 
+class CargoReservaRequiereSena(CobrosError):
+    pass
+
+
 class IdempotenciaConflicto(CobrosError):
     pass
 
@@ -116,6 +120,23 @@ def _obtener_cargo_o_error(db: Session, cargo_id: int) -> models.Cargo:
     return cargo
 
 
+def total_inicial_cargo(db: Session, cargo_id: int) -> int:
+    """Devuelve el total original del cargo a otros módulos, sin exponer su modelo."""
+    return int(_obtener_cargo_o_error(db, cargo_id).total_inicial)
+
+
+def total_vigente_cargo(db: Session, cargo_id: int) -> int:
+    """Devuelve el total actual del cargo, incluidos sus ajustes."""
+    _obtener_cargo_o_error(db, cargo_id)
+    return int(repository.total_vigente(db, cargo_id))
+
+
+def total_senas_cargo(db: Session, cargo_id: int) -> int:
+    """Devuelve el importe neto de señas registradas para un cargo."""
+    _obtener_cargo_o_error(db, cargo_id)
+    return repository.total_senas(db, cargo_id)
+
+
 def crear_cargo(
     db: Session,
     *,
@@ -126,6 +147,7 @@ def crear_cargo(
     referencia_tipo: str | None = None,
     referencia_id: int | None = None,
     usuario_id: int,
+    transaccion_externa: bool = False,
 ) -> models.Cargo:
     _validar_monto_positivo(total_centavos)
 
@@ -150,7 +172,10 @@ def crear_cargo(
         creado_por=usuario_id,
     )
     db.add(cargo)
-    db.commit()
+    if transaccion_externa:
+        db.flush()
+    else:
+        db.commit()
     db.refresh(cargo)
     return cargo
 
@@ -327,6 +352,7 @@ def registrar_pago(
     empleado_id: int | None = None,
     fecha_pago: date | None = None,
     clave_idempotencia: str | None = None,
+    transaccion_externa: bool = False,
 ) -> models.Pago:
     monto = _validar_monto_positivo(monto_centavos)
     if clave_idempotencia:
@@ -346,15 +372,24 @@ def registrar_pago(
                 return existente
             raise IdempotenciaConflicto("Idempotency-Key ya utilizada con distinto cuerpo")
 
-    # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite)
-    try:
-        db.execute(text("BEGIN IMMEDIATE"))
-    except Exception:
-        # Si falla por algún motivo, seguimos (otros backends/tests)
-        pass
+    if not transaccion_externa:
+        # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite)
+        try:
+            db.execute(text("BEGIN IMMEDIATE"))
+        except Exception:
+            # Otros backends/tests pueden haber abierto ya una transacción.
+            pass
 
     try:
         cargo = _obtener_cargo_o_error(db, cargo_id)
+        if (
+            cargo.referencia_tipo == "RESERVA"
+            and not es_sena
+            and repository.total_senas(db, cargo_id) <= 0
+        ):
+            raise CargoReservaRequiereSena(
+                "La reserva requiere registrar una seña antes de otros pagos"
+            )
         medio_pago = repository.obtener_medio_pago_por_codigo(db, medio)
         if medio_pago is None or not medio_pago.activo:
             raise MedioPagoInvalido("Medio de pago inválido")
@@ -378,14 +413,22 @@ def registrar_pago(
             clave_idempotencia=clave_idempotencia,
         )
         db.add(pago)
-        db.commit()
+        db.flush()
+        if es_sena and cargo.referencia_tipo == "RESERVA":
+            from app.modules.guarderia import service as guarderia_service
+
+            guarderia_service.confirmar_reserva_por_sena(db, cargo_id)
+        if not transaccion_externa:
+            db.commit()
         db.refresh(pago)
         return pago
     except (CobrosError, IntegrityError):
-        db.rollback()
+        if not transaccion_externa:
+            db.rollback()
         raise
     except Exception:
-        db.rollback()
+        if not transaccion_externa:
+            db.rollback()
         raise
 
 

@@ -1,6 +1,7 @@
 """Fixtures de integración para el módulo guardería."""
 
 from collections.abc import Callable, Generator
+from dataclasses import dataclass
 from datetime import date
 
 import pytest
@@ -11,16 +12,28 @@ from app.core import parametros
 from app.core.base import Base
 from app.core.config import get_settings
 from app.core.parametros import set_param
+from app.modules.cobros import seed as cobros_seed
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import EstadoReserva, Ocupacion, Reserva
 from app.modules.guarderia.seed import (
     CUPO_MAXIMO_INICIAL,
     PLAZAS_EMERGENCIA_INICIAL,
+    RESERVA_MAX_MESES_INICIAL,
 )
 from app.modules.identidad import security
 from app.modules.identidad import service as identidad_service
 from app.modules.identidad.permisos import Rol
 from app.modules.identidad.schemas import UsuarioCrear, UsuarioPublico
+from app.modules.padron import service as padron_service
+from app.modules.padron.schemas import PacienteNuevo, PersonaNueva
+from app.modules.padron.seed import sembrar_especies_tamanios_tipo_contacto
+
+
+@dataclass(frozen=True)
+class DatosReserva:
+    tutor_persona_id: int
+    otro_tutor_persona_id: int
+    paciente_ids: list[int]
 
 
 @pytest.fixture(autouse=True)
@@ -48,6 +61,13 @@ def sembrar_cupo(db_session: Session) -> None:
         db_session,
         "guarderia.plazas_emergencia",
         PLAZAS_EMERGENCIA_INICIAL,
+        "int",
+        modulo="guarderia",
+    )
+    set_param(
+        db_session,
+        "guarderia.reserva_max_meses",
+        RESERVA_MAX_MESES_INICIAL,
         "int",
         modulo="guarderia",
     )
@@ -119,6 +139,48 @@ def crear_usuario(db_session: Session) -> Callable:
                 password="clave-segura-guarderia",
                 rol=rol,
             ),
+        )
+
+    return _crear
+
+
+@pytest.fixture
+def crear_datos_reserva(db_session: Session) -> Callable:
+    def _crear(cantidad_pacientes: int = 1) -> DatosReserva:
+        sembrar_especies_tamanios_tipo_contacto(db_session)
+        cobros_seed.sembrar_medios_pago(db_session)
+
+        tutor = padron_service.crear_persona(
+            db_session,
+            PersonaNueva(nombre="Tutora", apellido="Reserva"),
+            migrado=True,
+        )
+        otro_tutor = padron_service.crear_persona(
+            db_session,
+            PersonaNueva(nombre="Otro", apellido="Tutor"),
+            migrado=True,
+        )
+        especie_perro = next(
+            especie
+            for especie in padron_service.listar_especies(db_session)
+            if especie.nombre == "Perro"
+        )
+        paciente_ids = [
+            padron_service.crear_paciente(
+                db_session,
+                PacienteNuevo(
+                    nombre=f"Paciente reserva {indice}",
+                    especie_id=especie_perro.id,
+                    titular_persona_id=tutor.id,
+                ),
+            ).id
+            for indice in range(cantidad_pacientes)
+        ]
+        db_session.commit()
+        return DatosReserva(
+            tutor_persona_id=tutor.id,
+            otro_tutor_persona_id=otro_tutor.id,
+            paciente_ids=paciente_ids,
         )
 
     return _crear
