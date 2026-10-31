@@ -7,6 +7,26 @@ import pytest
 from app.modules.identidad.permisos import Rol
 
 
+def _crear_reserva(client, headers, tutor_persona_id: int, paciente_id: int):
+    fecha = date.today() + timedelta(days=2)
+    return client.post(
+        "/api/guarderia/reservas",
+        json={
+            "tutor_persona_id": tutor_persona_id,
+            "paciente_ids": [paciente_id],
+            "desde_fecha": fecha.isoformat(),
+            "desde_franja": "DIA",
+            "hasta_fecha": fecha.isoformat(),
+            "hasta_franja": "DIA",
+            "cuidados_extras": [
+                {"paciente_id": paciente_id, "cuidados_extras": False}
+            ],
+            "total_centavos": 7000000,
+        },
+        headers={**headers, "Idempotency-Key": "cobros-reserva-key"},
+    )
+
+
 def _reserva_payload(tutor_persona_id: int, paciente_id: int) -> dict[str, object]:
     fecha = date.today() + timedelta(days=2)
     return {
@@ -187,3 +207,76 @@ def test_sena_exige_clave_idempotente(
     )
 
     assert respuesta.status_code == 422
+
+
+def test_sena_registrada_desde_cobros_confirma_reserva(
+    client,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    datos = crear_datos_reserva()
+    usuario = crear_usuario(Rol.DUENIO)
+    headers = token_guarderia(usuario)
+    creada = _crear_reserva(
+        client,
+        headers,
+        datos.tutor_persona_id,
+        datos.paciente_ids[0],
+    )
+    reserva = creada.json()
+
+    pago = client.post(
+        f"/api/cargos/{reserva['cargo_id']}/pagos",
+        json={"monto_centavos": 100000, "medio": "EFECTIVO", "es_sena": True},
+        headers={**headers, "Idempotency-Key": "sena-desde-cobros"},
+    )
+    detalle = client.get(
+        f"/api/guarderia/reservas/{reserva['id']}",
+        headers=headers,
+    )
+
+    assert pago.status_code == 200
+    assert pago.json()["es_sena"] is True
+    assert detalle.status_code == 200
+    assert detalle.json()["estado"] == "CONFIRMADA"
+
+
+@pytest.mark.parametrize("monto_centavos", [100000, 7000000])
+def test_cobros_no_acepta_pago_ordinario_antes_de_la_sena(
+    client,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+    token_guarderia,
+    monto_centavos: int,
+) -> None:
+    datos = crear_datos_reserva()
+    usuario = crear_usuario(Rol.DUENIO)
+    headers = token_guarderia(usuario)
+    creada = _crear_reserva(
+        client,
+        headers,
+        datos.tutor_persona_id,
+        datos.paciente_ids[0],
+    )
+    reserva = creada.json()
+
+    pago = client.post(
+        f"/api/cargos/{reserva['cargo_id']}/pagos",
+        json={
+            "monto_centavos": monto_centavos,
+            "medio": "EFECTIVO",
+            "es_sena": False,
+        },
+        headers={**headers, "Idempotency-Key": f"pago-ordinario-{monto_centavos}"},
+    )
+    detalle = client.get(
+        f"/api/guarderia/reservas/{reserva['id']}",
+        headers=headers,
+    )
+
+    assert pago.status_code == 422
+    assert detalle.status_code == 200
+    assert detalle.json()["estado"] == "PENDIENTE_SENA"

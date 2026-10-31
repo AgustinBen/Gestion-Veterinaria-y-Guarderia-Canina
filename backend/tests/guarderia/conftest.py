@@ -18,6 +18,7 @@ from app.modules.guarderia.models import EstadoReserva, Ocupacion, Reserva
 from app.modules.guarderia.seed import (
     CUPO_MAXIMO_INICIAL,
     PLAZAS_EMERGENCIA_INICIAL,
+    RESERVA_MAX_MESES_INICIAL,
 )
 from app.modules.identidad import security
 from app.modules.identidad import service as identidad_service
@@ -60,6 +61,13 @@ def sembrar_cupo(db_session: Session) -> None:
         db_session,
         "guarderia.plazas_emergencia",
         PLAZAS_EMERGENCIA_INICIAL,
+        "int",
+        modulo="guarderia",
+    )
+    set_param(
+        db_session,
+        "guarderia.reserva_max_meses",
+        RESERVA_MAX_MESES_INICIAL,
         "int",
         modulo="guarderia",
     )

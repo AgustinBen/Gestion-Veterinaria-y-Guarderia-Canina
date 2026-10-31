@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import calendar
 from collections.abc import Callable
 from datetime import date, timedelta
 from typing import Literal
@@ -289,6 +290,15 @@ def _validar_datos_reserva(
 ) -> list[tuple[date, Franja]]:
     if solicitud.desde_fecha < hoy:
         raise ReservaInvalida("La fecha de inicio no puede estar en el pasado")
+    max_meses = get_param(db, "guarderia.reserva_max_meses")
+    if type(max_meses) is not int or max_meses < 0:
+        raise ValueError("La anticipación máxima debe ser un entero no negativo")
+    fecha_limite = _sumar_meses(hoy, max_meses)
+    if solicitud.hasta_fecha > fecha_limite:
+        raise ReservaInvalida(
+            f"La fecha de fin supera la anticipación máxima de {max_meses} meses"
+        )
+
     try:
         tramos = franjas_del_tramo(
             solicitud.desde_fecha,
@@ -320,6 +330,24 @@ def _validar_datos_reserva(
     return tramos
 
 
+def _sumar_meses(fecha: date, meses: int) -> date:
+    indice_mes = fecha.month - 1 + meses
+    anio = fecha.year + indice_mes // 12
+    mes = indice_mes % 12 + 1
+    dia = min(fecha.day, calendar.monthrange(anio, mes)[1])
+    return date(anio, mes, dia)
+
+
+def confirmar_reserva_por_sena(db: Session, cargo_id: int) -> None:
+    """Confirma la reserva referenciada cuando Cobros registra su seña."""
+    reserva = repository.obtener_reserva_por_cargo(db, cargo_id)
+    if reserva is None or reserva.estado != EstadoReserva.PENDIENTE_SENA:
+        return
+    if cobros_service.total_senas_cargo(db, cargo_id) > 0:
+        reserva.estado = EstadoReserva.CONFIRMADA
+        db.flush()
+
+
 def _misma_solicitud(
     db: Session,
     reserva: Reserva,
@@ -349,7 +377,7 @@ def _misma_solicitud(
 
 def _reserva_out(db: Session, reserva: Reserva) -> ReservaOut:
     total_centavos = (
-        cobros_service.total_inicial_cargo(db, reserva.cargo_id)
+        cobros_service.total_vigente_cargo(db, reserva.cargo_id)
         if reserva.cargo_id is not None
         else None
     )

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from sqlalchemy import case, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.modules.cobros import models
 
@@ -24,6 +24,22 @@ def total_vigente(db: Session, cargo_id: int) -> int:
     if cargo is None:
         raise ValueError("Cargo no encontrado")
     return int(cargo.total_inicial)
+
+
+def total_senas(db: Session, cargo_id: int) -> int:
+    pago_sena = aliased(models.Pago)
+    reverso = aliased(models.Pago)
+    stmt = select(
+        func.coalesce(func.sum(pago_sena.monto), 0)
+    ).where(
+        pago_sena.cargo_id == cargo_id,
+        pago_sena.es_sena.is_(True),
+        pago_sena.tipo == models.TipoPago.PAGO,
+        ~select(reverso.id)
+        .where(reverso.pago_revertido_id == pago_sena.id)
+        .exists(),
+    )
+    return int(db.execute(stmt).scalar_one())
 
 
 def total_pagado(db: Session, cargo_id: int) -> int:

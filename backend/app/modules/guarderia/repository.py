@@ -77,6 +77,11 @@ def obtener_reserva_por_clave(db: Session, clave: str) -> Reserva | None:
     return db.execute(stmt).scalar_one_or_none()
 
 
+def obtener_reserva_por_cargo(db: Session, cargo_id: int) -> Reserva | None:
+    stmt = select(Reserva).where(Reserva.cargo_id == cargo_id)
+    return db.execute(stmt).scalar_one_or_none()
+
+
 def listar_reservas(
     db: Session,
     *,

@@ -5,12 +5,13 @@ from datetime import date, timedelta
 import pytest
 from sqlalchemy import func, select
 
-from app.core.parametros import get_param
+from app.core.parametros import get_param, set_param
 from app.modules.cobros import service as cobros_service
 from app.modules.guarderia import service as guarderia_service
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import Ocupacion, Reserva
 from app.modules.guarderia.schemas import ReservaCrear
+from app.modules.guarderia.seed import RESERVA_MAX_MESES_INICIAL
 from app.modules.guarderia.tramos import franjas_del_tramo
 from app.modules.identidad.permisos import Rol
 from app.modules.padron import service as padron_service
@@ -224,6 +225,101 @@ def test_rechaza_paciente_inactivo(
     assert respuesta.status_code == 422
 
 
+def test_rechaza_reserva_mas_alla_de_la_anticipacion_configurada(
+    client,
+    db_session,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    datos = crear_datos_reserva()
+    usuario = crear_usuario(Rol.DUENIO)
+    fecha_limite = guarderia_service._sumar_meses(
+        date.today(),
+        get_param(db_session, "guarderia.reserva_max_meses"),
+    )
+    fecha_excedida = fecha_limite + timedelta(days=1)
+
+    respuesta = _crear(
+        client,
+        token_guarderia(usuario),
+        _payload(
+            datos.tutor_persona_id,
+            datos.paciente_ids,
+            desde_fecha=fecha_excedida,
+        ),
+    )
+
+    assert respuesta.status_code == 422
+    assert "anticipación máxima" in respuesta.json()["detail"]
+
+
+def test_reserva_en_el_limite_configurado_es_valida(
+    client,
+    db_session,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    datos = crear_datos_reserva()
+    usuario = crear_usuario(Rol.DUENIO)
+    fecha_limite = guarderia_service._sumar_meses(
+        date.today(),
+        get_param(db_session, "guarderia.reserva_max_meses"),
+    )
+
+    respuesta = _crear(
+        client,
+        token_guarderia(usuario),
+        _payload(
+            datos.tutor_persona_id,
+            datos.paciente_ids,
+            desde_fecha=fecha_limite,
+        ),
+    )
+
+    assert respuesta.status_code == 201
+
+
+def test_limite_de_anticipacion_usa_el_parametro_configurado(
+    db_session,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+) -> None:
+    datos = crear_datos_reserva()
+    usuario = crear_usuario(Rol.DUENIO)
+    meses_personalizados = RESERVA_MAX_MESES_INICIAL - 1
+    set_param(
+        db_session,
+        "guarderia.reserva_max_meses",
+        meses_personalizados,
+        "int",
+        modulo="guarderia",
+    )
+    fecha_excedida = guarderia_service._sumar_meses(
+        date.today(),
+        meses_personalizados,
+    ) + timedelta(days=1)
+    solicitud = ReservaCrear.model_validate(
+        _payload(
+            datos.tutor_persona_id,
+            datos.paciente_ids,
+            desde_fecha=fecha_excedida,
+        )
+    )
+
+    with pytest.raises(guarderia_service.ReservaInvalida, match="anticipación máxima"):
+        guarderia_service.crear_reserva(
+            db_session,
+            solicitud,
+            clave_idempotencia="limite-configurado",
+            usuario_id=usuario.id,
+        )
+
+
 def test_sin_cupo_devuelve_franjas_que_no_tienen_lugar(
     client,
     db_session,
@@ -270,6 +366,45 @@ def test_sin_cupo_devuelve_franjas_que_no_tienen_lugar(
             "disponible": 0,
         }
     ]
+
+
+def test_total_de_reserva_refleja_ajuste_de_precio_de_cobros(
+    client,
+    db_session,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    datos = crear_datos_reserva()
+    usuario = crear_usuario(Rol.DUENIO)
+    headers = token_guarderia(usuario)
+    creada = _crear(
+        client,
+        headers,
+        _payload(datos.tutor_persona_id, datos.paciente_ids),
+        "reserva-precio-ajustado",
+    )
+    cargo_id = creada.json()["cargo_id"]
+    cobros_service.ajustar_precio(
+        db_session,
+        cargo_id=cargo_id,
+        nuevo_total_centavos=200000,
+        motivo="Ajuste de prueba",
+        usuario_id=usuario.id,
+        rol=Rol.DUENIO,
+    )
+
+    detalle = client.get(
+        f"/api/guarderia/reservas/{creada.json()['id']}",
+        headers=headers,
+    )
+    listado = client.get("/api/guarderia/reservas", headers=headers)
+
+    assert detalle.status_code == 200
+    assert detalle.json()["total_centavos"] == 200000
+    assert listado.status_code == 200
+    assert listado.json()[0]["total_centavos"] == 200000
 
 
 def test_fallo_al_crear_cargo_revierte_reserva_y_ocupacion(
