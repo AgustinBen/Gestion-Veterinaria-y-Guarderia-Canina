@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.modules.cobros import service
+
 
 def _auth_token(client: TestClient, username: str, password: str = "clave-de-prueba-segura") -> dict[str, str]:
     respuesta = client.post("/api/auth/login", json={"username": username, "password": password})
@@ -118,3 +120,34 @@ def test_sena_cero_o_negativa_422(
     assert resp.status_code == 422
     resp2 = client.post(f"/api/cargos/{cargo_id}/pagos", json={"monto_centavos": -100, "medio": "EFECTIVO", "es_sena": True}, headers=headers)
     assert resp2.status_code == 422
+
+
+def test_registrar_pago_no_confirma_transaccion_externa(
+    db_session,
+    referencias_cobros,
+) -> None:
+    db_session.commit()
+    cargo = service.crear_cargo(
+        db_session,
+        persona_id=referencias_cobros.persona_id,
+        concepto="Reserva",
+        total_centavos=30000,
+        referencia_tipo="RESERVA",
+        referencia_id=1,
+        usuario_id=referencias_cobros.usuario_id,
+    )
+
+    service.registrar_pago(
+        db_session,
+        cargo_id=cargo.id,
+        monto_centavos=1000,
+        medio="EFECTIVO",
+        es_sena=True,
+        usuario_id=referencias_cobros.usuario_id,
+        clave_idempotencia="t25-sena",
+        transaccion_externa=True,
+    )
+
+    db_session.rollback()
+
+    assert service.saldo_cargo(db_session, cargo.id) == 30000
