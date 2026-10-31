@@ -7,14 +7,6 @@ from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import HabilitacionEmergencia, Ocupacion
 
 
-def contar_ocupacion(db: Session, fecha: date, franja: Franja) -> int:
-    stmt = select(func.count(Ocupacion.id)).where(
-        Ocupacion.fecha == fecha,
-        Ocupacion.franja == franja,
-    )
-    return db.execute(stmt).scalar_one()
-
-
 def listar_ocupaciones(
     db: Session,
     desde: date,

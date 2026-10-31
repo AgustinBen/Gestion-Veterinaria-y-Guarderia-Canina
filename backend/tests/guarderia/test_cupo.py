@@ -229,6 +229,31 @@ def test_bajar_cupo_no_cancela_ocupaciones_existentes(
     assert cantidad_ocupaciones == 7
 
 
+def test_disponible_puede_ser_negativo_si_cupo_baja_de_ocupacion_existente(
+    db_session,
+    sembrar_cupo,
+    crear_pacientes,
+    crear_ocupaciones,
+    crear_usuario,
+) -> None:
+    usuario = crear_usuario()
+    ocupados = crear_pacientes(_perros(9))
+    nuevo = crear_pacientes(_perros(1))
+    crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
+    set_param(db_session, "guarderia.cupo_maximo", 8, "int")
+
+    disponibilidad = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
+    resultado = service.verificar_cupo(
+        db_session, nuevo, (FECHA, Franja.DIA), (FECHA, Franja.DIA)
+    )
+
+    assert disponibilidad.publico == 7
+    assert disponibilidad.ocupado == 9
+    assert disponibilidad.disponible == -2
+    assert resultado.codigo == "SIN_CUPO"
+    assert resultado.franjas_sin_lugar[0].disponible == -2
+
+
 def test_pedido_de_varios_animales_necesita_plaza_para_cada_uno(
     db_session,
     sembrar_cupo,
@@ -316,6 +341,37 @@ def test_paciente_ocupado_en_una_franja_se_informa_como_ya_reservado(
     assert resultado.aprobado is False
     assert resultado.codigo == "YA_RESERVADO"
     assert resultado.ocupaciones_existentes[0].franja == Franja.NOCHE
+
+
+def test_verificar_cupo_consulta_pacientes_ocupados_y_pedido_en_un_solo_lote(
+    db_session,
+    sembrar_cupo,
+    crear_pacientes,
+    crear_ocupaciones,
+    crear_usuario,
+    monkeypatch,
+) -> None:
+    usuario = crear_usuario()
+    ocupado = crear_pacientes(_perros(1))
+    pedido = crear_pacientes(_perros(1))
+    crear_ocupaciones(ocupado, FECHA, Franja.DIA, usuario.id)
+    consultar_lote = service.padron_service.obtener_pacientes
+    lotes: list[set[int]] = []
+
+    def registrar_lote(db, paciente_ids: list[int]):
+        lotes.append(set(paciente_ids))
+        return consultar_lote(db, paciente_ids)
+
+    monkeypatch.setattr(
+        service.padron_service, "obtener_pacientes", registrar_lote
+    )
+
+    resultado = service.verificar_cupo(
+        db_session, pedido, (FECHA, Franja.DIA), (FECHA, Franja.DIA)
+    )
+
+    assert resultado.aprobado is True
+    assert lotes == [set(ocupado + pedido)]
 
 
 def test_ocupacion_pendiente_de_sena_reserva_la_plaza(

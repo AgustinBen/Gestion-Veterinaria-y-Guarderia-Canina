@@ -6,6 +6,7 @@ from sqlalchemy.exc import IntegrityError, StatementError
 from sqlalchemy.orm import Session
 
 from app.core.base import Base
+from app.modules.guarderia import service
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import (
     EstadoReserva,
@@ -14,7 +15,6 @@ from app.modules.guarderia.models import (
     Reserva,
     ReservaPaciente,
 )
-from app.modules.guarderia.repository import contar_ocupacion
 
 
 def _insertar(db_session: Session, tabla: str, **valores: object) -> int:
@@ -141,7 +141,10 @@ def test_ocupacion_unica_por_fecha_franja_y_paciente(db_session: Session) -> Non
         db_session.commit()
 
 
-def test_mismo_paciente_puede_ocupar_dia_y_noche(db_session: Session) -> None:
+def test_mismo_paciente_puede_ocupar_dia_y_noche(
+    db_session: Session,
+    sembrar_cupo,
+) -> None:
     tutor_id, paciente_id, usuario_id = _crear_referencias(db_session)
     reserva = _crear_reserva(db_session, tutor_id, usuario_id)
     db_session.add(reserva)
@@ -164,8 +167,14 @@ def test_mismo_paciente_puede_ocupar_dia_y_noche(db_session: Session) -> None:
     )
     db_session.commit()
 
-    assert contar_ocupacion(db_session, date(2030, 1, 1), Franja.DIA) == 1
-    assert contar_ocupacion(db_session, date(2030, 1, 1), Franja.NOCHE) == 1
+    assert (
+        service.calcular_disponibilidad(db_session, date(2030, 1, 1), Franja.DIA).ocupado
+        == 1
+    )
+    assert (
+        service.calcular_disponibilidad(db_session, date(2030, 1, 1), Franja.NOCHE).ocupado
+        == 1
+    )
 
 
 def test_paciente_no_se_repite_en_una_reserva(db_session: Session) -> None:
@@ -258,7 +267,10 @@ def test_tablas_de_ocupacion_no_tienen_columnas_de_unidades_o_tamanio(
         assert columnas.isdisjoint({"unidades", "factor", "tamanio"})
 
 
-def test_consulta_de_ocupacion_filtra_por_fecha_y_franja(db_session: Session) -> None:
+def test_consulta_de_ocupacion_filtra_por_fecha_y_franja(
+    db_session: Session,
+    sembrar_cupo,
+) -> None:
     tutor_id, paciente_id, usuario_id = _crear_referencias(db_session)
     reserva = _crear_reserva(db_session, tutor_id, usuario_id)
     db_session.add(reserva)
@@ -273,5 +285,11 @@ def test_consulta_de_ocupacion_filtra_por_fecha_y_franja(db_session: Session) ->
     )
     db_session.commit()
 
-    assert contar_ocupacion(db_session, date(2030, 1, 1), Franja.DIA) == 0
-    assert contar_ocupacion(db_session, date(2030, 1, 1), Franja.NOCHE) == 1
+    assert (
+        service.calcular_disponibilidad(db_session, date(2030, 1, 1), Franja.DIA).ocupado
+        == 0
+    )
+    assert (
+        service.calcular_disponibilidad(db_session, date(2030, 1, 1), Franja.NOCHE).ocupado
+        == 1
+    )
