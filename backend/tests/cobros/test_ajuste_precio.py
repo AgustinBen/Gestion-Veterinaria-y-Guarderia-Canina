@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import sqlite3
 import threading
 import time
 from collections.abc import Callable
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.modules.cobros import repository, service
@@ -340,12 +341,14 @@ def test_service_ajustar_precio_queda_disponible_para_otros_modulos(
     assert ajuste.precio_anterior == 30000
     assert ajuste.precio_nuevo == 35000
     detalle = service.obtener_cargo_detalle(db_session, cargo.id)
-    assert detalle["total_vigente"] == 35000
+    assert detalle.total_vigente == 35000
 
 
 def test_ajuste_falla_y_no_persiste_si_no_puede_iniciar_transaccion(
     db_session: Session,
     referencias_cobros,
+    monkeypatch,
+    caplog,
 ) -> None:
     cargo = service.crear_cargo(
         db_session,
@@ -355,22 +358,49 @@ def test_ajuste_falla_y_no_persiste_si_no_puede_iniciar_transaccion(
         paciente_id=referencias_cobros.paciente_id,
         usuario_id=referencias_cobros.usuario_id,
     )
-    conexion = db_session.connection()
-    conexion.exec_driver_sql("BEGIN")
+    cargo_id = cargo.id
+    error_sqlite = sqlite3.OperationalError("database is locked")
+    error_sqlite.sqlite_errorcode = sqlite3.SQLITE_BUSY
+    error_operacional = OperationalError("BEGIN IMMEDIATE", {}, error_sqlite)
 
-    with pytest.raises(service.TransaccionNoDisponible) as error:
+    def fallar_execute(*args, **kwargs) -> None:
+        raise error_operacional
+
+    monkeypatch.setattr(db_session, "execute", fallar_execute)
+    with pytest.raises(service.TransaccionNoDisponible) as error_capturado:
         service.ajustar_precio(
             db_session,
-            cargo_id=cargo.id,
+            cargo_id=cargo_id,
             nuevo_total_centavos=35000,
             motivo="Ajuste sin bloqueo",
             usuario_id=referencias_cobros.usuario_id,
             rol=Rol.DUENIO,
         )
 
-    assert isinstance(error.value.__cause__, SQLAlchemyError)
-    assert "Intente nuevamente" in str(error.value)
-    assert repository.ajustes_de_cargo(db_session, cargo.id) == []
+    assert isinstance(error_capturado.value.__cause__, OperationalError)
+    assert "Intente nuevamente" in str(error_capturado.value)
+    assert "no pudo adquirir el bloqueo" in caplog.text
+    monkeypatch.undo()
+    assert repository.ajustes_de_cargo(db_session, cargo_id) == []
+
+
+def test_error_operacional_inesperado_se_propaga(
+    db_session: Session,
+    monkeypatch,
+) -> None:
+    error_sqlite = sqlite3.OperationalError("malformed database schema")
+    error_sqlite.sqlite_errorcode = sqlite3.SQLITE_ERROR
+    error_operacional = OperationalError("BEGIN IMMEDIATE", {}, error_sqlite)
+
+    def fallar_execute(*args, **kwargs) -> None:
+        raise error_operacional
+
+    monkeypatch.setattr(db_session, "execute", fallar_execute)
+
+    with pytest.raises(OperationalError) as error_recibido:
+        service._iniciar_transaccion(db_session)
+
+    assert error_recibido.value is error_operacional
 
 
 def test_concurrencia_pago_y_ajuste(

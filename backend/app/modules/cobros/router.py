@@ -31,30 +31,6 @@ def _leer_finanzas() -> Callable[..., UsuarioActual]:
     return require_acceso(Recurso.FINANZAS, Nivel.LECTURA)
 
 
-def _cargo_detalle_a_out(detalle: dict[str, object]) -> schemas.CargoDetalleOut:
-    cargo = detalle["cargo"]
-    origen = getattr(cargo, "origen")
-    origen_str = origen.value if hasattr(origen, "value") else str(origen)
-    total_vigente_obj = detalle.get("total_vigente", 0)
-    total_pagado_obj = detalle.get("total_pagado", 0)
-    saldo_obj = detalle.get("saldo", 0)
-    return schemas.CargoDetalleOut(
-        id=getattr(cargo, "id"),
-        persona_id=getattr(cargo, "persona_id"),
-        paciente_id=getattr(cargo, "paciente_id"),
-        concepto=getattr(cargo, "concepto"),
-        total_inicial=getattr(cargo, "total_inicial"),
-        origen=origen_str,
-        referencia_tipo=getattr(cargo, "referencia_tipo"),
-        referencia_id=getattr(cargo, "referencia_id"),
-        creado_por=getattr(cargo, "creado_por"),
-        created_at=getattr(cargo, "created_at"),
-        total_vigente=int(total_vigente_obj) if isinstance(total_vigente_obj, int) else 0,
-        total_pagado=int(total_pagado_obj) if isinstance(total_pagado_obj, int) else 0,
-        saldo=int(saldo_obj) if isinstance(saldo_obj, int) else 0,
-    )
-
-
 @router.get("/medios-pago", response_model=list[schemas.MedioPagoOut])
 def listar_medios_pago(
     db: Session = Depends(get_db),
@@ -136,10 +112,9 @@ def obtener_cargo(
     _usuario: UsuarioActual = Depends(_leer_deudas_cobros()),
 ) -> schemas.CargoDetalleOut:
     try:
-        detalle = service.obtener_cargo_detalle(db, cargo_id)
+        return service.obtener_cargo_detalle(db, cargo_id)
     except service.CargoNoEncontrado as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Cargo no encontrado") from exc
-    return _cargo_detalle_a_out(detalle)
 
 
 @router.post("/cargos/{cargo_id}/ajustes", response_model=schemas.AjustePrecioOut)
@@ -217,6 +192,10 @@ def registrar_pago(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     except service.IdempotenciaConflicto as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    except service.TransaccionNoDisponible as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
     except service.CobrosError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     return schemas.PagoOut.model_validate(pago)
@@ -241,8 +220,10 @@ def revertir_pago(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pago no encontrado") from exc
     except service.ReversoNoPermitido as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
-    except service.MedioPagoInvalido as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+    except service.TransaccionNoDisponible as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)
+        ) from exc
     except service.CobrosError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
     return schemas.PagoOut.model_validate(reverso)
@@ -255,36 +236,13 @@ def cuenta_persona(
     _usuario: UsuarioActual = Depends(_leer_deudas_cobros()),
 ) -> schemas.CuentaClienteOut:
     try:
-        cuenta = service.cuenta_persona(db, persona_id)
+        return service.cuenta_persona(db, persona_id)
+    except service.PersonaNoEncontrada as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
     except service.CobrosError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-
-    cuenta_persona_id = cuenta.get("persona_id")
-    cuenta_saldo_total = cuenta.get("saldo_total")
-    cargos_list = cuenta.get("cargos") or []
-    cargos_out: list[schemas.CargoCuentaOut] = []
-    if isinstance(cargos_list, list):
-        for item in cargos_list:
-            if not isinstance(item, dict):
-                continue
-            cargos_out.append(
-                schemas.CargoCuentaOut(
-                    cargo=_cargo_detalle_a_out(
-                        {
-                            "cargo": item["cargo"],
-                            "total_vigente": item.get("total_vigente", 0),
-                            "total_pagado": item.get("total_pagado", 0),
-                            "saldo": item.get("saldo", 0),
-                        }
-                    ),
-                    pagos=[schemas.PagoOut.model_validate(p) for p in item.get("pagos", [])],
-                )
-            )
-    return schemas.CuentaClienteOut(
-        persona_id=int(cuenta_persona_id) if isinstance(cuenta_persona_id, int) else persona_id,
-        saldo_total=int(cuenta_saldo_total) if isinstance(cuenta_saldo_total, int) else 0,
-        cargos=cargos_out,
-    )
 
 
 @router.get("/pacientes/{paciente_id}/cuenta", response_model=schemas.CuentaPacienteOut)
@@ -294,33 +252,10 @@ def cuenta_paciente(
     _usuario: UsuarioActual = Depends(_leer_deudas_cobros()),
 ) -> schemas.CuentaPacienteOut:
     try:
-        cuenta = service.cuenta_paciente(db, paciente_id)
+        return service.cuenta_paciente(db, paciente_id)
+    except service.PacienteNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
     except service.CobrosError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
-
-    cargos_list = cuenta.get("cargos") or []
-    cargos_out: list[schemas.CargoCuentaOut] = []
-    if isinstance(cargos_list, list):
-        for item in cargos_list:
-            if not isinstance(item, dict):
-                continue
-            cargos_out.append(
-                schemas.CargoCuentaOut(
-                    cargo=_cargo_detalle_a_out(
-                        {
-                            "cargo": item["cargo"],
-                            "total_vigente": item.get("total_vigente", 0),
-                            "total_pagado": item.get("total_pagado", 0),
-                            "saldo": item.get("saldo", 0),
-                        }
-                    ),
-                    pagos=[schemas.PagoOut.model_validate(p) for p in item.get("pagos", [])],
-                )
-            )
-    cuenta_paciente_id = cuenta.get("paciente_id")
-    cuenta_saldo_total = cuenta.get("saldo_total")
-    return schemas.CuentaPacienteOut(
-        paciente_id=int(cuenta_paciente_id) if isinstance(cuenta_paciente_id, int) else paciente_id,
-        saldo_total=int(cuenta_saldo_total) if isinstance(cuenta_saldo_total, int) else 0,
-        cargos=cargos_out,
-    )
