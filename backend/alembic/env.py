@@ -5,6 +5,7 @@ from sqlalchemy import engine_from_config, pool
 import app.core.models  # noqa: F401
 import app.modules.cobros.models  # noqa: F401
 import app.modules.identidad.models  # noqa: F401
+import app.modules.migracion.models  # noqa: F401
 import app.modules.padron.models  # noqa: F401
 from alembic import context
 from app.core.base import Base
