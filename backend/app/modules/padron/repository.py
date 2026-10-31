@@ -293,6 +293,26 @@ def titulares_vigentes(db: Session, paciente_id: int) -> list[models.Titularidad
     return list(db.execute(stmt).scalars().all())
 
 
+def titulares_historial(
+    db: Session, paciente_id: int
+) -> list[models.Titularidad]:
+    stmt = (
+        select(models.Titularidad)
+        .where(models.Titularidad.paciente_id == paciente_id)
+        .order_by(
+            models.Titularidad.desde.desc(),
+            models.Titularidad.id.desc(),
+        )
+    )
+    return list(db.execute(stmt).scalars().all())
+
+
+def obtener_titularidad(
+    db: Session, titularidad_id: int
+) -> models.Titularidad | None:
+    return db.get(models.Titularidad, titularidad_id)
+
+
 def obtener_tipo_contacto_por_nombre(
     db: Session, nombre: str
 ) -> models.TipoContacto | None:

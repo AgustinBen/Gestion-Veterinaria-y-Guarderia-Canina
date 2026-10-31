@@ -184,6 +184,13 @@ class Titularidad(Base):
             unique=True,
             sqlite_where=text("principal = 1 AND hasta IS NULL"),
         ),
+        Index(
+            "ix_titularidad_unica_persona_vigente",
+            "paciente_id",
+            "persona_id",
+            unique=True,
+            sqlite_where=text("hasta IS NULL"),
+        ),
         CheckConstraint("hasta IS NULL OR hasta >= desde", name="ck_titularidad_hasta_desde"),
     )
 
