@@ -396,6 +396,11 @@ def test_concurrencia_pago_y_ajuste(
         usuario_id=referencias_cobros.usuario_id,
     )
 
+    # Los hilos solo reciben primitivos: `cargo` queda expirado tras el commit de
+    # registrar_pago, y leer `cargo.id` desde otro hilo dispararía un lazy load
+    # concurrente sobre db_session (Session no es thread-safe).
+    cargo_id = cargo.id
+
     SessionLocal = sessionmaker(
         autocommit=False,
         autoflush=False,
@@ -415,11 +420,13 @@ def test_concurrencia_pago_y_ajuste(
     barrera = threading.Barrier(2)
     resultados: dict[str, str] = {}
     errores: dict[str, str] = {}
+    cruzaron_barrera: list[str] = []
 
     def ejecutar(nombre: str, accion: Callable[[Session], None]) -> None:
         sesion = SessionLocal()
         try:
             barrera.wait(timeout=5)
+            cruzaron_barrera.append(nombre)
             accion(sesion)
             resultados[nombre] = "ok"
         except Exception as exc:
@@ -430,7 +437,7 @@ def test_concurrencia_pago_y_ajuste(
     def pagar(sesion: Session) -> None:
         service.registrar_pago(
             sesion,
-            cargo_id=cargo.id,
+            cargo_id=cargo_id,
             monto_centavos=15000,
             medio="EFECTIVO",
             usuario_id=referencias_cobros.usuario_id,
@@ -439,7 +446,7 @@ def test_concurrencia_pago_y_ajuste(
     def ajustar(sesion: Session) -> None:
         service.ajustar_precio(
             sesion,
-            cargo_id=cargo.id,
+            cargo_id=cargo_id,
             nuevo_total_centavos=20000,
             motivo="Ajuste concurrente",
             usuario_id=referencias_cobros.usuario_id,
@@ -455,15 +462,29 @@ def test_concurrencia_pago_y_ajuste(
     for hilo in hilos:
         hilo.join(timeout=10)
 
+    # Si un hilo no terminó, su sesión sigue viva durante el teardown del fixture.
+    assert not any(hilo.is_alive() for hilo in hilos), "Un hilo no terminó a tiempo"
+    # Ambos hilos tienen que haber llegado a la carrera; un timeout de barrera no cuenta.
+    assert sorted(cruzaron_barrera) == ["ajuste", "pago"], errores
+
     # Con BEGIN IMMEDIATE exactamente una operación gana; la otra se rechaza.
     assert len(resultados) == 1, errores
     assert len(errores) == 1, resultados
+    # El perdedor debe haber leído el estado ya commiteado del ganador y fallar por
+    # regla de negocio. Un OperationalError ("database is locked") o un
+    # TransaccionNoDisponible significarían que la serialización no funcionó.
+    assert set(errores.values()) <= {"SaldoInsuficiente", "TotalMenorAPagado"}, errores
 
     sesion_final = SessionLocal()
     try:
-        total_vigente = repository.total_vigente(sesion_final, cargo.id)
-        total_pagado = total_pagado_original(sesion_final, cargo.id)
+        total_vigente = repository.total_vigente(sesion_final, cargo_id)
+        total_pagado = total_pagado_original(sesion_final, cargo_id)
     finally:
         sesion_final.close()
 
+    # Estado final coherente con el ganador: 10000 + 15000 de pago, o total 20000.
+    if "pago" in resultados:
+        assert (total_vigente, total_pagado) == (30000, 25000)
+    else:
+        assert (total_vigente, total_pagado) == (20000, 10000)
     assert total_vigente >= total_pagado
