@@ -116,6 +116,11 @@ def _obtener_cargo_o_error(db: Session, cargo_id: int) -> models.Cargo:
     return cargo
 
 
+def total_inicial_cargo(db: Session, cargo_id: int) -> int:
+    """Devuelve el total original del cargo a otros módulos, sin exponer su modelo."""
+    return int(_obtener_cargo_o_error(db, cargo_id).total_inicial)
+
+
 def crear_cargo(
     db: Session,
     *,
@@ -126,6 +131,7 @@ def crear_cargo(
     referencia_tipo: str | None = None,
     referencia_id: int | None = None,
     usuario_id: int,
+    transaccion_externa: bool = False,
 ) -> models.Cargo:
     _validar_monto_positivo(total_centavos)
 
@@ -150,7 +156,10 @@ def crear_cargo(
         creado_por=usuario_id,
     )
     db.add(cargo)
-    db.commit()
+    if transaccion_externa:
+        db.flush()
+    else:
+        db.commit()
     db.refresh(cargo)
     return cargo
 
@@ -327,6 +336,7 @@ def registrar_pago(
     empleado_id: int | None = None,
     fecha_pago: date | None = None,
     clave_idempotencia: str | None = None,
+    transaccion_externa: bool = False,
 ) -> models.Pago:
     monto = _validar_monto_positivo(monto_centavos)
     if clave_idempotencia:
@@ -346,12 +356,13 @@ def registrar_pago(
                 return existente
             raise IdempotenciaConflicto("Idempotency-Key ya utilizada con distinto cuerpo")
 
-    # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite)
-    try:
-        db.execute(text("BEGIN IMMEDIATE"))
-    except Exception:
-        # Si falla por algún motivo, seguimos (otros backends/tests)
-        pass
+    if not transaccion_externa:
+        # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite)
+        try:
+            db.execute(text("BEGIN IMMEDIATE"))
+        except Exception:
+            # Otros backends/tests pueden haber abierto ya una transacción.
+            pass
 
     try:
         cargo = _obtener_cargo_o_error(db, cargo_id)
@@ -378,14 +389,19 @@ def registrar_pago(
             clave_idempotencia=clave_idempotencia,
         )
         db.add(pago)
-        db.commit()
+        if transaccion_externa:
+            db.flush()
+        else:
+            db.commit()
         db.refresh(pago)
         return pago
     except (CobrosError, IntegrityError):
-        db.rollback()
+        if not transaccion_externa:
+            db.rollback()
         raise
     except Exception:
-        db.rollback()
+        if not transaccion_externa:
+            db.rollback()
         raise
 
 
