@@ -88,7 +88,7 @@ def test_crear_reserva_pendiente_ocupa_cupo_y_crea_cargo(
     detalle_cargo = cobros_service.obtener_cargo_detalle(
         db_session, reserva["cargo_id"]
     )
-    assert detalle_cargo["saldo"] == 300000
+    assert detalle_cargo.saldo == 300000
 
 
 def test_idempotencia_devuelve_la_misma_reserva_o_conflicto_por_cuerpo(

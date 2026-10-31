@@ -40,6 +40,7 @@ def test_migracion_cobros_aplica_integridad_y_es_reversible(tmp_path: Path) -> N
         cursor.close()
 
     inspector = inspect(engine)
+    assert "motivo" in {col["name"] for col in inspector.get_columns("pago")}
     esperadas = {
         "cargo": {
             (("persona_id",), "persona", ("id",)),
@@ -226,3 +227,22 @@ def test_migracion_cobros_aplica_integridad_y_es_reversible(tmp_path: Path) -> N
 
     engine.dispose()
     _ejecutar_migracion(backend_dir, db_path, "downgrade", "base")
+
+
+def test_migracion_motivo_reverso_es_reversible(tmp_path: Path) -> None:
+    db_path = tmp_path / "motivo.db"
+    backend_dir = Path(__file__).resolve().parents[2]
+
+    _ejecutar_migracion(backend_dir, db_path, "upgrade", "head")
+    engine = create_engine(f"sqlite:///{db_path}")
+    try:
+        assert "motivo" in {col["name"] for col in inspect(engine).get_columns("pago")}
+    finally:
+        engine.dispose()
+
+    _ejecutar_migracion(backend_dir, db_path, "downgrade", "0007")
+    engine = create_engine(f"sqlite:///{db_path}")
+    try:
+        assert "motivo" not in {col["name"] for col in inspect(engine).get_columns("pago")}
+    finally:
+        engine.dispose()
