@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import date
 from inspect import Signature, signature
 
+from sqlalchemy import event
+
 from app.modules.padron import models, repository, schemas, service
 
 
@@ -14,6 +16,7 @@ def test_contrato_publico_expone_las_funciones_y_esta_tipado() -> None:
         "buscar_pacientes",
         "obtener_persona",
         "obtener_paciente",
+        "obtener_pacientes",
         "titulares_vigentes",
         "obtener_empleado",
         "crear_persona",
@@ -121,6 +124,61 @@ def test_obtener_persona_y_paciente_inexistentes_devuelven_none(db_session) -> N
     assert service.obtener_persona(db_session, 999) is None
     assert service.obtener_paciente(db_session, 999) is None
     assert service.obtener_empleado(db_session, 999) is None
+
+
+def test_obtener_pacientes_trae_detalles_en_lote_con_consultas_acotadas(
+    db_session,
+    persona_payload,
+    catalogos,
+) -> None:
+    tutor = service.crear_persona(
+        db_session, schemas.PersonaNueva(**persona_payload())
+    )
+    especie = service.listar_especies(db_session)[0]
+    primero = service.crear_paciente(
+        db_session,
+        schemas.PacienteNuevo(
+            nombre="Primero",
+            especie_id=especie.id,
+            titular_persona_id=tutor.id,
+        ),
+    )
+    segundo = service.crear_paciente(
+        db_session,
+        schemas.PacienteNuevo(
+            nombre="Segundo",
+            especie_id=especie.id,
+            titular_persona_id=tutor.id,
+        ),
+    )
+
+    consultas: list[str] = []
+    engine = db_session.get_bind()
+
+    def registrar_consulta(
+        _conn,
+        _cursor,
+        sentencia: str,
+        _parametros,
+        _contexto,
+        _executemany: bool,
+    ) -> None:
+        consultas.append(sentencia)
+
+    event.listen(engine, "before_cursor_execute", registrar_consulta)
+    try:
+        detalles = service.obtener_pacientes(
+            db_session, [segundo.id, primero.id, 999999]
+        )
+        vacio = service.obtener_pacientes(db_session, [])
+    finally:
+        event.remove(engine, "before_cursor_execute", registrar_consulta)
+
+    assert list(detalles) == [primero.id, segundo.id]
+    assert detalles[primero.id].nombre == "Primero"
+    assert detalles[segundo.id].nombre == "Segundo"
+    assert vacio == {}
+    assert len(consultas) <= 4
 
 
 def test_obtener_personas_resumen_trae_telefonos_en_lote(

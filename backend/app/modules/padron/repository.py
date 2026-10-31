@@ -203,6 +203,46 @@ def obtener_paciente(db: Session, paciente_id: int) -> models.Paciente | None:
     return db.get(models.Paciente, paciente_id)
 
 
+def obtener_pacientes_por_ids(
+    db: Session, ids: list[int]
+) -> list[models.Paciente]:
+    if not ids:
+        return []
+    stmt = (
+        select(models.Paciente)
+        .where(models.Paciente.id.in_(ids))
+        .order_by(models.Paciente.id)
+    )
+    return list(db.execute(stmt).scalars().all())
+
+
+def obtener_especies_por_ids(
+    db: Session, ids: list[int]
+) -> dict[int, models.Especie]:
+    if not ids:
+        return {}
+    stmt = select(models.Especie).where(models.Especie.id.in_(ids))
+    return {especie.id: especie for especie in db.execute(stmt).scalars().all()}
+
+
+def obtener_razas_por_ids(
+    db: Session, ids: list[int]
+) -> dict[int, models.Raza]:
+    if not ids:
+        return {}
+    stmt = select(models.Raza).where(models.Raza.id.in_(ids))
+    return {raza.id: raza for raza in db.execute(stmt).scalars().all()}
+
+
+def obtener_tamanios_por_ids(
+    db: Session, ids: list[int]
+) -> dict[int, models.Tamanio]:
+    if not ids:
+        return {}
+    stmt = select(models.Tamanio).where(models.Tamanio.id.in_(ids))
+    return {tamanio.id: tamanio for tamanio in db.execute(stmt).scalars().all()}
+
+
 def buscar_pacientes(db: Session, *, texto: str | None = None) -> list[models.Paciente]:
     stmt = select(models.Paciente)
 
