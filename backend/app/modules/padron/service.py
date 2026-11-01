@@ -103,6 +103,21 @@ def calcular_edad(
     return meses // 12, meses % 12
 
 
+def normalizar_telefono(db: Session, texto: str) -> str:
+    """Normalización oficial del teléfono expuesta a otros módulos (RN-06).
+
+    Es la única puerta pública al formato de 10 dígitos: los consumidores (por
+    ejemplo ``migracion``) no deben importar ``normalizacion``. Un número que no
+    se puede resolver se informa como ``DatosInvalidos``.
+    """
+    try:
+        return normalizacion.normalizar_telefono(
+            texto, normalizacion.codigo_area_defecto(db)
+        )
+    except normalizacion.TelefonoInvalido as exc:
+        raise DatosInvalidos(str(exc)) from exc
+
+
 def _validar_domicilio(
     domicilio: schemas.DomicilioNuevo | None, *, migrado: bool = False
 ) -> None:
