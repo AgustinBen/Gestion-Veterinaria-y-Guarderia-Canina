@@ -1,25 +1,27 @@
 :root {
   color-scheme: light;
 
-  /* Colores cálidos */
-  --color-bg: #fbf7f1;
-  --color-bg-strong: #f4ece1;
-  --color-surface: #fffdf9;
-  --color-surface-muted: #f7f0e6;
-  --color-border: #e6d8c7;
-  --color-border-strong: #d6c2ab;
+  /* Paleta Huellitas del prototipo: café, arena y crema. */
+  --color-bg: #f4ebe1;
+  --color-bg-strong: #efe0cf;
+  --color-surface: #fffaf4;
+  --color-surface-muted: #f5e6d5;
+  --color-border: #e7d7c5;
+  --color-border-strong: #d9b48f;
 
-  --color-text: #33261f;
-  --color-text-soft: #6b5b51;
+  --color-text: #3d2b20;
+  --color-text-soft: #806b5c;
   --color-text-inverse: #fffaf4;
 
-  --color-primary: #b0522c;
-  --color-primary-hover: #934020;
-  --color-primary-soft: #f5e0d5;
+  --color-primary: #9a6a46;
+  --color-primary-hover: #74492d;
+  --color-primary-soft: #efe0cf;
 
-  --color-accent: #6f7f52;
-  --color-accent-soft: #e8ecdd;
+  --color-accent: #5b3a26;
+  --color-accent-soft: #f1e3d6;
 
+  --color-peach: #d9b48f;
+  --color-peach-soft: #f5e6d5;
   --color-warning: #96691c;
   --color-warning-soft: #fbf0d7;
 
@@ -29,11 +31,11 @@
   --color-success: #4d6a43;
   --color-success-soft: #e4ecdf;
 
-  --color-focus: #7a3a1f;
+  --color-focus: #74492d;
 
-  /* Tipografía */
-  --font-sans: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial, sans-serif;
-  --font-display: Georgia, "Times New Roman", serif;
+  /* Exactamente las familias y los pesos usados por el prototipo. */
+  --font-sans: "Nunito", system-ui, sans-serif;
+  --font-display: "Fredoka", system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace;
 
   --text-xs: 0.75rem;
@@ -65,15 +67,15 @@
   --space-16: 4rem;
 
   /* Bordes y sombras */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.75rem;
-  --radius-lg: 1rem;
-  --radius-xl: 1.5rem;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
   --radius-pill: 999px;
 
-  --shadow-sm: 0 1px 2px rgb(51 38 31 / 8%);
-  --shadow-md: 0 6px 18px rgb(51 38 31 / 10%);
-  --shadow-lg: 0 18px 40px rgb(51 38 31 / 14%);
+  --shadow-sm: 0 10px 0 -4px rgb(116 73 45 / 8%), 0 18px 40px -14px rgb(61 43 32 / 20%);
+  --shadow-md: 0 12px 34px rgb(105 59 39 / 8%);
+  --shadow-lg: 0 18px 40px rgb(61 43 32 / 20%);
 
   /* Layout */
   --layout-max: 72rem;
