@@ -5,6 +5,7 @@ export type PropsBannerDeuda = {
   debe: boolean;
   saldoTotalCentavos: number;
   deudaMasAntigua?: string | null;
+  personaId?: number;
 };
 
 /** "2026-03-05" → "05/03" sin pasar por zonas horarias. */

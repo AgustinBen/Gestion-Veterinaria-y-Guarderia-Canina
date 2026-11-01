@@ -2,13 +2,12 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
-import { BannerDeuda } from '../../../core/components/BannerDeuda';
+import {
+  BannerDeuda,
+  type PropsBannerDeuda,
+} from '../../../core/components/BannerDeuda';
 
-function renderizar(props: {
-  debe: boolean;
-  saldoTotalCentavos: number;
-  deudaMasAntigua?: string | null;
-}) {
+function renderizar(props: PropsBannerDeuda) {
   return render(
     <MemoryRouter>
       <BannerDeuda {...props} />
@@ -34,6 +33,7 @@ describe('BannerDeuda', () => {
       debe: true,
       saldoTotalCentavos: 123456,
       deudaMasAntigua: '2026-03-05',
+      personaId: 42,
     });
 
     const banner = screen.getByLabelText('Deuda pendiente');
