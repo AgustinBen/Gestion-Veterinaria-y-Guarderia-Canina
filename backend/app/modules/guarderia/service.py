@@ -356,11 +356,11 @@ def _misma_solicitud(
     if reserva.cargo_id is None:
         return False
     cuidados_existentes = {
-        paciente.paciente_id: paciente.cuidados_extras
+        paciente.paciente_id: (paciente.cuidados_extras, paciente.tipo_cuidado)
         for paciente in repository.pacientes_de_reserva(db, reserva.id)
     }
     cuidados_solicitados = {
-        cuidado.paciente_id: cuidado.cuidados_extras
+        cuidado.paciente_id: (cuidado.cuidados_extras, cuidado.tipo_cuidado)
         for cuidado in solicitud.cuidados_extras
     }
     return (
@@ -381,6 +381,11 @@ def _reserva_out(db: Session, reserva: Reserva) -> ReservaOut:
         if reserva.cargo_id is not None
         else None
     )
+    sena_centavos = (
+        cobros_service.total_senas_cargo(db, reserva.cargo_id)
+        if reserva.cargo_id is not None
+        else 0
+    )
     return ReservaOut(
         id=reserva.id,
         tutor_persona_id=reserva.tutor_persona_id,
@@ -391,10 +396,12 @@ def _reserva_out(db: Session, reserva: Reserva) -> ReservaOut:
         estado=reserva.estado,
         cargo_id=reserva.cargo_id,
         total_centavos=total_centavos,
+        sena_centavos=sena_centavos,
         pacientes=[
             ReservaPacienteOut(
                 paciente_id=paciente.paciente_id,
                 cuidados_extras=paciente.cuidados_extras,
+                tipo_cuidado=paciente.tipo_cuidado,
             )
             for paciente in repository.pacientes_de_reserva(db, reserva.id)
         ],
@@ -457,6 +464,11 @@ def crear_reserva(
                         paciente_id=paciente_id,
                         cuidados_extras=next(
                             cuidado.cuidados_extras
+                            for cuidado in solicitud.cuidados_extras
+                            if cuidado.paciente_id == paciente_id
+                        ),
+                        tipo_cuidado=next(
+                            cuidado.tipo_cuidado
                             for cuidado in solicitud.cuidados_extras
                             if cuidado.paciente_id == paciente_id
                         ),
