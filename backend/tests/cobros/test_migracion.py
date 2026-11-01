@@ -246,3 +246,91 @@ def test_migracion_motivo_reverso_es_reversible(tmp_path: Path) -> None:
         assert "motivo" not in {col["name"] for col in inspect(engine).get_columns("pago")}
     finally:
         engine.dispose()
+
+
+def test_migracion_anulacion_gasto_externo_es_reversible(tmp_path: Path) -> None:
+    db_path = tmp_path / "gastos.db"
+    backend_dir = Path(__file__).resolve().parents[2]
+
+    _ejecutar_migracion(backend_dir, db_path, "upgrade", "0009")
+    engine = create_engine(f"sqlite:///{db_path}")
+    with engine.begin() as connection:
+        usuario_id = connection.execute(
+            text(
+                "INSERT INTO usuario (username, password_hash, rol) "
+                "VALUES ('duenio-gasto', 'hash', 'DUENIO')"
+            )
+        ).lastrowid
+        empleado_id = connection.execute(
+            text("INSERT INTO persona (nombre, apellido) VALUES ('Cirujano', 'Externo')")
+        ).lastrowid
+        connection.execute(
+            text(
+                "INSERT INTO empleado (persona_id, tipo) "
+                "VALUES (:empleado_id, 'EXTERNO')"
+            ),
+            {"empleado_id": empleado_id},
+        )
+        gasto_id = connection.execute(
+            text(
+                "INSERT INTO gasto_externo "
+                "(empleado_id, descripcion, monto, fecha, registrado_por) "
+                "VALUES (:empleado_id, 'cirugia', 40000, '2026-01-05', :usuario_id)"
+            ),
+            {"empleado_id": empleado_id, "usuario_id": usuario_id},
+        ).lastrowid
+    engine.dispose()
+
+    _ejecutar_migracion(backend_dir, db_path, "upgrade", "head")
+    engine = create_engine(f"sqlite:///{db_path}")
+    try:
+        columnas = {col["name"] for col in inspect(engine).get_columns("gasto_externo")}
+        assert {
+            "anulado_en",
+            "anulado_por",
+            "motivo_anulacion",
+            "created_at",
+        } <= columnas
+        fks = inspect(engine).get_foreign_keys("gasto_externo")
+        assert (
+            ("anulado_por",),
+            "usuario",
+            ("id",),
+        ) in {
+            (tuple(fk["constrained_columns"]), fk["referred_table"], tuple(fk["referred_columns"]))
+            for fk in fks
+        }
+        checks = inspect(engine).get_check_constraints("gasto_externo")
+        assert any("monto" in (check.get("sqltext") or "") for check in checks)
+        with engine.begin() as connection:
+            fila = connection.execute(
+                text(
+                    "SELECT descripcion, monto, anulado_en, created_at FROM gasto_externo "
+                    "WHERE id = :gasto_id"
+                ),
+                {"gasto_id": gasto_id},
+            ).one()
+        assert fila[0] == "cirugia"
+        assert fila[1] == 40000
+        assert fila[2] is None
+        assert fila[3] is not None
+    finally:
+        engine.dispose()
+
+    _ejecutar_migracion(backend_dir, db_path, "downgrade", "0009")
+    engine = create_engine(f"sqlite:///{db_path}")
+    try:
+        columnas = {col["name"] for col in inspect(engine).get_columns("gasto_externo")}
+        assert not {
+            "anulado_en",
+            "anulado_por",
+            "motivo_anulacion",
+            "created_at",
+        } & columnas
+        with engine.begin() as connection:
+            assert connection.execute(
+                text("SELECT COUNT(*) FROM gasto_externo WHERE id = :gasto_id"),
+                {"gasto_id": gasto_id},
+            ).scalar_one() == 1
+    finally:
+        engine.dispose()

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import date
 from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
@@ -29,6 +30,10 @@ def _leer_deudas_cobros() -> Callable[..., UsuarioActual]:
 
 def _leer_finanzas() -> Callable[..., UsuarioActual]:
     return require_acceso(Recurso.FINANZAS, Nivel.LECTURA)
+
+
+def _escribir_finanzas() -> Callable[..., UsuarioActual]:
+    return require_acceso(Recurso.FINANZAS, Nivel.ESCRITURA)
 
 
 @router.get("/medios-pago", response_model=list[schemas.MedioPagoOut])
@@ -259,3 +264,94 @@ def cuenta_paciente(
         ) from exc
     except service.CobrosError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)) from exc
+
+
+@router.post(
+    "/gastos-externos",
+    response_model=schemas.GastoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def registrar_gasto_externo(
+    datos: schemas.GastoExternoCrear,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(_escribir_finanzas()),
+) -> schemas.GastoOut:
+    try:
+        return service.registrar_gasto_externo(
+            db,
+            empleado_externo_id=datos.empleado_id,
+            descripcion=datos.descripcion,
+            monto_centavos=datos.monto_centavos,
+            fecha=datos.fecha,
+            cargo_id=datos.cargo_id,
+            pago_id=datos.pago_id,
+            usuario_id=usuario.id,
+        )
+    except service.CobrosError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+
+@router.get("/gastos-externos", response_model=schemas.ListaGastosOut)
+def listar_gastos_externos(
+    desde: date | None = None,
+    hasta: date | None = None,
+    empleado_id: int | None = None,
+    cargo_id: int | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_leer_finanzas()),
+) -> schemas.ListaGastosOut:
+    return service.listar_gastos_externos(
+        db,
+        desde=desde,
+        hasta=hasta,
+        empleado_id=empleado_id,
+        cargo_id=cargo_id,
+        limite=limit,
+        desplazamiento=offset,
+    )
+
+
+@router.get("/gastos-externos/{gasto_id}", response_model=schemas.GastoOut)
+def obtener_gasto_externo(
+    gasto_id: int,
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_leer_finanzas()),
+) -> schemas.GastoOut:
+    try:
+        return service.obtener_gasto_externo(db, gasto_id)
+    except service.GastoNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+
+@router.post("/gastos-externos/{gasto_id}/anular", response_model=schemas.GastoOut)
+def anular_gasto_externo(
+    gasto_id: int,
+    datos: schemas.GastoAnular,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(_escribir_finanzas()),
+) -> schemas.GastoOut:
+    try:
+        return service.anular_gasto_externo(
+            db,
+            gasto_id=gasto_id,
+            motivo=datos.motivo,
+            usuario_id=usuario.id,
+        )
+    except service.GastoNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except service.GastoYaAnulado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    except service.CobrosError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc

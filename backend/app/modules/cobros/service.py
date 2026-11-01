@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from datetime import date
+from collections.abc import Callable
+from datetime import date, datetime, timezone
 
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -110,6 +111,23 @@ class TransaccionNoDisponible(CobrosError):
 
 
 class OrdenDeudoresInvalida(CobrosError):
+    pass
+
+
+class GastoNoEncontrado(CobrosError):
+    pass
+
+
+class GastoYaAnulado(CobrosError):
+    def __init__(self) -> None:
+        super().__init__("El gasto ya fue anulado")
+
+
+class EmpleadoNoEncontrado(CobrosError):
+    pass
+
+
+class EmpleadoNoEsExterno(CobrosError):
     pass
 
 
@@ -615,4 +633,159 @@ def cuenta_paciente(db: Session, paciente_id: int) -> schemas.CuentaPacienteOut:
             saldo_total += detalle.saldo
     return schemas.CuentaPacienteOut(
         paciente_id=paciente_id, saldo_total=saldo_total, cargos=items
+    )
+
+
+def _gasto_a_out(db: Session, gasto: models.GastoExterno) -> schemas.GastoOut:
+    empleado = padron_service.obtener_empleado(db, gasto.empleado_id)
+    nombre = f"{empleado.nombre} {empleado.apellido}".strip() if empleado else ""
+    return schemas.GastoOut(
+        id=gasto.id,
+        empleado_id=gasto.empleado_id,
+        empleado_nombre=nombre,
+        descripcion=gasto.descripcion,
+        monto_centavos=gasto.monto,
+        fecha=gasto.fecha,
+        cargo_id=gasto.cargo_id,
+        pago_id=gasto.pago_id,
+        registrado_por=gasto.registrado_por,
+        created_at=gasto.created_at,
+        anulado_en=gasto.anulado_en,
+        anulado_por=gasto.anulado_por,
+        motivo_anulacion=gasto.motivo_anulacion,
+    )
+
+
+def registrar_gasto_externo(
+    db: Session,
+    *,
+    empleado_externo_id: int,
+    descripcion: str,
+    monto_centavos: int,
+    fecha: date,
+    cargo_id: int | None = None,
+    pago_id: int | None = None,
+    usuario_id: int,
+    reloj: Callable[[], date] | None = None,
+) -> schemas.GastoOut:
+    monto = _validar_monto_positivo(monto_centavos)
+    descripcion_limpia = (descripcion or "").strip()
+    if not descripcion_limpia:
+        raise CobrosError("La descripción no puede estar vacía")
+
+    hoy = reloj() if reloj is not None else date.today()
+    if fecha > hoy:
+        raise CobrosError("La fecha no puede ser futura")
+
+    empleado = padron_service.obtener_empleado(db, empleado_externo_id)
+    if empleado is None:
+        raise EmpleadoNoEncontrado("Empleado no encontrado")
+    if empleado.tipo != "EXTERNO":
+        raise EmpleadoNoEsExterno("El empleado no es externo")
+
+    if cargo_id is not None:
+        _obtener_cargo_o_error(db, cargo_id)
+
+    if pago_id is not None:
+        pago = repository.obtener_pago(db, pago_id)
+        if pago is None:
+            raise PagoNoEncontrado("Pago no encontrado")
+        if not pago.es_sena:
+            raise CobrosError("El pago informado no es una seña")
+        if cargo_id is not None and pago.cargo_id != cargo_id:
+            raise CobrosError("La seña no pertenece al cargo informado")
+
+    gasto = repository.crear_gasto_externo(
+        db,
+        empleado_id=empleado_externo_id,
+        descripcion=descripcion_limpia,
+        monto=monto,
+        fecha=fecha,
+        cargo_id=cargo_id,
+        pago_id=pago_id,
+        registrado_por=usuario_id,
+    )
+    db.commit()
+    db.refresh(gasto)
+    return _gasto_a_out(db, gasto)
+
+
+def listar_gastos_externos(
+    db: Session,
+    *,
+    desde: date | None = None,
+    hasta: date | None = None,
+    empleado_id: int | None = None,
+    cargo_id: int | None = None,
+    limite: int = 50,
+    desplazamiento: int = 0,
+) -> schemas.ListaGastosOut:
+    gastos = repository.listar_gastos_externos(
+        db,
+        desde=desde,
+        hasta=hasta,
+        empleado_id=empleado_id,
+        cargo_id=cargo_id,
+        limite=limite,
+        desplazamiento=desplazamiento,
+    )
+    total = repository.total_gastos_externos(
+        db,
+        desde=desde,
+        hasta=hasta,
+        empleado_id=empleado_id,
+        cargo_id=cargo_id,
+    )
+    return schemas.ListaGastosOut(
+        items=[_gasto_a_out(db, gasto) for gasto in gastos],
+        total_centavos=total,
+    )
+
+
+def obtener_gasto_externo(db: Session, gasto_id: int) -> schemas.GastoOut:
+    gasto = repository.obtener_gasto_externo(db, gasto_id)
+    if gasto is None:
+        raise GastoNoEncontrado("Gasto no encontrado")
+    return _gasto_a_out(db, gasto)
+
+
+def anular_gasto_externo(
+    db: Session,
+    *,
+    gasto_id: int,
+    motivo: str,
+    usuario_id: int,
+) -> schemas.GastoOut:
+    motivo_limpio = (motivo or "").strip()
+    if not motivo_limpio:
+        raise CobrosError("Falta el motivo de anulación")
+
+    gasto = repository.obtener_gasto_externo(db, gasto_id)
+    if gasto is None:
+        raise GastoNoEncontrado("Gasto no encontrado")
+    if gasto.anulado_en is not None:
+        raise GastoYaAnulado()
+
+    gasto.anulado_en = datetime.now(timezone.utc)
+    gasto.anulado_por = usuario_id
+    gasto.motivo_anulacion = motivo_limpio
+    db.commit()
+    db.refresh(gasto)
+    return _gasto_a_out(db, gasto)
+
+
+def total_gastos_externos(
+    db: Session,
+    desde: date | None,
+    hasta: date | None,
+    empleado_id: int | None = None,
+    cargo_id: int | None = None,
+) -> int:
+    """Suma de gastos no anulados. La usan panel (T-38) y clínica (T-46)."""
+    return repository.total_gastos_externos(
+        db,
+        desde=desde,
+        hasta=hasta,
+        empleado_id=empleado_id,
+        cargo_id=cargo_id,
     )
