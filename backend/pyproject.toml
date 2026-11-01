@@ -15,6 +15,7 @@ dependencies = [
     "pydantic-settings",
     "pyjwt",
     "argon2-cffi",
+    "python-multipart",
     "pandas",
     "openpyxl",
 ]
