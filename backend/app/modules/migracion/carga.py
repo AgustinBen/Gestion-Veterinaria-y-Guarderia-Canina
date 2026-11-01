@@ -56,6 +56,7 @@ ENTIDAD_PACIENTE = "PACIENTE"
 # Límite de lectura de candidatos de padrón; no es una regla de negocio.
 LIMITE_BUSQUEDA = 200
 NOMBRE_REPORTE = "reporte_carga.json"
+NOMBRE_REPORTE_SIMULADO = "reporte_carga_simulado.json"
 
 
 class ErrorParametroMigracion(ValueError):
@@ -120,6 +121,18 @@ class _ResultadoFila:
     conflicto: ConflictoPeso | None = None
 
 
+class _FilaARevision(Exception):
+    """Corta la transacción de la fila cuando ya se decidió que va a revisión.
+
+    Persona, mascota, titularidad y registro caen juntos o no cae ninguno: la
+    revisión se decide antes de crear nada, así que la fila se revierte entera.
+    """
+
+    def __init__(self, resultado: _ResultadoFila) -> None:
+        super().__init__(resultado.motivo or "revision")
+        self.resultado = resultado
+
+
 def resumen_consola(reporte: ReporteCarga) -> str:
     """Resumen sin datos personales: solo conteos."""
     lineas = [
@@ -145,9 +158,14 @@ def resumen_consola(reporte: ReporteCarga) -> str:
     return "\n".join(lineas)
 
 
+def ruta_reporte(directorio: Path, *, simular: bool) -> Path:
+    nombre = NOMBRE_REPORTE_SIMULADO if simular else NOMBRE_REPORTE
+    return directorio / nombre
+
+
 def escribir_reporte(reporte: ReporteCarga, salida: Path) -> Path:
     salida.mkdir(parents=True, exist_ok=True)
-    destino = salida / NOMBRE_REPORTE
+    destino = ruta_reporte(salida, simular=reporte.simulacion)
     destino.write_text(
         json.dumps(reporte.a_dict(), ensure_ascii=False, indent=2, sort_keys=True) + "\n",
         encoding="utf-8",
@@ -160,10 +178,12 @@ def _sesion_fila(engine: Engine, conexion: Connection | None) -> Iterator[Sessio
     """Sesión con savepoint: los ``commit()`` del service no cierran la fila.
 
     Con ``conexion`` (simulación) la transacción externa es única para toda la
-    corrida y se revierte al final. Sin ``conexion`` (carga real) cada fila abre
-    su propia conexión y su propia transacción.
+    corrida y se revierte al final; cada fila abre su propio savepoint para
+    poder deshacerse sola. Sin ``conexion`` (carga real) cada fila abre su
+    propia conexión y su propia transacción.
     """
     if conexion is not None:
+        savepoint = conexion.begin_nested()
         db = Session(
             bind=conexion,
             join_transaction_mode="create_savepoint",
@@ -172,8 +192,10 @@ def _sesion_fila(engine: Engine, conexion: Connection | None) -> Iterator[Sessio
         try:
             yield db
             db.commit()
+            savepoint.commit()
         except Exception:
             db.rollback()
+            savepoint.rollback()
             raise
         finally:
             db.close()
@@ -181,6 +203,7 @@ def _sesion_fila(engine: Engine, conexion: Connection | None) -> Iterator[Sessio
 
     with engine.connect() as conn:
         transaccion = conn.begin()
+        _abrir_transaccion_real(conn)
         db = Session(
             bind=conn,
             join_transaction_mode="create_savepoint",
@@ -196,6 +219,18 @@ def _sesion_fila(engine: Engine, conexion: Connection | None) -> Iterator[Sessio
             raise
         finally:
             db.close()
+
+
+def _abrir_transaccion_real(conexion: Connection) -> None:
+    """Fuerza un ``BEGIN`` antes del primer savepoint (solo SQLite).
+
+    pysqlite abre la transacción recién con la primera escritura: si la primera
+    sentencia es un ``SAVEPOINT``, es el savepoint el que inicia la transacción
+    y liberarlo la confirma. Sin este ``BEGIN`` los ``commit()`` de padrón
+    cerrarían la fila y ni la revisión ni la simulación podrían revertirse.
+    """
+    if conexion.dialect.name == "sqlite":
+        conexion.exec_driver_sql("BEGIN")
 
 
 def _leer_parametros(engine: Engine) -> tuple[date, Decimal]:
@@ -257,6 +292,7 @@ def cargar_padron(
     if simular:
         with engine.connect() as conn:
             transaccion = conn.begin()
+            _abrir_transaccion_real(conn)
             try:
                 procesar(conn)
             finally:
@@ -292,7 +328,22 @@ def _procesar_con_transaccion(
                     reporte.cambiadas += 1
                 return
             resultado = _procesar_fila(db, fila, fecha_corte, peso_max)
+            if resultado.estado == ESTADO_REVISION:
+                raise _FilaARevision(resultado)
             _guardar_registro(db, registro, fila, hash_fila, texto_original, resultado)
+    except _FilaARevision as revision:
+        # La fila se revirtió entera (persona, mascota y titularidad incluidas):
+        # solo queda su registro, escrito en una transacción aparte.
+        try:
+            _guardar_resultado(
+                engine, conexion, fila, hash_fila, texto_original, revision.resultado
+            )
+        except Exception as exc:
+            _registrar_error(
+                engine, conexion, fila, hash_fila, texto_original, exc, reporte
+            )
+            return
+        resultado = revision.resultado
     except Exception as exc:  # una fila rota no corta la migración
         _registrar_error(
             engine, conexion, fila, hash_fila, texto_original, exc, reporte
@@ -325,6 +376,20 @@ def _procesar_con_transaccion(
     )
 
 
+def _guardar_resultado(
+    engine: Engine,
+    conexion: Connection | None,
+    fila: FilaCruda,
+    hash_fila: str,
+    texto_original: str,
+    resultado: _ResultadoFila,
+) -> None:
+    """Persiste el registro de la fila en una transacción propia."""
+    with _sesion_fila(engine, conexion) as db:
+        registro = repository.obtener(db, HOJA, fila.numero)
+        _guardar_registro(db, registro, fila, hash_fila, texto_original, resultado)
+
+
 def _registrar_error(
     engine: Engine,
     conexion: Connection | None,
@@ -337,16 +402,14 @@ def _registrar_error(
     reporte.errores += 1
     motivo = f"error_inesperado: {type(error).__name__}"
     try:
-        with _sesion_fila(engine, conexion) as db:
-            registro = repository.obtener(db, HOJA, fila.numero)
-            _guardar_registro(
-                db,
-                registro,
-                fila,
-                hash_fila,
-                texto_original,
-                _ResultadoFila(estado=ESTADO_ERROR, motivo=motivo),
-            )
+        _guardar_resultado(
+            engine,
+            conexion,
+            fila,
+            hash_fila,
+            texto_original,
+            _ResultadoFila(estado=ESTADO_ERROR, motivo=motivo),
+        )
     except Exception:  # el reporte ya cuenta el error de la fila
         return
 
@@ -464,10 +527,10 @@ def _procesar_fila(
     else:
         persona_id = persona
 
-    raza_id = _raza_id(db, especie_id, raza)
     tamanio_id = _tamanio_id(db, tamanio)
 
     try:
+        raza_id = _raza_id(db, especie_id, raza)
         return _resolver_mascota(
             db,
             fila,
@@ -495,7 +558,12 @@ def _resolver_persona(
     numero: str,
     telefono_texto: str,
 ) -> int | _ResultadoFila | None:
-    """Persona existente según teléfono + nombre; ``None`` si hay que crearla."""
+    """Persona existente según teléfono + nombre; ``None`` si hay que crearla.
+
+    Mismo teléfono y mismo nombre es la misma persona. Mismo nombre con otro
+    teléfono (o sin teléfono) nunca se fusiona: va a revisión con el candidato
+    (RN-06).
+    """
     claves = claves_de_comparacion(nombre, apellido)
 
     if numero != SIN_TELEFONO:
@@ -512,27 +580,43 @@ def _resolver_persona(
                 "telefono_de_otra_persona",
                 f"ASOCIAR_A:{candidatos[0].id}",
             )
-        return None
-
-    candidatos = padron_service.buscar_personas(
-        db, texto=apellido, limite=LIMITE_BUSQUEDA
-    )
-    for candidato in candidatos:
-        if claves_de_comparacion(candidato.nombre, candidato.apellido) != claves:
-            continue
-        if candidato.telefonos:
+        homonimo = _persona_con_mismo_nombre(db, apellido, claves)
+        if homonimo is not None:
             return _revision(
                 "Telefono_Contacto",
                 telefono_texto,
                 "nombre_con_otro_telefono",
-                f"ASOCIAR_A:{candidato.id}",
+                f"ASOCIAR_A:{homonimo.id}",
             )
+        return None
+
+    homonimo = _persona_con_mismo_nombre(db, apellido, claves)
+    if homonimo is None:
+        return None
+    if homonimo.telefonos:
         return _revision(
             "Telefono_Contacto",
             telefono_texto,
-            "persona_sin_telefono_duplicada",
-            f"ASOCIAR_A:{candidato.id}",
+            "nombre_con_otro_telefono",
+            f"ASOCIAR_A:{homonimo.id}",
         )
+    return _revision(
+        "Telefono_Contacto",
+        telefono_texto,
+        "persona_sin_telefono_duplicada",
+        f"ASOCIAR_A:{homonimo.id}",
+    )
+
+
+def _persona_con_mismo_nombre(
+    db: Session, apellido: str, claves: tuple[str, str]
+) -> padron_schemas.PersonaResumen | None:
+    """Primera persona con el mismo nombre y apellido, si existe."""
+    for candidato in padron_service.buscar_personas(
+        db, texto=apellido, limite=LIMITE_BUSQUEDA
+    ):
+        if claves_de_comparacion(candidato.nombre, candidato.apellido) == claves:
+            return candidato
     return None
 
 
