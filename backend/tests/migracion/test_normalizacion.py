@@ -171,8 +171,8 @@ def test_claves_de_comparacion_ignoran_tildes_y_mayusculas() -> None:
     [
         ("Perro - Labrador", ("Perro", "Labrador", None)),
         ("canino", ("Perro", None, None)),
-        ("Gata Siamesa", ("Gato", "Siames", None)),
-        ("Gato - Siames", ("Gato", "Siames", None)),
+        ("Gata Siamesa", ("Gato", "Siamés", None)),
+        ("Gato - Siames", ("Gato", "Siamés", None)),
         ("Perro - Caniche", ("Perro", "Caniche", None)),
         ("Mestizo mediano", (None, "Mestizo", "Mediano")),
         ("", (None, None, None)),
@@ -182,6 +182,28 @@ def test_especie_raza_por_diccionario(
     texto: str, esperado: tuple[str | None, str | None, str | None]
 ) -> None:
     assert normalizacion.especie_raza(texto) == esperado
+
+
+@pytest.mark.parametrize(
+    ("texto", "esperado"),
+    [
+        ("Ovejero Aleman", ("Perro", "Ovejero Alemán", None)),
+        ("Caniche blanco", ("Perro", "Caniche", None)),
+        ("Bulldog Frances cachorro", ("Perro", "Bulldog Francés", None)),
+        ("Gata Siamesa", ("Gato", "Siamés", None)),
+        # especie None: la carga manda la fila a revisión, nunca la asume.
+        ("Mestizo mediano", (None, "Mestizo", "Mediano")),
+        ("", (None, None, None)),
+    ],
+)
+def test_una_raza_conocida_implica_su_especie(
+    texto: str, esperado: tuple[str | None, str | None, str | None]
+) -> None:
+    assert normalizacion.especie_raza(texto) == esperado
+
+
+def test_dos_razas_de_especies_distintas_van_a_revision() -> None:
+    assert normalizacion.especie_raza("Caniche Siames") == (None, None, None)
 
 
 def test_sin_especie_explicita_nunca_se_asume() -> None:

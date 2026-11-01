@@ -82,6 +82,35 @@ RAZAS: dict[str, str] = {
     "criolla": "Criollo",
 }
 
+# Razas conocidas que implican su especie (decisión del equipo). La clave es el
+# nombre que se guarda, con tildes; la búsqueda se hace sobre el texto
+# normalizado y gana el nombre más largo. "Mestizo" no está: no implica especie
+# y se resuelve con RAZAS cuando el texto ya dice la especie.
+RAZAS_CON_ESPECIE: dict[str, str] = {
+    "Ovejero Alemán": "Perro",
+    "Caniche": "Perro",
+    "Bulldog Francés": "Perro",
+    "Labrador": "Perro",
+    "Golden Retriever": "Perro",
+    "Beagle": "Perro",
+    "Pastor": "Perro",
+    "Siamés": "Gato",
+    "Persa": "Gato",
+}
+
+# (texto normalizado, nombre para guardar, especie) de más largo a más corto:
+# si se agrega una raza que contiene a otra, la más específica gana.
+_RAZAS_POR_LONGITUD: tuple[tuple[str, str, str], ...] = tuple(
+    sorted(
+        (
+            (perfilado.normalizar_texto(nombre), nombre, especie)
+            for nombre, especie in RAZAS_CON_ESPECIE.items()
+        ),
+        key=lambda item: len(item[0]),
+        reverse=True,
+    )
+)
+
 _CONECTORES = frozenset({"de", "del", "y", "raza"})
 
 _PATRON_TITULO = re.compile(r"^(dr|dra)\.?\s+", re.IGNORECASE)
@@ -173,11 +202,24 @@ def peso_kg(texto: str) -> Decimal | None:
     return parseado.valor if parseado is not None else None
 
 
-def especie_raza(texto: str) -> tuple[str | None, str | None, str | None]:
-    """Especie, raza y tamaño según el diccionario editable.
+def _razas_detectadas(clave: str) -> list[tuple[str, str]]:
+    """Razas del mapa presentes en el texto, de la más larga a la más corta."""
+    detectadas: list[tuple[str, str]] = []
+    resto = clave
+    for texto, nombre, especie in _RAZAS_POR_LONGITUD:
+        if texto in resto:
+            detectadas.append((nombre, especie))
+            resto = resto.replace(texto, " ")
+    return detectadas
 
-    ``especie=None`` significa que el Excel no la dice: el registro va a
-    revisión y no se asume perro ni gato (RN-05).
+
+def especie_raza(texto: str) -> tuple[str | None, str | None, str | None]:
+    """Especie, raza y tamaño según los diccionarios editables.
+
+    Una raza conocida implica su especie (``RAZAS_CON_ESPECIE``); si el texto ya
+    dice la especie, esa tiene prioridad. Dos razas de especies distintas, o
+    ninguna raza ni especie reconocible, devuelven ``especie=None``: la carga
+    manda la fila a revisión y nunca asume perro ni gato (RN-05).
     """
     clave = perfilado.normalizar_texto(texto or "")
     if not clave:
@@ -195,6 +237,13 @@ def especie_raza(texto: str) -> tuple[str | None, str | None, str | None]:
             tamanio = TAMANIOS[token]
         else:
             resto.append(RAZAS.get(token, token))
+
+    detectadas = _razas_detectadas(clave)
+    if len({especie_detectada for _, especie_detectada in detectadas}) > 1:
+        return None, None, None
+    if detectadas:
+        nombre_raza, especie_de_raza = detectadas[0]
+        return (especie or especie_de_raza), nombre_raza, tamanio
 
     raza = _formatear(" ".join(resto)) if resto else None
     return especie, raza, tamanio
