@@ -3,6 +3,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 
 import app.core.models  # noqa: F401
+import app.modules.clinica.models  # noqa: F401
 import app.modules.cobros.models  # noqa: F401
 import app.modules.guarderia.models  # noqa: F401
 import app.modules.identidad.models  # noqa: F401
