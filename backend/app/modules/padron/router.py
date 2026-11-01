@@ -52,6 +52,20 @@ def _datos_invalidos(exc: service.DatosInvalidos) -> HTTPException:
     )
 
 
+def _titularidad_conflicto(exc: service.TitularidadConflicto) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=str(exc),
+    )
+
+
+def _titularidad_no_encontrada() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Titularidad no encontrada",
+    )
+
+
 @router.get("/personas", response_model=list[schemas.PersonaResumen])
 def listar_personas(
     q: str | None = None,
@@ -208,6 +222,7 @@ def actualizar_paciente(
 )
 def obtener_titulares(
     paciente_id: int,
+    historial: bool = False,
     db: Session = Depends(get_db),
     _usuario: UsuarioActual = Depends(_leer()),
 ) -> list[schemas.TitularVigente]:
@@ -215,7 +230,145 @@ def obtener_titulares(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Paciente no encontrado"
         )
+    if historial:
+        return service.titulares_historial(db, paciente_id)
     return service.titulares_vigentes(db, paciente_id)
+
+
+@router.post(
+    "/pacientes/{paciente_id}/titulares",
+    response_model=schemas.TitularVigente,
+    status_code=status.HTTP_201_CREATED,
+)
+def agregar_titular(
+    paciente_id: int,
+    datos: schemas.TitularNuevo,
+    db: Session = Depends(get_db),
+    actor: UsuarioActual = Depends(_escribir()),
+) -> schemas.TitularVigente:
+    try:
+        return service.agregar_titular(
+            db,
+            paciente_id,
+            datos.persona_id,
+            datos.tipo_contacto_id,
+            principal=datos.principal,
+            usuario_id=actor.id,
+        )
+    except service.PacienteNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Paciente no encontrado"
+        ) from exc
+    except service.PersonaNoEncontrada as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada"
+        ) from exc
+    except service.TitularidadConflicto as exc:
+        raise _titularidad_conflicto(exc) from exc
+    except service.DatosInvalidos as exc:
+        raise _datos_invalidos(exc) from exc
+
+
+@router.delete(
+    "/pacientes/{paciente_id}/titulares/{persona_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def quitar_titular_de_persona(
+    paciente_id: int,
+    persona_id: int,
+    db: Session = Depends(get_db),
+    actor: UsuarioActual = Depends(_escribir()),
+) -> None:
+    try:
+        service.quitar_titular_de_persona(
+            db, paciente_id, persona_id, usuario_id=actor.id
+        )
+    except service.TitularidadNoEncontrada as exc:
+        raise _titularidad_no_encontrada() from exc
+    except service.TitularidadConflicto as exc:
+        raise _titularidad_conflicto(exc) from exc
+    except service.DatosInvalidos as exc:
+        raise _datos_invalidos(exc) from exc
+
+
+@router.delete(
+    "/titulares/{titularidad_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def quitar_titular(
+    titularidad_id: int,
+    db: Session = Depends(get_db),
+    actor: UsuarioActual = Depends(_escribir()),
+) -> None:
+    try:
+        service.quitar_titular(db, titularidad_id, usuario_id=actor.id)
+    except service.TitularidadNoEncontrada as exc:
+        raise _titularidad_no_encontrada() from exc
+    except service.TitularidadConflicto as exc:
+        raise _titularidad_conflicto(exc) from exc
+    except service.DatosInvalidos as exc:
+        raise _datos_invalidos(exc) from exc
+
+
+@router.post(
+    "/pacientes/{paciente_id}/titular-principal",
+    response_model=schemas.TitularVigente,
+)
+def cambiar_principal(
+    paciente_id: int,
+    datos: schemas.TitularSeleccion,
+    db: Session = Depends(get_db),
+    actor: UsuarioActual = Depends(_escribir()),
+) -> schemas.TitularVigente:
+    try:
+        return service.cambiar_principal(
+            db, paciente_id, datos.persona_id, usuario_id=actor.id
+        )
+    except service.PacienteNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Paciente no encontrado"
+        ) from exc
+    except service.TitularidadConflicto as exc:
+        raise _titularidad_conflicto(exc) from exc
+    except service.DatosInvalidos as exc:
+        raise _datos_invalidos(exc) from exc
+
+
+@router.post(
+    "/pacientes/{paciente_id}/transferencia",
+    response_model=schemas.TitularVigente,
+)
+@router.post(
+    "/pacientes/{paciente_id}/transferir",
+    response_model=schemas.TitularVigente,
+)
+def transferir_paciente(
+    paciente_id: int,
+    datos: schemas.TransferenciaNueva,
+    db: Session = Depends(get_db),
+    actor: UsuarioActual = Depends(_escribir()),
+) -> schemas.TitularVigente:
+    try:
+        return service.transferir_paciente(
+            db,
+            paciente_id,
+            datos.persona_id,
+            de_persona_id=datos.de_persona_id,
+            tipo_contacto_id=datos.tipo_contacto_id,
+            usuario_id=actor.id,
+        )
+    except service.PacienteNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Paciente no encontrado"
+        ) from exc
+    except service.PersonaNoEncontrada as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Persona no encontrada"
+        ) from exc
+    except service.TitularidadConflicto as exc:
+        raise _titularidad_conflicto(exc) from exc
+    except service.DatosInvalidos as exc:
+        raise _datos_invalidos(exc) from exc
 
 
 @router.get("/empleados", response_model=list[schemas.EmpleadoDetalle])

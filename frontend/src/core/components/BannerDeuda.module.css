@@ -17,15 +17,3 @@
   min-width: 0;
   overflow-wrap: anywhere;
 }
-
-.enlace {
-  flex: 0 0 auto;
-  color: var(--color-warning);
-  font-weight: var(--weight-semibold);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.enlace:hover {
-  color: var(--color-text);
-}

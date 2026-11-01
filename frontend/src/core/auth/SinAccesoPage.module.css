@@ -4,8 +4,10 @@
   place-items: center;
   padding: var(--space-6) var(--space-4);
   background:
-    radial-gradient(circle at 15% 10%, rgb(245 224 213 / 70%), transparent 32rem),
+    var(--pawprint-pattern),
+    radial-gradient(circle at 15% 10%, rgb(239 224 207 / 70%), transparent 32rem),
     var(--color-bg);
+  background-size: 13.75rem 13.75rem, auto, auto;
 }
 
 .tarjeta {
@@ -29,6 +31,7 @@
 
 .tarjeta h1 {
   margin-bottom: var(--space-3);
+  margin-inline: auto;
   font-size: var(--text-2xl);
 }
 

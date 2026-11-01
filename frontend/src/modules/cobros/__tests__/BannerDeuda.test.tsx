@@ -2,17 +2,15 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
-import { BannerDeuda } from '../../../core/components/BannerDeuda';
+import {
+  BannerDeuda,
+  type PropsBannerDeuda,
+} from '../../../core/components/BannerDeuda';
 
-function renderizar(props: {
-  debe: boolean;
-  saldoTotalCentavos: number;
-  deudaMasAntigua?: string | null;
-  personaId?: number;
-}) {
+function renderizar(props: PropsBannerDeuda) {
   return render(
     <MemoryRouter>
-      <BannerDeuda personaId={3} {...props} />
+      <BannerDeuda {...props} />
     </MemoryRouter>,
   );
 }
@@ -30,20 +28,18 @@ describe('BannerDeuda', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('avisa el saldo y desde cuándo se debe, con enlace a la cuenta', () => {
+  it('avisa el saldo y desde cuándo se debe sin agregar un enlace redundante', () => {
     renderizar({
       debe: true,
       saldoTotalCentavos: 123456,
       deudaMasAntigua: '2026-03-05',
+      personaId: 42,
     });
 
     const banner = screen.getByLabelText('Deuda pendiente');
 
     expect(banner).toHaveTextContent('Debe $1.234,56 desde 05/03');
-    expect(screen.getByRole('link', { name: 'Ver cuenta' })).toHaveAttribute(
-      'href',
-      '/cobros/cliente/3',
-    );
+    expect(screen.queryByRole('link', { name: 'Ver cuenta' })).not.toBeInTheDocument();
   });
 
   it('omite la fecha si no hay deuda antigua registrada', () => {

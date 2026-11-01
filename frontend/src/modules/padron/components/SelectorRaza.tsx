@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { Selector } from '../../../core/components/ui/Selector';
 import { crearRaza, listarRazas, mensajeDeError } from '../api';
 import type { Raza } from '../tipos';
 import estilos from '../padron.module.css';
@@ -73,20 +74,18 @@ export function SelectorRaza({ especieId, value, onChange, puedeEscribir }: Prop
 
   return (
     <div className={estilos.selectorRaza}>
-      <select
-        aria-label="Raza"
+      <Selector
+        ariaLabel="Raza"
         disabled={!especieId}
         id="raza"
-        onChange={(evento) => onChange(evento.target.value ? Number(evento.target.value) : null)}
-        value={value ?? ''}
-      >
-        <option value="">Sin raza</option>
-        {razasVisibles.map((raza) => (
-          <option key={raza.id} value={raza.id}>
-            {raza.nombre}
-          </option>
-        ))}
-      </select>
+        onChange={(valor) => onChange(valor ? Number(valor) : null)}
+        opciones={razasVisibles.map((raza) => ({
+          value: String(raza.id),
+          label: raza.nombre,
+        }))}
+        placeholder="Sin raza"
+        value={value === null ? '' : String(value)}
+      />
 
       {puedeEscribir && especieId ? (
         <div className={estilos.altaRaza}>

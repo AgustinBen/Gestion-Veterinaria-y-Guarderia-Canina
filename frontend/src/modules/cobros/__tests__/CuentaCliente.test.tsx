@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -81,6 +81,22 @@ function cuenta(id: number): CuentaClienteDatos {
   };
 }
 
+function cuentaConCargos(id: number, cantidad: number): CuentaClienteDatos {
+  return {
+    persona_id: id,
+    saldo_total: 8000,
+    cargos: Array.from({ length: cantidad }, (_, indice) => ({
+      cargo: {
+        ...CARGO,
+        id: indice + 1,
+        persona_id: id,
+        concepto: `Cargo ${indice + 1}`,
+      },
+      pagos: [],
+    })),
+  };
+}
+
 function resumen(): ResumenDeuda {
   return {
     debe: true,
@@ -126,6 +142,53 @@ beforeEach(() => {
 });
 
 describe('CuentaCliente', () => {
+  it('pagina el historial de cargos sin alterar los totales de la cuenta', async () => {
+    vi.mocked(obtenerCuentaCliente).mockResolvedValue(cuentaConCargos(3, 21));
+
+    render(
+      <MemoryRouter initialEntries={['/cobros/cliente/3']}>
+        <Routes>
+          <Route element={<CuentaCliente />} path="/cobros/cliente/:personaId" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Cargo 1')).toBeInTheDocument();
+    expect(screen.queryByText('Cargo 21')).not.toBeInTheDocument();
+    expect(screen.getByText('Cargos registrados')).toBeInTheDocument();
+    expect(screen.getByText('21')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Siguiente' }));
+
+    expect(await screen.findByText('Cargo 21')).toBeInTheDocument();
+    expect(screen.getByText('Página 2 de 2')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Siguiente' })).toBeDisabled();
+  });
+
+  it('muestra el resumen de saldo, cargos y pagos de la cuenta', async () => {
+    render(
+      <MemoryRouter initialEntries={['/cobros/cliente/3']}>
+        <Routes>
+          <Route element={<CuentaCliente />} path="/cobros/cliente/:personaId" />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    const resumenCuenta = await screen.findByLabelText('Resumen de la cuenta');
+
+    expect(within(resumenCuenta).getByText('Saldo pendiente')).toBeInTheDocument();
+    expect(within(resumenCuenta).getByText('$80,00')).toBeInTheDocument();
+    expect(screen.getByText('Cargos registrados')).toBeInTheDocument();
+    expect(within(resumenCuenta).getByText('Total abonado')).toBeInTheDocument();
+    expect(within(resumenCuenta).getByText('$20,00')).toBeInTheDocument();
+    expect(within(resumenCuenta).getByText('Sobre $100,00 en cargos')).toBeInTheDocument();
+    expect(screen.queryByText('Movimientos')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Cada cargo muestra su total, lo pagado y el saldo.'),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Ver cuenta' })).not.toBeInTheDocument();
+  });
+
   it('no muestra la cuenta anterior ni sus acciones mientras carga otro cliente', async () => {
     const personaDiferida = promesaDiferida<PersonaBusqueda>();
     const cuentaDiferida = promesaDiferida<CuentaClienteDatos>();

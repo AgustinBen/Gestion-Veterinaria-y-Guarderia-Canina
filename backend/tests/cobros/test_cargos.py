@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from fastapi.testclient import TestClient
 
+from app.modules.cobros import models, service
+
 
 def _auth_token(client: TestClient, username: str, password: str = "clave-de-prueba-segura") -> dict[str, str]:
     respuesta = client.post("/api/auth/login", json={"username": username, "password": password})
@@ -62,3 +64,23 @@ def test_obtener_cargo_inexistente_404(
     headers = _auth_token(client, "duenio-cobros")
     respuesta = client.get("/api/cargos/999999", headers=headers)
     assert respuesta.status_code == 404
+
+
+def test_crear_cargo_no_confirma_transaccion_externa(db_session, referencias_cobros) -> None:
+    db_session.commit()
+
+    cargo = service.crear_cargo(
+        db_session,
+        persona_id=referencias_cobros.persona_id,
+        concepto="Reserva",
+        total_centavos=30000,
+        referencia_tipo="RESERVA",
+        referencia_id=1,
+        usuario_id=referencias_cobros.usuario_id,
+        transaccion_externa=True,
+    )
+    cargo_id = cargo.id
+
+    db_session.rollback()
+
+    assert db_session.get(models.Cargo, cargo_id) is None

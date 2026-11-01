@@ -61,6 +61,32 @@ describe('LoginPage', () => {
     expect(leerSesion()).toEqual({ token: 'jwt-real', rol: 'DUENIO', usuario: 'ana' });
   });
 
+  it('anima la huellita mientras procesa el inicio de sesión', async () => {
+    let completarInicio: (sesion: { token: string; rol: 'DUENIO' }) => void = () => {
+      throw new Error('El inicio de sesión no se inició.');
+    };
+    iniciarSesionApiMock.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          completarInicio = resolve;
+        }),
+    );
+    const usuarioEvento = userEvent.setup();
+
+    renderizarLogin();
+    await usuarioEvento.type(screen.getByLabelText('Usuario'), 'ana');
+    await usuarioEvento.type(screen.getByLabelText('Contraseña'), 'secreta');
+    await usuarioEvento.click(screen.getByRole('button', { name: 'Ingresar' }));
+
+    const marca = screen.getByText('Huellitas').parentElement;
+    const logo = marca?.previousElementSibling;
+    expect(logo?.className).toContain('logoIngresando');
+    expect(screen.getByRole('button', { name: 'Ingresando…' })).toBeDisabled();
+
+    completarInicio({ token: 'jwt-real', rol: 'DUENIO' });
+    expect(await screen.findByRole('heading', { name: 'Panel' })).toBeInTheDocument();
+  });
+
   it('muestra el mensaje de credenciales inválidas y permite reintentar', async () => {
     iniciarSesionApiMock.mockRejectedValueOnce(new Error('Credenciales inválidas'));
 

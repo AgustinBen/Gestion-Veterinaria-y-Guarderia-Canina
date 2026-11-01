@@ -5,10 +5,15 @@
   left: 0;
   z-index: var(--z-nav);
   padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom));
-  border-top: 1px solid var(--color-border);
-  background: rgb(255 253 249 / 96%);
-  box-shadow: 0 -4px 20px rgb(51 38 31 / 6%);
-  backdrop-filter: blur(12px);
+  border: 1px solid rgb(231 215 197 / 82%);
+  border-bottom: 0;
+  border-radius: 1.5rem 1.5rem 0 0;
+  background-color: var(--color-warning-soft);
+  background-image: var(--pawprint-pattern), var(--pawprint-pattern);
+  background-position: 0 0, 0 0;
+  background-size: 13.75rem 13.75rem, 13.75rem 13.75rem;
+  background-attachment: fixed, fixed;
+  box-shadow: 0 -10px 30px rgb(61 43 32 / 8%);
 }
 
 .lista {
@@ -28,10 +33,12 @@
 .item {
   display: flex;
   width: 100%;
-  min-height: 3.25rem;
+  min-height: 3.7rem;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 0 2px;
+  gap: 3px;
+  padding: 4px 2px;
   border: 0;
   border-radius: var(--radius-md);
   background: transparent;
@@ -48,6 +55,18 @@
 .item:hover {
   background: var(--color-surface-muted);
   color: var(--color-text);
+}
+
+.icono {
+  display: grid;
+  width: 1.2rem;
+  height: 1.2rem;
+  place-items: center;
+}
+
+.icono svg {
+  width: 100%;
+  height: 100%;
 }
 
 .etiqueta {
@@ -80,6 +99,34 @@
   font-weight: var(--weight-semibold);
 }
 
+.masEnlace {
+  gap: var(--space-2);
+}
+
+.masEnlace .contador {
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 var(--space-2);
+  margin-left: auto;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.masEnlace.activo .contador {
+  border-color: var(--color-surface);
+  background: var(--color-surface);
+  color: var(--color-danger);
+  box-shadow: 0 2px 8px rgb(61 43 32 / 18%);
+}
+
+.masEnlace .icono {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: 0 0 auto;
+}
+
 .masPanel {
   position: absolute;
   right: var(--space-3);
@@ -90,7 +137,11 @@
   padding: var(--space-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
-  background: var(--color-surface);
+  background-color: var(--color-warning-soft);
+  background-image: var(--pawprint-pattern), var(--pawprint-pattern);
+  background-position: 0 0, 0 0;
+  background-size: 13.75rem 13.75rem, 13.75rem 13.75rem;
+  background-attachment: fixed, fixed;
   box-shadow: var(--shadow-lg);
 }
 
