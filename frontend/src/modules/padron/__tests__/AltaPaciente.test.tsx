@@ -65,8 +65,9 @@ function renderizar() {
 }
 
 async function elegirEspecie(usuario: ReturnType<typeof userEvent.setup>) {
-  await screen.findByRole('option', { name: 'Perro' });
-  await usuario.selectOptions(screen.getByLabelText('Especie'), '1');
+  const selector = screen.getByRole('combobox', { name: 'Especie' });
+  await usuario.click(selector);
+  await usuario.click(await screen.findByRole('option', { name: 'Perro' }));
   await waitFor(() => expect(listarRazas).toHaveBeenCalledWith(1));
 }
 
@@ -123,7 +124,9 @@ describe('Alta de mascota', () => {
     await usuario.click(screen.getByRole('button', { name: 'Crear raza' }));
 
     expect(crearRaza).toHaveBeenCalledWith({ nombre: 'Mestizo', especie_id: 1 });
-    await waitFor(() => expect(screen.getByLabelText('Raza')).toHaveValue('9'));
+    const selectorRaza = screen.getByRole('combobox', { name: 'Raza' });
+    await waitFor(() => expect(selectorRaza).toHaveTextContent('Mestizo'));
+    await usuario.click(selectorRaza);
     expect(screen.getByRole('option', { name: 'Mestizo' })).toBeInTheDocument();
 
     await usuario.click(screen.getByRole('button', { name: 'Guardar' }));
