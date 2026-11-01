@@ -5,12 +5,19 @@ import { ApiError } from '../../../core/api/client';
 import { Alerta } from '../../../core/components/ui/Alerta';
 import { Boton } from '../../../core/components/ui/Boton';
 import { Campo } from '../../../core/components/ui/Campo';
+import { DialogoConfirmacion } from '../../../core/components/ui/DialogoConfirmacion';
 import { formatearDinero, parsearDinero } from '../../../core/formatos/dinero';
 import { listarMediosPago } from '../../cobros/api';
 import type { MedioPago } from '../../cobros/tipos';
 import { obtenerPaciente } from '../../padron/api';
 import type { PacienteDetalle } from '../../padron/tipos';
-import { generarIdempotencyKey, mensajeDeError, obtenerReserva, registrarSena } from '../api';
+import {
+  cancelarReserva,
+  generarIdempotencyKey,
+  mensajeDeError,
+  obtenerReserva,
+  registrarSena,
+} from '../api';
 import { formatoFechaReserva } from '../fechas';
 import { usePuedeEscribirReservas } from '../permisos';
 import type { EstadoReserva, Reserva, ReservaSenaCrear } from '../tipos';
@@ -67,7 +74,9 @@ export function DetalleReserva() {
   const id = numeroPositivo(reservaId);
   const puedeEscribir = usePuedeEscribirReservas();
   const idempotencyKey = useState(generarIdempotencyKey)[0];
+  const [claveCancelacion, setClaveCancelacion] = useState(generarIdempotencyKey);
   const enviandoRef = useRef(false);
+  const cancelandoRef = useRef(false);
   const [intento, setIntento] = useState(0);
   const [carga, setCarga] = useState<DatosCarga | null>(null);
   const [formularioAbierto, setFormularioAbierto] = useState(false);
@@ -85,6 +94,9 @@ export function DetalleReserva() {
   );
   const [enviando, setEnviando] = useState(false);
   const [errorSena, setErrorSena] = useState('');
+  const [dialogoCancelacionAbierto, setDialogoCancelacionAbierto] = useState(false);
+  const [cancelando, setCancelando] = useState(false);
+  const [errorCancelacion, setErrorCancelacion] = useState('');
 
   useEffect(() => {
     const reservaIdActual = id;
@@ -275,7 +287,37 @@ export function DetalleReserva() {
     }
   }
 
+  async function confirmarCancelacion() {
+    if (cancelandoRef.current) {
+      return;
+    }
+
+    cancelandoRef.current = true;
+    setCancelando(true);
+    setErrorCancelacion('');
+
+    try {
+      const actualizada = await cancelarReserva(reserva.id, {
+        idempotencyKey: claveCancelacion,
+      });
+      setCarga({
+        id: cargaActual.id,
+        datos: { ...cargaActual, reserva: actualizada },
+        error: '',
+      });
+      setDialogoCancelacionAbierto(false);
+      setClaveCancelacion(generarIdempotencyKey());
+    } catch (fallo: unknown) {
+      setErrorCancelacion(mensajeDeError(fallo));
+    } finally {
+      cancelandoRef.current = false;
+      setCancelando(false);
+    }
+  }
+
   const tramo = `${formatoFechaReserva(reserva.desde_fecha)} (${ETIQUETAS_FRANJA[reserva.desde_franja]}) – ${formatoFechaReserva(reserva.hasta_fecha)} (${ETIQUETAS_FRANJA[reserva.hasta_franja]})`;
+  const cancelable =
+    reserva.estado === 'PENDIENTE_SENA' || reserva.estado === 'CONFIRMADA';
 
   return (
     <section aria-labelledby="titulo-detalle-reserva" className={estilos.pagina}>
@@ -428,6 +470,57 @@ export function DetalleReserva() {
           ) : null}
         </section>
       ) : null}
+
+      {puedeEscribir && cancelable ? (
+        <section className={estilos.seccionAcciones}>
+          <Boton
+            onClick={() => {
+              setErrorCancelacion('');
+              setClaveCancelacion(generarIdempotencyKey());
+              setDialogoCancelacionAbierto(true);
+            }}
+            variante="peligro"
+          >
+            Cancelar reserva
+          </Boton>
+        </section>
+      ) : null}
+
+      <DialogoConfirmacion
+        abierto={dialogoCancelacionAbierto}
+        bloquearCierre={cancelando}
+        descripcion="¿Confirmás la cancelación de esta reserva?"
+        onCerrar={() => setDialogoCancelacionAbierto(false)}
+        pie={
+          <div className={estilos.botonesCancelacion}>
+            <Boton
+              disabled={cancelando}
+              onClick={() => setDialogoCancelacionAbierto(false)}
+              variante="secundario"
+            >
+              Volver
+            </Boton>
+            <Boton
+              cargando={cancelando}
+              onClick={() => void confirmarCancelacion()}
+              variante="peligro"
+            >
+              Confirmar cancelación
+            </Boton>
+          </div>
+        }
+        titulo="Cancelar reserva"
+      >
+        <p>
+          Los pagos registrados, incluida la seña, se conservarán y no se
+          devolverán. El saldo pendiente se cerrará mediante un ajuste auditable.
+        </p>
+        {errorCancelacion ? (
+          <Alerta role="alert" tono="error">
+            {errorCancelacion}
+          </Alerta>
+        ) : null}
+      </DialogoConfirmacion>
     </section>
   );
 }

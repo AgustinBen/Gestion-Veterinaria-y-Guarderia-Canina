@@ -55,6 +55,7 @@ Fecha: 2026-10-25. Fuentes: enunciado, documentos de alcance y plan, apuntes de 
 - **RN-17** Reservar en guardería exige una seña obligatoria, de monto libre. `CONFIRMADA`
 - **RN-18** Descuento automático del 20% sobre la tarifa diaria total cuando un mismo tutor reserva a la vez para dos o más mascotas. `CONFIRMADA` (detalles en PENDIENTE)
 - **RN-19** La tarifa depende de la franja, la cantidad de días y los cuidados extras (sí o no). `CONFIRMADA`
+- **RN-19a** El Dueño o Personal puede cancelar manualmente una reserva pendiente de seña o confirmada. La cancelación libera las plazas, conserva todos los pagos (incluida la seña) sin devolución y cierra el saldo pendiente mediante un ajuste auditable; la reserva queda registrada como cancelada y no aparece en la agenda. `DECIDIDA` (T-64)
 
 ### Cobros y deudas
 - **RN-20** Cada servicio tiene un total y uno o más pagos (seña, parciales, saldo). Cada pago registra monto, medio (efectivo, débito, transferencia, Mercado Pago), fecha y empleado. `CONFIRMADA`
@@ -85,6 +86,7 @@ Fecha: 2026-10-25. Fuentes: enunciado, documentos de alcance y plan, apuntes de 
 | Padrón (dueños y mascotas) | Sí | Sí | Solo lectura |
 | Reservas de guardería y cupo | Sí | Sí | Solo lectura |
 | Habilitar plaza de emergencia (RN-14, provisional) | Sí | No | No |
+| Cancelar reserva manualmente (RN-19a) | Sí | Sí | No |
 | Turnos veterinarios | Sí | Sí | Sí |
 | Historia clínica | Sí | Solo lectura (a validar con el cliente) | Sí, con escritura |
 
@@ -127,9 +129,10 @@ Karma de confiabilidad, notificaciones, portal para dueños, política automatiz
 | 2026-10-25 | RN-22: subir el precio lo puede hacer quien cobra (Dueño o Personal); bajarlo solo el Dueño. | Emiliano propuso que el precio solo pudiera subir para evitar pérdidas; Aldana lo leyó como la regla escrita (sube o baja). Se eligió una opción intermedia: se mantienen los descuentos (hay una bonificación del 50% en el Excel) pero con control del Dueño. |
 | 2026-10-25 | RN-14: la plaza de emergencia solo la habilita el Dueño (antes, Veterinario o Dueño). **Provisional.** | Decisión de Agustín, "por ahora". Se aparta del requisito original ("firmada por el veterinario a cargo"); queda como pregunta 11 al cliente. |
 | 2026-10-29 | El listado global de deudores es solo del Dueño; Personal conserva deudas y cobros en la cuenta del cliente. | Evitar que Personal acceda al listado global desde el botón "Ver deudores" de Cobros. Se considera información financiera/detalle por cliente. |
+| 2026-11-01 | RN-19a: Dueño y Personal pueden cancelar reservas pendientes o confirmadas; se liberan las plazas, se conservan pagos sin devolución y el saldo se cierra mediante un ajuste auditable. | T-64; mantener el historial de cobros y evitar saldos pendientes asociados a reservas canceladas. |
 
 ## 7. Documentos a corregir (tickets y agentes con texto viejo)
-- `AGENTS.md` (PR #15 de Aldana): plaza de emergencia solo para Dueño (rol, matriz y regla de guardería); precio: subir cualquier rol con permiso de cobro, bajar solo Dueño; encabezado que no diga que todo `SUPUESTO` es `DECIDIDA` y remita a este documento; cerrar el bloque de código de la sección 4; reponer la sección de seguridad y datos (secretos, `.env`, `.db`, Excel real fuera del repo, contraseñas con hash).
+- `AGENTS.md` (PR #15 de Aldana): precio: subir cualquier rol con permiso de cobro, bajar solo Dueño; encabezado que no diga que todo `SUPUESTO` es `DECIDIDA` y remita a este documento; cerrar el bloque de código de la sección 4; reponer la sección de seguridad y datos (secretos, `.env`, `.db`, Excel real fuera del repo, contraseñas con hash).
 - `opencode.json` (PR #15): la clave correcta es `permission` (objeto), no `permissions` (lista); quitar el modelo fijo.
 - `README.md` (PR #15): ya no hay seis agentes especializados.
 - `docs/specs/identidad.md`: matriz con "Habilitar plaza de emergencia" solo para Dueño, y la línea de RN-14 que dice "VETERINARIO o DUENIO". Agregar las filas de subir y bajar precio.

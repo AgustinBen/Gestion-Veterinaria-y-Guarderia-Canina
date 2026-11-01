@@ -31,6 +31,22 @@ class Disponibilidad(BaseModel):
     disponible: int
 
 
+class HabilitacionEmergenciaCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fecha: date
+    franja: Franja
+    motivo: str = Field(min_length=1, max_length=500)
+
+    @field_validator("motivo")
+    @classmethod
+    def normalizar_motivo(cls, valor: str) -> str:
+        motivo = valor.strip()
+        if not motivo:
+            raise ValueError("El motivo es obligatorio")
+        return motivo
+
+
 class FranjaSinLugar(BaseModel):
     fecha: date
     franja: Franja

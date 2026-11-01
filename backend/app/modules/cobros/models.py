@@ -77,7 +77,10 @@ class Cargo(Base):
 class AjustePrecio(Base):
     __tablename__ = "ajuste_precio"
     __table_args__ = (
-        CheckConstraint("precio_nuevo > 0", name="ck_ajuste_precio_nuevo_positivo"),
+        CheckConstraint(
+            "precio_nuevo >= 0",
+            name="ck_ajuste_precio_nuevo_no_negativo",
+        ),
         CheckConstraint(
             "typeof(precio_anterior) = 'integer' AND typeof(precio_nuevo) = 'integer'",
             name="ck_ajuste_precio_importes_enteros",

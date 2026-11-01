@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { AuthContext, type ValorAuth } from '../../../core/auth/contexto';
 import type { Rol } from '../../../core/auth/permisos';
+import { fechaLocal } from '../fechas';
 import { guarderiaRoutes } from '../routes';
 
 vi.mock('../api', async (importOriginal) => {
@@ -58,7 +59,7 @@ describe('rutas de guardería y permisos', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Nueva reserva' })).toHaveAttribute(
       'href',
-      '/guarderia/nueva',
+      `/guarderia/reservar?fecha=${fechaLocal(new Date())}`,
     );
   });
 

@@ -3,8 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from '../../../core/api/client';
 import {
   crearReserva,
+  cancelarReserva,
+  habilitarPlazaEmergencia,
   leerErrorReserva,
   listarCalendario,
+  listarReservas,
   obtenerReserva,
   registrarSena,
 } from '../api';
@@ -55,6 +58,15 @@ describe('API de guardería', () => {
     );
   });
 
+  it('consulta las reservas que se superponen con el rango', () => {
+    listarReservas('2026-12-14', '2026-12-20');
+
+    expect(api.get).toHaveBeenCalledWith(
+      '/guarderia/reservas?desde=2026-12-14&hasta=2026-12-20',
+      { signal: undefined },
+    );
+  });
+
   it('envía la reserva estructurada y la clave idempotente', () => {
     crearReserva(SOLICITUD, { idempotencyKey: 'clave-formulario' });
 
@@ -75,6 +87,33 @@ describe('API de guardería', () => {
       '/guarderia/reservas/42/sena',
       { monto_centavos: 5000, medio: 'EFECTIVO' },
       { idempotencyKey: 'clave-formulario', signal: undefined },
+    );
+  });
+
+  it('habilita una plaza de emergencia con clave idempotente', () => {
+    const solicitud = {
+      fecha: '2026-12-15',
+      franja: 'DIA' as const,
+      motivo: 'Necesidad operativa',
+    };
+    habilitarPlazaEmergencia(solicitud, {
+      idempotencyKey: 'clave-emergencia',
+    });
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/guarderia/emergencias',
+      solicitud,
+      { idempotencyKey: 'clave-emergencia', signal: undefined },
+    );
+  });
+
+  it('cancela una reserva con clave idempotente y sin cuerpo', () => {
+    cancelarReserva(42, { idempotencyKey: 'clave-cancelacion' });
+
+    expect(api.post).toHaveBeenCalledWith(
+      '/guarderia/reservas/42/cancelar',
+      undefined,
+      { idempotencyKey: 'clave-cancelacion', signal: undefined },
     );
   });
 

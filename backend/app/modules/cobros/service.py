@@ -162,6 +162,49 @@ def total_senas_cargo(db: Session, cargo_id: int) -> int:
     return repository.total_senas(db, cargo_id)
 
 
+def cerrar_cargo_por_cancelacion(
+    db: Session,
+    *,
+    cargo_id: int,
+    usuario_id: int,
+    transaccion_externa: bool = False,
+) -> models.AjustePrecio | None:
+    """Cierra el saldo de una reserva cancelada sin borrar ni revertir pagos."""
+    if not transaccion_externa:
+        _iniciar_transaccion(db)
+
+    try:
+        cargo = _obtener_cargo_o_error(db, cargo_id)
+        if cargo.referencia_tipo != "RESERVA":
+            raise CobrosError("Solo se pueden cerrar cargos de reservas canceladas")
+
+        total_vigente = repository.total_vigente(db, cargo_id)
+        total_pagado = repository.total_pagado(db, cargo_id)
+        if total_pagado > total_vigente:
+            raise TotalMenorAPagado(total_pagado)
+        if total_pagado == total_vigente:
+            if not transaccion_externa:
+                db.commit()
+            return None
+
+        ajuste = repository.crear_ajuste(
+            db,
+            cargo_id=cargo_id,
+            precio_anterior=total_vigente,
+            precio_nuevo=total_pagado,
+            motivo="Cierre del saldo por cancelación de reserva",
+            usuario_id=usuario_id,
+        )
+        if not transaccion_externa:
+            db.commit()
+            db.refresh(ajuste)
+        return ajuste
+    except Exception:
+        if not transaccion_externa:
+            db.rollback()
+        raise
+
+
 def _iniciar_transaccion(db: Session) -> None:
     """Serializa escrituras con BEGIN IMMEDIATE (SQLite).
 
