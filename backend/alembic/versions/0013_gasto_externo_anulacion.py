@@ -1,7 +1,7 @@
 """Anulación auditada de gastos a externos.
 
-Revision ID: 0010
-Revises: 0009
+Revision ID: 0013
+Revises: 0012
 Create Date: 2026-11-01
 """
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0010"
-down_revision: Union[str, Sequence[str], None] = "0009"
+revision: str = "0013"
+down_revision: Union[str, Sequence[str], None] = "0012"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

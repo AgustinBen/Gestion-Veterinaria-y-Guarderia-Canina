@@ -1,7 +1,7 @@
 """Agregar fecha de registro a gastos externos.
 
-Revision ID: 0011
-Revises: 0010
+Revision ID: 0014
+Revises: 0013
 Create Date: 2026-11-01
 """
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0011"
-down_revision: Union[str, Sequence[str], None] = "0010"
+revision: str = "0014"
+down_revision: Union[str, Sequence[str], None] = "0013"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
