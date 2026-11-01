@@ -1,7 +1,7 @@
 """Guardar el detalle de cuidados especiales por paciente de la reserva.
 
-Revision ID: 0008
-Revises: 0007
+Revision ID: 0009
+Revises: 0008
 Create Date: 2026-10-31
 """
 
@@ -12,8 +12,8 @@ import sqlalchemy as sa
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "0008"
-down_revision: Union[str, Sequence[str], None] = "0007"
+revision: str = "0009"
+down_revision: Union[str, Sequence[str], None] = "0008"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
