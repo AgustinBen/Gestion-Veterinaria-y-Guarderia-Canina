@@ -155,8 +155,9 @@ export function Deudores() {
 
   return (
     <section className={estilos.pagina} aria-labelledby="titulo-deudores">
-      <div className={estilos.cabecera}>
-        <div>
+      <div className={`${estilos.cabecera} ${estilos.cabeceraDeudores}`}>
+        <div className={estilos.introduccionDeudores}>
+          <p className={estilos.antetitulo}>Cuentas por cobrar</p>
           <h1 className={estilos.titulo} id="titulo-deudores">
             Deudores
           </h1>
@@ -169,11 +170,20 @@ export function Deudores() {
         <div className={estilos.acciones}>
           <Link className={estilos.botonEnlaceSecundario} to="/cobros">
             Volver a Cobros
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M19 12H5m7 7-7-7 7-7" />
+            </svg>
           </Link>
         </div>
       </div>
 
-      <div className={estilos.acciones}>
+      <div className={estilos.barOrden}>
+        <div>
+          <span className={estilos.barOrdenTitulo}>Priorizar seguimiento</span>
+          <span className={estilos.barOrdenTexto}>
+            Elegí cómo ordenar los saldos pendientes.
+          </span>
+        </div>
         <div className={estilos.selector} role="group" aria-label="Ordenar deudores">
           {ORDENES.map((opcion) => (
             <button
@@ -223,72 +233,101 @@ export function Deudores() {
 
       {deudores.length > 0 ? (
         <>
-          <div className={estilos.tablaMarco}>
-            <table className={estilos.tabla}>
-              <caption className="sr-only">Clientes con deuda pendiente</caption>
-              <thead>
-                <tr>
-                  <th scope="col">Cliente</th>
-                  <th scope="col" className={estilos.numero}>
-                    Saldo
-                  </th>
-                  <th scope="col" className={estilos.numero}>
-                    Cargos
-                  </th>
-                  <th scope="col" className={estilos.numero}>
-                    Deuda más antigua
-                  </th>
-                  <th scope="col" className={estilos.numero}>
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {deudores.map((deudor) => (
-                  <tr key={deudor.persona.id}>
-                    <td data-etiqueta="Cliente">
-                      <span className={estilos.concepto}>
-                        <span className={estilos.filaResultado}>
-                          <strong>
-                            {deudor.persona.apellido}, {deudor.persona.nombre}
-                          </strong>
-                          {deudor.saldo_migracion_centavos > 0 ? (
-                            <span
-                              className={`${estilos.insignia} ${estilos.insigniaAviso}`}
-                            >
-                              Deuda migrada
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className={estilos.textoSuave}>
-                          {deudor.persona.telefono_principal
-                            ? `Tel. ${deudor.persona.telefono_principal}`
-                            : 'Sin teléfono registrado'}
-                        </span>
-                      </span>
-                    </td>
-                    <td className={estilos.numero} data-etiqueta="Saldo">
-                      <strong>{formatearDinero(deudor.saldo_total_centavos)}</strong>
-                    </td>
-                    <td className={estilos.numero} data-etiqueta="Cargos">
-                      {deudor.cantidad_cargos_pendientes}
-                    </td>
-                    <td className={estilos.numero} data-etiqueta="Deuda más antigua">
-                      {formatearFecha(deudor.deuda_mas_antigua)}
-                    </td>
-                    <td className={estilos.numero} data-etiqueta="Acciones">
-                      <Link
-                        className={estilos.enlace}
-                        to={`/cobros/cliente/${deudor.persona.id}`}
-                      >
-                        Ver cuenta de {deudor.persona.apellido},{' '}
-                        {deudor.persona.nombre}
-                      </Link>
-                    </td>
+          <div className={estilos.tablaPanel}>
+            <div className={estilos.tablaEncabezado}>
+              <div>
+                <h2 className={estilos.tituloSeccion}>Saldos pendientes</h2>
+                <p className={estilos.textoSuave}>
+                  Consultá el detalle de cargos y pagos de cada cliente.
+                </p>
+              </div>
+              <span className={estilos.etiquetaPendiente}>
+                <span
+                  aria-hidden="true"
+                  className={estilos.puntoPendiente}
+                />
+                Pendiente
+              </span>
+            </div>
+            <div className={estilos.tablaMarco}>
+              <table className={estilos.tabla}>
+                <caption className="sr-only">Clientes con deuda pendiente</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Cliente</th>
+                    <th scope="col" className={estilos.numero}>
+                      Saldo
+                    </th>
+                    <th scope="col" className={estilos.numero}>
+                      Cargos
+                    </th>
+                    <th scope="col" className={estilos.numero}>
+                      Deuda más antigua
+                    </th>
+                    <th scope="col" className={estilos.numero}>
+                      Acciones
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {deudores.map((deudor) => (
+                    <tr key={deudor.persona.id}>
+                      <td data-etiqueta="Cliente">
+                        <span className={estilos.deudorCliente}>
+                          <span className={estilos.avatarCliente} aria-hidden="true">
+                            {deudor.persona.nombre.charAt(0)}
+                            {deudor.persona.apellido.charAt(0)}
+                          </span>
+                          <span className={estilos.concepto}>
+                            <span className={estilos.filaResultado}>
+                              <strong>
+                                {deudor.persona.apellido}, {deudor.persona.nombre}
+                              </strong>
+                              {deudor.saldo_migracion_centavos > 0 ? (
+                                <span
+                                  className={`${estilos.insignia} ${estilos.insigniaAviso}`}
+                                >
+                                  Deuda migrada
+                                </span>
+                              ) : null}
+                            </span>
+                            <span className={estilos.textoSuave}>
+                              {deudor.persona.telefono_principal
+                                ? `Tel. ${deudor.persona.telefono_principal}`
+                                : 'Sin teléfono registrado'}
+                            </span>
+                          </span>
+                        </span>
+                      </td>
+                      <td
+                        className={`${estilos.numero} ${estilos.saldoDeudor}`}
+                        data-etiqueta="Saldo"
+                      >
+                        <strong>{formatearDinero(deudor.saldo_total_centavos)}</strong>
+                      </td>
+                      <td className={estilos.numero} data-etiqueta="Cargos">
+                        {deudor.cantidad_cargos_pendientes}
+                      </td>
+                      <td className={estilos.numero} data-etiqueta="Deuda más antigua">
+                        {formatearFecha(deudor.deuda_mas_antigua)}
+                      </td>
+                      <td className={estilos.numero} data-etiqueta="Acciones">
+                        <Link
+                          className={estilos.accionCuenta}
+                          to={`/cobros/cliente/${deudor.persona.id}`}
+                        >
+                          Ver cuenta de {deudor.persona.apellido},{' '}
+                          {deudor.persona.nombre}
+                          <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="m9 18 6-6-6-6" />
+                          </svg>
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
 
           {errorCargarMas ? (

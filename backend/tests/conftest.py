@@ -55,10 +55,12 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
             pass
 
     app.dependency_overrides[get_db] = override_get_db
+    # El lifespan usa SessionLocal global; el arranque se prueba con una base temporal aparte.
+    test_client = TestClient(app)
     try:
-        with TestClient(app) as c:
-            yield c
+        yield test_client
     finally:
+        test_client.close()
         app.dependency_overrides.clear()
 
 

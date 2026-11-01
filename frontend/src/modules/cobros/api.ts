@@ -20,6 +20,11 @@ type OpcionesLectura = {
   signal?: AbortSignal;
 };
 
+type OpcionesListadoPersonas = OpcionesLectura & {
+  limite?: number;
+  offset?: number;
+};
+
 function query(params: Record<string, string | number | boolean | undefined>): string {
   const busqueda = new URLSearchParams();
 
@@ -80,11 +85,16 @@ export function generarIdempotencyKey(): string {
 
 export function buscarPersonas(
   texto: string,
-  opciones: OpcionesLectura = {},
+  opciones: OpcionesListadoPersonas = {},
 ): Promise<PersonaBusqueda[]> {
-  return api.get<PersonaBusqueda[]>(`/personas${query({ q: texto })}`, {
-    signal: opciones.signal,
-  });
+  return api.get<PersonaBusqueda[]>(
+    `/personas${query({
+      q: texto || undefined,
+      limit: opciones.limite,
+      offset: opciones.offset,
+    })}`,
+    { signal: opciones.signal },
+  );
 }
 
 export function obtenerPersona(

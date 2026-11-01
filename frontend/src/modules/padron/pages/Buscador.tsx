@@ -15,6 +15,7 @@ import estilos from '../padron.module.css';
 const RETRASO_BUSQUEDA_MS = 250;
 const MAX_RESULTADOS = 10;
 const TAMANIO_PAGINA_PACIENTES = 100;
+const TAMANIO_PAGINA_LISTADO = 5;
 
 type ResultadoMascota = {
   tipo: 'paciente';
@@ -76,6 +77,7 @@ export function Buscador() {
     error: '',
   });
   const [reintentoListado, setReintentoListado] = useState(0);
+  const [paginaListado, setPaginaListado] = useState(1);
 
   const consulta = texto.trim();
   // Solo se muestra el resultado de la consulta vigente; al cambiar el texto
@@ -89,6 +91,13 @@ export function Buscador() {
   const estadoListado: Estado = listadoVigente?.estado ?? 'cargando';
   const pacientesListado = listadoVigente?.filas ?? [];
   const errorListado = listadoVigente?.error ?? '';
+  const cantidadPaginas = Math.ceil(pacientesListado.length / TAMANIO_PAGINA_LISTADO);
+  const paginaVisible = Math.min(paginaListado, Math.max(cantidadPaginas, 1));
+  const indiceInicio = (paginaVisible - 1) * TAMANIO_PAGINA_LISTADO;
+  const pacientesVisibles = pacientesListado.slice(
+    indiceInicio,
+    indiceInicio + TAMANIO_PAGINA_LISTADO,
+  );
 
   useEffect(() => {
     const control = new AbortController();
@@ -211,6 +220,7 @@ export function Buscador() {
     <section className={estilos.pagina} aria-labelledby="titulo-padron">
       <div className={estilos.cabecera}>
         <div>
+          <p className={estilos.antetitulo}>Padrón de clientes</p>
           <h1 className={estilos.titulo} id="titulo-padron">
             Dueños y mascotas
           </h1>
@@ -229,7 +239,9 @@ export function Buscador() {
       </div>
 
       <div className={estilos.campo}>
-        <label htmlFor="padron-busqueda">Buscar</label>
+        <label className="sr-only" htmlFor="padron-busqueda">
+          Buscar
+        </label>
         <input
           autoComplete="off"
           id="padron-busqueda"
@@ -322,13 +334,12 @@ export function Buscador() {
       ) : null}
 
       {!consulta ? (
-        <section className={estilos.listado} aria-labelledby="titulo-personas">
+        <section className={estilos.listado} aria-labelledby="titulo-pacientes">
           <div className={estilos.cabecera}>
             <div>
               <h2 className={estilos.tituloSeccion} id="titulo-pacientes">
                 Mascotas registradas
               </h2>
-              <p className={estilos.subtitulo}>Pacientes del padrón.</p>
             </div>
             {estadoListado === 'listo' ? (
               <span className={estilos.insignia}>{pacientesListado.length}</span>
@@ -347,7 +358,10 @@ export function Buscador() {
               <div>
                 <button
                   className={`${estilos.boton} ${estilos.botonSecundario}`}
-                  onClick={() => setReintentoListado((valor) => valor + 1)}
+                  onClick={() => {
+                    setPaginaListado(1);
+                    setReintentoListado((valor) => valor + 1);
+                  }}
                   type="button"
                 >
                   Reintentar
@@ -362,28 +376,66 @@ export function Buscador() {
 
           {pacientesListado.length > 0 ? (
             <ul className={estilos.resultados}>
-              {pacientesListado.map((paciente) => (
+              {pacientesVisibles.map((paciente) => (
                 <li key={paciente.id}>
                   <Link
-                    className={estilos.resultado}
+                    className={`${estilos.resultado} ${estilos.resultadoMascota}`}
                     to={`/padron/paciente/${paciente.id}`}
                   >
-                    <span className={estilos.fila}>
-                      <strong>{paciente.nombre}</strong>
-                      <span className={estilos.insignia}>{paciente.especie_nombre}</span>
+                    <span className={estilos.avatarMascota} aria-hidden="true">
+                      {paciente.nombre.charAt(0)}
                     </span>
-
-                    <span className={estilos.textoSuave}>
-                      {paciente.raza_nombre
-                        ? `Raza: ${paciente.raza_nombre}`
-                        : 'Sin raza registrada'}
+                    <span className={estilos.contenidoMascota}>
+                      <span className={estilos.fila}>
+                        <strong>{paciente.nombre}</strong>
+                        <span className={estilos.insignia}>
+                          {paciente.especie_nombre}
+                        </span>
+                      </span>
+                      <span className={estilos.textoSuave}>
+                        {paciente.raza_nombre
+                          ? `Raza: ${paciente.raza_nombre}`
+                          : 'Sin raza registrada'}
+                      </span>
                     </span>
-
-                    <span className={estilos.enlace}>Ver ficha completa</span>
+                    <span className={estilos.accionMascota}>
+                      Ver ficha completa
+                      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                        <path d="m9 18 6-6-6-6" />
+                      </svg>
+                    </span>
                   </Link>
                 </li>
               ))}
             </ul>
+          ) : null}
+
+          {cantidadPaginas > 1 ? (
+            <nav className={estilos.paginacion} aria-label="Paginación de mascotas">
+              <div className={estilos.controlesPaginacion}>
+                <button
+                  aria-label="Página anterior"
+                  className={estilos.botonPaginacion}
+                  disabled={paginaVisible === 1}
+                  onClick={() => setPaginaListado(paginaVisible - 1)}
+                  type="button"
+                >
+                  Anterior
+                </button>
+                <span aria-current="page" className={estilos.indicadorPagina}>
+                  Página {paginaVisible} de {cantidadPaginas}
+                </span>
+                <button
+                  aria-label="Página siguiente"
+                  className={estilos.botonPaginacion}
+                  disabled={paginaVisible === cantidadPaginas}
+                  onClick={() => setPaginaListado(paginaVisible + 1)}
+                  type="button"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </nav>
           ) : null}
         </section>
       ) : null}

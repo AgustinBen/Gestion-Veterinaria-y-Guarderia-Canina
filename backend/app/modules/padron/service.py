@@ -43,6 +43,21 @@ class PosibleDuplicado(Exception):
         self.coincidencias = coincidencias
 
 
+class TitularidadNoEncontrada(Exception):
+    """No existe la titularidad pedida."""
+
+
+class TitularidadConflicto(DatosInvalidos):
+    """La operación dejaría la titularidad en un estado inválido (409)."""
+
+
+def _mensaje_conflicto_integridad(exc: IntegrityError) -> str:
+    detalle = str(exc.orig)
+    if "titularidad.paciente_id, titularidad.persona_id" in detalle:
+        return "La persona ya es titular vigente de la mascota"
+    return "La operación dejaría dos principales vigentes"
+
+
 def _texto_obligatorio(valor: str, campo: str) -> str:
     limpio = valor.strip()
     if not limpio:
@@ -180,34 +195,58 @@ def _detalle_persona(db: Session, persona: models.Persona) -> schemas.PersonaDet
 def _detalle_paciente(
     db: Session, paciente: models.Paciente
 ) -> schemas.PacienteDetalle:
-    especie = repository.obtener_especie(db, paciente.especie_id)
-    raza = (
-        repository.obtener_raza(db, paciente.raza_id)
-        if paciente.raza_id is not None
-        else None
+    return _detalle_pacientes(db, [paciente])[paciente.id]
+
+
+def _detalle_pacientes(
+    db: Session,
+    pacientes: list[models.Paciente],
+) -> dict[int, schemas.PacienteDetalle]:
+    if not pacientes:
+        return {}
+
+    especies = repository.obtener_especies_por_ids(
+        db, list({paciente.especie_id for paciente in pacientes})
     )
-    tamanio = (
-        repository.obtener_tamanio(db, paciente.tamanio_id)
-        if paciente.tamanio_id is not None
-        else None
+    razas = repository.obtener_razas_por_ids(
+        db,
+        [paciente.raza_id for paciente in pacientes if paciente.raza_id is not None],
     )
-    edad_anios, edad_meses = calcular_edad(paciente.fecha_nacimiento_aprox)
-    return schemas.PacienteDetalle(
-        id=paciente.id,
-        nombre=paciente.nombre,
-        especie_id=paciente.especie_id,
-        especie_nombre=especie.nombre if especie else "",
-        raza_id=paciente.raza_id,
-        raza_nombre=raza.nombre if raza else None,
-        tamanio_id=paciente.tamanio_id,
-        tamanio_nombre=tamanio.nombre if tamanio else None,
-        peso_kg=paciente.peso_kg,  # type: ignore[arg-type]
-        fecha_nacimiento_aprox=paciente.fecha_nacimiento_aprox,
-        castrado=paciente.castrado,
-        activo=paciente.activo,
-        edad_anios=edad_anios,
-        edad_meses=edad_meses,
+    tamanios = repository.obtener_tamanios_por_ids(
+        db,
+        [
+            paciente.tamanio_id
+            for paciente in pacientes
+            if paciente.tamanio_id is not None
+        ],
     )
+    detalles: dict[int, schemas.PacienteDetalle] = {}
+    for paciente in pacientes:
+        especie = especies.get(paciente.especie_id)
+        raza = razas.get(paciente.raza_id) if paciente.raza_id is not None else None
+        tamanio = (
+            tamanios.get(paciente.tamanio_id)
+            if paciente.tamanio_id is not None
+            else None
+        )
+        edad_anios, edad_meses = calcular_edad(paciente.fecha_nacimiento_aprox)
+        detalles[paciente.id] = schemas.PacienteDetalle(
+            id=paciente.id,
+            nombre=paciente.nombre,
+            especie_id=paciente.especie_id,
+            especie_nombre=especie.nombre if especie else "",
+            raza_id=paciente.raza_id,
+            raza_nombre=raza.nombre if raza else None,
+            tamanio_id=paciente.tamanio_id,
+            tamanio_nombre=tamanio.nombre if tamanio else None,
+            peso_kg=paciente.peso_kg,  # type: ignore[arg-type]
+            fecha_nacimiento_aprox=paciente.fecha_nacimiento_aprox,
+            castrado=paciente.castrado,
+            activo=paciente.activo,
+            edad_anios=edad_anios,
+            edad_meses=edad_meses,
+        )
+    return detalles
 
 
 def _detalle_empleado(
@@ -369,6 +408,14 @@ def obtener_paciente(db: Session, paciente_id: int) -> schemas.PacienteDetalle |
     return _detalle_paciente(db, paciente)
 
 
+def obtener_pacientes(
+    db: Session, ids: list[int]
+) -> dict[int, schemas.PacienteDetalle]:
+    """Obtiene varias fichas de paciente con consultas agrupadas por catálogo."""
+    pacientes = repository.obtener_pacientes_por_ids(db, sorted(set(ids)))
+    return _detalle_pacientes(db, pacientes)
+
+
 def buscar_pacientes(
     db: Session,
     texto: str | None = None,
@@ -385,24 +432,305 @@ def buscar_pacientes(
     ]
 
 
+def _paciente_o_error(db: Session, paciente_id: int) -> models.Paciente:
+    paciente = repository.obtener_paciente(db, paciente_id)
+    if paciente is None:
+        raise PacienteNoEncontrado()
+    return paciente
+
+
+def _tipo_contacto_o_error(
+    db: Session,
+    tipo_contacto_id: int | None,
+    *,
+    defecto: str | None = "TITULAR",
+) -> models.TipoContacto:
+    if tipo_contacto_id is None:
+        if defecto is None:
+            raise DatosInvalidos("Falta el tipo de contacto")
+        tipo = repository.obtener_tipo_contacto_por_nombre(db, defecto)
+        if tipo is None:
+            raise DatosInvalidos(f"Falta el tipo de contacto {defecto} en el catálogo")
+        return tipo
+    tipo = db.get(models.TipoContacto, tipo_contacto_id)
+    if tipo is None:
+        raise DatosInvalidos("El tipo de contacto no existe")
+    return tipo
+
+
+def _titular_out(db: Session, titularidad: models.Titularidad) -> schemas.TitularVigente:
+    persona = repository.obtener_persona(db, titularidad.persona_id)
+    if persona is None:
+        raise PersonaNoEncontrada()
+    tipo = db.get(models.TipoContacto, titularidad.tipo_contacto_id)
+    if tipo is None:
+        raise DatosInvalidos("El tipo de contacto no existe")
+    return schemas.TitularVigente(
+        id=titularidad.id,
+        persona_id=persona.id,
+        nombre=persona.nombre,
+        apellido=persona.apellido,
+        tipo=tipo.nombre,
+        principal=titularidad.principal,
+        desde=titularidad.desde,
+        hasta=titularidad.hasta,
+    )
+
+
 def titulares_vigentes(db: Session, paciente_id: int) -> list[schemas.TitularVigente]:
-    resultado: list[schemas.TitularVigente] = []
-    for titularidad in repository.titulares_vigentes(db, paciente_id):
-        persona = repository.obtener_persona(db, titularidad.persona_id)
-        tipo = db.get(models.TipoContacto, titularidad.tipo_contacto_id)
-        if persona is None or tipo is None:
-            continue
-        resultado.append(
-            schemas.TitularVigente(
-                persona_id=persona.id,
-                nombre=persona.nombre,
-                apellido=persona.apellido,
-                tipo=tipo.nombre,
-                principal=titularidad.principal,
-                desde=titularidad.desde,
-            )
+    return [
+        _titular_out(db, titularidad)
+        for titularidad in repository.titulares_vigentes(db, paciente_id)
+    ]
+
+
+def titulares_historial(db: Session, paciente_id: int) -> list[schemas.TitularVigente]:
+    """Todas las titularidades del paciente, incluidas las cerradas (T-13)."""
+    return [
+        _titular_out(db, titularidad)
+        for titularidad in repository.titulares_historial(db, paciente_id)
+    ]
+
+
+# La titularidad no guarda auditoría en la spec de padrón; ``usuario_id`` se
+# acepta para no romper el contrato del ticket, pero no se persiste.
+def agregar_titular(
+    db: Session,
+    paciente_id: int,
+    persona_id: int,
+    tipo_contacto_id: int | None = None,
+    *,
+    principal: bool = False,
+    usuario_id: int | None = None,
+    fecha: date | None = None,
+) -> schemas.TitularVigente:
+    """Agrega un titular vigente. La primera titularidad es siempre principal."""
+    _paciente_o_error(db, paciente_id)
+    if repository.obtener_persona(db, persona_id) is None:
+        raise PersonaNoEncontrada()
+
+    tipo = _tipo_contacto_o_error(db, tipo_contacto_id)
+    vigentes = repository.titulares_vigentes(db, paciente_id)
+    if any(titular.persona_id == persona_id for titular in vigentes):
+        raise TitularidadConflicto("La persona ya es titular vigente de la mascota")
+
+    actual_principal: models.Titularidad | None = None
+    if not vigentes:
+        if tipo.nombre != "TITULAR":
+            raise DatosInvalidos("La primera titularidad debe ser TITULAR")
+        es_principal = True
+    elif principal:
+        if tipo.nombre != "TITULAR":
+            raise DatosInvalidos("Solo un TITULAR puede ser principal")
+        actual_principal = next(
+            (titular for titular in vigentes if titular.principal), None
         )
-    return resultado
+        es_principal = True
+    else:
+        es_principal = False
+
+    titularidad = models.Titularidad(
+        paciente_id=paciente_id,
+        persona_id=persona_id,
+        tipo_contacto_id=tipo.id,
+        principal=es_principal,
+        desde=fecha or date.today(),
+    )
+    try:
+        if actual_principal is not None:
+            actual_principal.principal = False
+            db.flush()
+        repository.crear_titularidad(db, titularidad)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise TitularidadConflicto(_mensaje_conflicto_integridad(exc)) from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    return _titular_out(db, titularidad)
+
+
+def quitar_titular(
+    db: Session,
+    titularidad_id: int,
+    *,
+    usuario_id: int | None = None,
+    fecha: date | None = None,
+) -> None:
+    """Cierra la vigencia (nunca borra). No permite dejar la mascota sin titular."""
+    titularidad = repository.obtener_titularidad(db, titularidad_id)
+    if titularidad is None:
+        raise TitularidadNoEncontrada()
+    if titularidad.hasta is not None:
+        raise TitularidadConflicto("La titularidad ya está cerrada")
+
+    vigentes = repository.titulares_vigentes(db, titularidad.paciente_id)
+    if len(vigentes) <= 1:
+        raise TitularidadConflicto(
+            "No se puede quitar al único titular vigente de la mascota"
+        )
+    if titularidad.principal:
+        raise TitularidadConflicto(
+            "Antes de quitar al titular principal, designá otro principal"
+        )
+
+    fin = fecha or date.today()
+    if fin < titularidad.desde:
+        raise DatosInvalidos("La fecha de cierre no puede ser anterior al alta")
+    titularidad.hasta = fin
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+
+def quitar_titular_de_persona(
+    db: Session,
+    paciente_id: int,
+    persona_id: int,
+    *,
+    usuario_id: int | None = None,
+    fecha: date | None = None,
+) -> None:
+    for titularidad in repository.titulares_vigentes(db, paciente_id):
+        if titularidad.persona_id == persona_id:
+            quitar_titular(
+                db, titularidad.id, usuario_id=usuario_id, fecha=fecha
+            )
+            return
+    raise TitularidadNoEncontrada()
+
+
+def cambiar_principal(
+    db: Session,
+    paciente_id: int,
+    persona_id: int,
+    *,
+    usuario_id: int | None = None,
+) -> schemas.TitularVigente:
+    """Deja exactamente un principal vigente, sin sacar a los demás titulares."""
+    _paciente_o_error(db, paciente_id)
+    vigentes = repository.titulares_vigentes(db, paciente_id)
+    objetivo = next(
+        (titular for titular in vigentes if titular.persona_id == persona_id), None
+    )
+    if objetivo is None:
+        raise TitularidadConflicto(
+            "La persona no es titular vigente de la mascota"
+        )
+    tipo = _tipo_contacto_o_error(db, objetivo.tipo_contacto_id, defecto=None)
+    if tipo.nombre != "TITULAR":
+        raise DatosInvalidos("Solo un TITULAR puede ser principal")
+    if objetivo.principal:
+        return _titular_out(db, objetivo)
+
+    try:
+        for titular in vigentes:
+            if titular.principal:
+                titular.principal = False
+                db.flush()
+        objetivo.principal = True
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise TitularidadConflicto(_mensaje_conflicto_integridad(exc)) from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    return _titular_out(db, objetivo)
+
+
+def transferir_paciente(
+    db: Session,
+    paciente_id: int,
+    nueva_persona_id: int,
+    fecha: date | None = None,
+    *,
+    de_persona_id: int | None = None,
+    tipo_contacto_id: int | None = None,
+    usuario_id: int | None = None,
+) -> schemas.TitularVigente:
+    """Cierra la titularidad saliente y abre la nueva en una sola transacción."""
+    _paciente_o_error(db, paciente_id)
+    if repository.obtener_persona(db, nueva_persona_id) is None:
+        raise PersonaNoEncontrada()
+
+    vigentes = repository.titulares_vigentes(db, paciente_id)
+    if de_persona_id is None:
+        saliente = next(
+            (titular for titular in vigentes if titular.principal), None
+        )
+        if saliente is None and len(vigentes) == 1:
+            saliente = vigentes[0]
+        if saliente is None:
+            raise TitularidadConflicto(
+                "Indicá qué titular sale: hay más de uno y ninguno es principal"
+            )
+    else:
+        saliente = next(
+            (
+                titular
+                for titular in vigentes
+                if titular.persona_id == de_persona_id
+            ),
+            None,
+        )
+        if saliente is None:
+            raise TitularidadConflicto(
+                "La persona que sale no es titular vigente de la mascota"
+            )
+
+    if saliente.persona_id == nueva_persona_id:
+        raise TitularidadConflicto("La persona que sale y la que entra son la misma")
+    if any(titular.persona_id == nueva_persona_id for titular in vigentes):
+        raise TitularidadConflicto(
+            "La persona que entra ya es titular vigente de la mascota"
+        )
+
+    if tipo_contacto_id is None:
+        tipo = _tipo_contacto_o_error(
+            db, saliente.tipo_contacto_id, defecto=None
+        )
+    else:
+        tipo = _tipo_contacto_o_error(db, tipo_contacto_id)
+
+    queda_principal = any(
+        titular.principal
+        for titular in vigentes
+        if titular.id != saliente.id
+    )
+    nuevo_principal = saliente.principal or not queda_principal
+    if nuevo_principal and tipo.nombre != "TITULAR":
+        raise DatosInvalidos("Un principal debe ser TITULAR")
+
+    fin = fecha or date.today()
+    if fin < saliente.desde:
+        raise DatosInvalidos("La fecha de transferencia no puede ser anterior al alta")
+
+    nueva = models.Titularidad(
+        paciente_id=paciente_id,
+        persona_id=nueva_persona_id,
+        tipo_contacto_id=tipo.id,
+        principal=nuevo_principal,
+        desde=fin,
+    )
+    try:
+        saliente.hasta = fin
+        db.flush()
+        repository.crear_titularidad(db, nueva)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise TitularidadConflicto(_mensaje_conflicto_integridad(exc)) from exc
+    except Exception:
+        db.rollback()
+        raise
+
+    return _titular_out(db, nueva)
 
 
 def obtener_empleado(db: Session, empleado_id: int) -> schemas.EmpleadoDetalle | None:

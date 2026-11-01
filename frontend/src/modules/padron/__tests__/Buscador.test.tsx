@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -110,6 +110,53 @@ describe('Buscador de padrón', () => {
       'href',
       '/padron/paciente/8',
     );
+  });
+
+  it('mantiene el nombre accesible y oculta la etiqueta redundante', async () => {
+    vi.useRealTimers();
+    renderizar();
+
+    await screen.findByRole('searchbox', { name: 'Buscar' });
+    expect(screen.getByText('Buscar', { selector: 'label' })).toHaveClass('sr-only');
+  });
+
+  it('pagina el listado de mascotas en grupos de cinco', async () => {
+    vi.useRealTimers();
+    vi.mocked(listarPacientes).mockResolvedValue(
+      Array.from({ length: 7 }, (_, indice) => ({
+        ...FIRULAIS,
+        id: indice + 1,
+        nombre: `Mascota ${indice + 1}`,
+      })),
+    );
+    renderizar();
+
+    expect(screen.getByText('Padrón de clientes')).toBeInTheDocument();
+    expect(screen.queryByText('Pacientes del padrón.')).not.toBeInTheDocument();
+    expect(await screen.findByText('Mascota 1')).toBeInTheDocument();
+    const paginacion = screen.getByRole('navigation', { name: 'Paginación de mascotas' });
+
+    for (let numero = 1; numero <= 5; numero += 1) {
+      expect(screen.getByText(`Mascota ${numero}`)).toBeInTheDocument();
+    }
+
+    expect(screen.queryByText('Mascota 6')).not.toBeInTheDocument();
+    expect(paginacion).toHaveTextContent('Página 1 de 2');
+    expect(paginacion).not.toHaveTextContent('Mostrando');
+
+    await act(async () => {
+      fireEvent.click(within(paginacion).getByRole('button', { name: 'Página siguiente' }));
+    });
+
+    expect(screen.getByText('Mascota 6')).toBeInTheDocument();
+    expect(screen.getByText('Mascota 7')).toBeInTheDocument();
+    expect(screen.queryByText('Mascota 1')).not.toBeInTheDocument();
+    expect(paginacion).toHaveTextContent('Página 2 de 2');
+
+    await act(async () => {
+      fireEvent.click(within(paginacion).getByRole('button', { name: 'Página anterior' }));
+    });
+    expect(screen.getByText('Mascota 1')).toBeInTheDocument();
   });
 
   it('muestra el error del listado y permite reintentarlo', async () => {

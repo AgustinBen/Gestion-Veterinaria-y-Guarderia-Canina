@@ -65,8 +65,8 @@ export const SECCIONES: readonly Seccion[] = [
   },
   {
     id: 'crear-cuenta',
-    etiqueta: 'Crear cuenta',
-    etiquetaCorta: 'Crear cuenta',
+    etiqueta: 'Administración',
+    etiquetaCorta: 'Administración',
     ruta: '/identidad/crear-cuenta',
   },
 ];
@@ -126,6 +126,7 @@ const PERMISOS_POR_ROL: Readonly<Record<Rol, Readonly<Record<SeccionId, NivelAcc
  * Fuera del menú pero accesibles por URL (los permisos siguen vigentes):
  * - Migración: tarea administrativa de una sola vez, solo DUENIO.
  * - Turnos para DUENIO: la agenda la operan recepción y veterinaria.
+ * - Nueva reserva: disponible desde el botón de Calendario, no como enlace independiente.
  *
  * Deudores no figura en el menú de PERSONAL y tampoco tiene permiso: el
  * listado global es información financiera (solo DUENIO). La deuda de un
@@ -136,13 +137,12 @@ const MENU_POR_ROL: Readonly<Record<Rol, readonly SeccionId[]>> = {
     'panel',
     'padron',
     'calendario',
-    'nueva-reserva',
     'historia-clinica',
     'cobros',
     'deudores',
     'crear-cuenta',
   ],
-  PERSONAL: ['padron', 'calendario', 'nueva-reserva', 'cobros', 'turnos'],
+  PERSONAL: ['padron', 'calendario', 'cobros', 'turnos'],
   VETERINARIO: ['padron', 'calendario', 'turnos', 'historia-clinica'],
 };
 

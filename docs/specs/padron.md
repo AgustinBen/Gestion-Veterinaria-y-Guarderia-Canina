@@ -35,6 +35,8 @@ Padrón único de personas (dueños y empleados) y mascotas, sin duplicados, con
 **Reglas de titularidad**
 - Un solo principal vigente por paciente (índice único parcial), y solo con tipo TITULAR.
 - Siempre hay al menos un titular vigente: no se puede quitar el último.
+- La primera titularidad de una mascota es siempre principal.
+- Para quitar al principal primero hay que designar otro principal entre los titulares vigentes.
 - Cambio de titular: se cierra la fila vigente (`hasta` = fecha del cambio) y se abre otra. El historial clínico no se toca, porque apunta a `paciente_id`.
 - Una persona no puede figurar dos veces vigente en la misma mascota.
 
@@ -54,10 +56,12 @@ Padrón único de personas (dueños y empleados) y mascotas, sin duplicados, con
 | GET | /api/pacientes | D, P, V | búsqueda paginada |
 | POST | /api/pacientes | D, P | alta; exige un titular principal |
 | GET / PATCH | /api/pacientes/{id} | D, P, V / D, P | ficha, con edad calculada / modificación |
-| GET | /api/pacientes/{id}/titulares | D, P, V | titulares vigentes e historial |
-| POST | /api/pacientes/{id}/titulares | D, P | agrega titular o contacto (T-13) |
-| DELETE | /api/pacientes/{id}/titulares/{persona_id} | D, P | cierra la vigencia (T-13) |
-| POST | /api/pacientes/{id}/transferencia | D, P | cambio de titular principal (T-13) |
+| GET | /api/pacientes/{id}/titulares | D, P, V | vigentes; `historial=true` incluye las cerradas (T-13) |
+| POST | /api/pacientes/{id}/titulares | D, P | agrega titular o contacto; devuelve `TitularVigente` (T-13) |
+| DELETE | /api/pacientes/{id}/titulares/{persona_id} | D, P | cierra la vigencia; 204 (T-13) |
+| DELETE | /api/titulares/{titularidad_id} | D, P | alias por id de titularidad; cierra la vigencia; 204 (T-13) |
+| POST | /api/pacientes/{id}/titular-principal | D, P | designa otro principal entre los vigentes (T-13) |
+| POST | /api/pacientes/{id}/transferencia | D, P | cambio de titular; acepta `de_persona_id`; también `/transferir` como alias (T-13) |
 | GET | /api/empleados | autenticado | lista |
 | POST / PATCH | /api/empleados | D | alta / modificación |
 | GET | /api/especies, /api/razas, /api/tamanios | autenticado | catálogos |
@@ -71,31 +75,38 @@ buscar_personas(db, texto: str | None = None, dni: str | None = None, telefono: 
 buscar_pacientes(db, texto: str | None = None, limite: int = 20) -> list[PacienteResumen]  # AGREGADO para GET /api/pacientes
 obtener_persona(db, persona_id: int) -> PersonaDetalle | None
 obtener_paciente(db, paciente_id: int) -> PacienteDetalle | None      # especie, raza, tamaño, peso, edad calculada. Sin factor_cupo
-titulares_vigentes(db, paciente_id: int) -> list[TitularVigente]     # persona_id, nombre, tipo, principal, desde
+obtener_pacientes(db, ids: list[int]) -> dict[int, PacienteDetalle]    # fichas por lote, omite IDs inexistentes
+titulares_vigentes(db, paciente_id: int) -> list[TitularVigente]     # id, persona_id, nombre, tipo, principal, desde, hasta (nulo = vigente)
+titulares_historial(db, paciente_id: int) -> list[TitularVigente]    # T-13: incluye cerradas
 obtener_empleado(db, empleado_id: int) -> EmpleadoDetalle | None
 pacientes_de_persona(db, persona_id: int) -> list[PacienteResumen]   # AGREGADO, a validar con Aldana (multimascota)
 obtener_personas_resumen(db, ids: list[int]) -> dict[int, PersonaResumen]   # AGREGADO para T-21 (listado de deudores, lectura por lote sin N+1)
 # Escrituras (routers y migracion)
 crear_persona(db, datos: PersonaNueva, *, confirmar_duplicado: bool = False, migrado: bool = False) -> PersonaDetalle   # lanza DniDuplicado o PosibleDuplicado(coincidencias)
 crear_paciente(db, datos: PacienteNuevo, titular_persona_id: int) -> PacienteDetalle
-agregar_titular(db, paciente_id: int, persona_id: int, tipo_contacto_id: int) -> None            # T-13
-transferir_paciente(db, paciente_id: int, nueva_persona_id: int, fecha: date) -> None            # T-13
+agregar_titular(db, paciente_id: int, persona_id: int, tipo_contacto_id: int | None = None, *, principal: bool = False, usuario_id: int | None = None, fecha: date | None = None) -> TitularVigente   # T-13
+quitar_titular(db, titularidad_id: int, *, usuario_id: int | None = None, fecha: date | None = None) -> None                                      # T-13
+quitar_titular_de_persona(db, paciente_id: int, persona_id: int, *, usuario_id: int | None = None, fecha: date | None = None) -> None             # T-13
+cambiar_principal(db, paciente_id: int, persona_id: int, *, usuario_id: int | None = None) -> TitularVigente                                       # T-13
+transferir_paciente(db, paciente_id: int, nueva_persona_id: int, fecha: date | None = None, *, de_persona_id: int | None = None, tipo_contacto_id: int | None = None, usuario_id: int | None = None) -> TitularVigente   # T-13
 ```
 
 ## Casos borde
 - Persona sin DNI: el router la rechaza; solo entra con `migrado=True`.
 - Mismo DNI en otra persona: 409, no se puede confirmar. DNI con puntos o espacios: se guarda solo con dígitos.
 - Dos personas con el mismo teléfono: se permite con confirmación explícita registrada.
-- Quitar el último titular, o dejar dos principales: 422.
-- Transferir a quien ya es titular vigente: 422.
+- Quitar el último titular, quitar al principal sin designar otro, o dejar dos principales: 409.
+- Transferir a quien ya es titular vigente: 409.
 - Mascota sin raza o sin tamaño: válido. Mascota sin especie: 422.
 
 ## Criterios de aceptación
 - Alta con DNI repetido responde 409 y no crea nada. Alta con teléfono o nombre repetido responde 409 con candidatos, y se crea solo con la confirmación.
 - Una mascota puede tener dos titulares, y la transferencia conserva el historial.
+- Siempre queda exactamente un principal vigente: designar otro lo cambia sin sacar titulares, y quitar al principal sin reemplazo responde 409.
 - Los teléfonos de ejemplo de `migracion.md` se normalizan al valor esperado.
 - Ningún campo ni función menciona `factor_cupo`.
 - Los consumidores usan solo `padron/service.py` (lo verifica el test de arquitectura).
+- La pantalla Dueños y mascotas muestra el rótulo “Padrón de clientes” y pagina las mascotas registradas en grupos de cinco.
 
 ## Dependencias con otros módulos
 Usa `core` e `identidad` (`require_role`). Lo consumen `cobros` (titulares), `guarderia` (paciente, titulares, `pacientes_de_persona`), `clinica` (paciente, empleado), `identidad` (empleado) y `migracion` (escrituras).

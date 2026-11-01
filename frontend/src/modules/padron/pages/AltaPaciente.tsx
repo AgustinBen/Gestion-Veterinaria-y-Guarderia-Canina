@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { Selector } from '../../../core/components/ui/Selector';
+import { SelectorFecha } from '../../../core/components/ui/SelectorFecha';
 import {
   actualizarPaciente,
   crearPaciente,
@@ -279,22 +281,20 @@ export function AltaPaciente() {
 
         <div className={estilos.campo}>
           <label htmlFor="paciente-especie">Especie</label>
-          <select
+          <Selector
             id="paciente-especie"
-            onChange={(evento) => {
-              setEspecieId(evento.target.value ? Number(evento.target.value) : null);
+            onChange={(valor) => {
+              setEspecieId(valor ? Number(valor) : null);
               setRazaId(null);
             }}
+            opciones={especies.map((especie) => ({
+              value: String(especie.id),
+              label: especie.nombre,
+            }))}
+            placeholder="Seleccionar especie"
             required
-            value={especieId ?? ''}
-          >
-            <option value="">Seleccionar especie</option>
-            {especies.map((especie) => (
-              <option key={especie.id} value={especie.id}>
-                {especie.nombre}
-              </option>
-            ))}
-          </select>
+            value={especieId === null ? '' : String(especieId)}
+          />
         </div>
 
         <div className={estilos.campo}>
@@ -310,20 +310,16 @@ export function AltaPaciente() {
         <div className={`${estilos.grilla} ${estilos.grillaDos}`}>
           <div className={estilos.campo}>
             <label htmlFor="paciente-tamanio">Tamaño</label>
-            <select
+            <Selector
               id="paciente-tamanio"
-              onChange={(evento) =>
-                setTamanioId(evento.target.value ? Number(evento.target.value) : null)
-              }
-              value={tamanioId ?? ''}
-            >
-              <option value="">Sin tamaño</option>
-              {tamanios.map((tamanio) => (
-                <option key={tamanio.id} value={tamanio.id}>
-                  {tamanio.nombre}
-                </option>
-              ))}
-            </select>
+              onChange={(valor) => setTamanioId(valor ? Number(valor) : null)}
+              opciones={tamanios.map((tamanio) => ({
+                value: String(tamanio.id),
+                label: tamanio.nombre,
+              }))}
+              placeholder="Sin tamaño"
+              value={tamanioId === null ? '' : String(tamanioId)}
+            />
           </div>
 
           <div className={estilos.campo}>
@@ -342,10 +338,10 @@ export function AltaPaciente() {
 
         <div className={estilos.campo}>
           <label htmlFor="paciente-fecha">Fecha de nacimiento aproximada</label>
-          <input
+          <SelectorFecha
             id="paciente-fecha"
-            onChange={(evento) => setFecha(evento.target.value)}
-            type="date"
+            etiqueta="Fecha de nacimiento aproximada"
+            onChange={setFecha}
             value={fecha}
           />
           <p className={estilos.ayuda}>
@@ -379,19 +375,18 @@ export function AltaPaciente() {
 
         <div className={estilos.campo}>
           <label htmlFor="paciente-castrado">Castrado</label>
-          <select
+          <Selector
             id="paciente-castrado"
-            onChange={(evento) =>
-              setCastrado(
-                evento.target.value === '' ? null : evento.target.value === 'si',
-              )
+            onChange={(valor) =>
+              setCastrado(valor === '' ? null : valor === 'si')
             }
+            opciones={[
+              { value: 'si', label: 'Sí' },
+              { value: 'no', label: 'No' },
+            ]}
+            placeholder="Sin dato"
             value={castrado === null ? '' : castrado ? 'si' : 'no'}
-          >
-            <option value="">Sin dato</option>
-            <option value="si">Sí</option>
-            <option value="no">No</option>
-          </select>
+          />
         </div>
 
         {error ? (

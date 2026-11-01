@@ -5,16 +5,20 @@ Las firmas requeridas por el ticket se mantienen tal como se pide.
 
 from __future__ import annotations
 
+import logging
+import sqlite3
 from datetime import date
 
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from app.modules.cobros import models, repository, schemas
 from app.modules.cobros.dinero import DineroError, formatear_pesos, validar_positivo
 from app.modules.identidad.permisos import Rol
 from app.modules.padron import service as padron_service
+
+logger = logging.getLogger(__name__)
 
 
 class CobrosError(Exception):
@@ -26,6 +30,10 @@ class CargoNoEncontrado(CobrosError):
 
 
 class PersonaNoEncontrada(CobrosError):
+    pass
+
+
+class PacienteNoEncontrado(CobrosError):
     pass
 
 
@@ -78,6 +86,10 @@ class MedioPagoInvalido(CobrosError):
     pass
 
 
+class CargoReservaRequiereSena(CobrosError):
+    pass
+
+
 class IdempotenciaConflicto(CobrosError):
     pass
 
@@ -93,8 +105,7 @@ class AccesoDenegado(CobrosError):
 class TransaccionNoDisponible(CobrosError):
     def __init__(self) -> None:
         super().__init__(
-            "No se pudo iniciar una transacción segura para ajustar el precio. "
-            "Intente nuevamente."
+            "No se pudo iniciar una transacción segura. Intente nuevamente."
         )
 
 
@@ -116,6 +127,76 @@ def _obtener_cargo_o_error(db: Session, cargo_id: int) -> models.Cargo:
     return cargo
 
 
+def total_inicial_cargo(db: Session, cargo_id: int) -> int:
+    """Devuelve el total original del cargo a otros módulos, sin exponer su modelo."""
+    return int(_obtener_cargo_o_error(db, cargo_id).total_inicial)
+
+
+def total_vigente_cargo(db: Session, cargo_id: int) -> int:
+    """Devuelve el total actual del cargo, incluidos sus ajustes."""
+    _obtener_cargo_o_error(db, cargo_id)
+    return int(repository.total_vigente(db, cargo_id))
+
+
+def total_senas_cargo(db: Session, cargo_id: int) -> int:
+    """Devuelve el importe neto de señas registradas para un cargo."""
+    _obtener_cargo_o_error(db, cargo_id)
+    return repository.total_senas(db, cargo_id)
+
+
+def _iniciar_transaccion(db: Session) -> None:
+    """Serializa escrituras con BEGIN IMMEDIATE (SQLite).
+
+    Solo la contención de bloqueo de SQLite se transforma en un error
+    recuperable; los demás errores de base de datos se propagan.
+    """
+    try:
+        db.execute(text("BEGIN IMMEDIATE"))
+    except OperationalError as exc:
+        codigo_sqlite = getattr(exc.orig, "sqlite_errorcode", None)
+        if not isinstance(codigo_sqlite, int) or codigo_sqlite & 0xFF not in {
+            sqlite3.SQLITE_BUSY,
+            sqlite3.SQLITE_LOCKED,
+        }:
+            db.rollback()
+            raise
+
+        logger.warning(
+            "SQLite no pudo adquirir el bloqueo para BEGIN IMMEDIATE "
+            "(código %s)",
+            codigo_sqlite,
+            exc_info=True,
+        )
+        db.rollback()
+        raise TransaccionNoDisponible() from exc
+
+
+def _pago_idempotente(
+    db: Session,
+    *,
+    clave: str,
+    cargo_id: int,
+    monto: int,
+    medio: str,
+    es_sena: bool,
+) -> models.Pago | None:
+    """Devuelve el pago ya creado para la clave, o 409 si el cuerpo difiere."""
+    existente = repository.obtener_pago_por_clave_idempotencia(db, clave)
+    if existente is None:
+        return None
+    medio_pago = repository.obtener_medio_pago(db, existente.medio_pago_id)
+    medio_codigo = medio_pago.codigo if medio_pago else None
+    mismo_cuerpo = (
+        existente.cargo_id == cargo_id
+        and existente.monto == monto
+        and medio_codigo == medio.upper()
+        and existente.es_sena == bool(es_sena)
+    )
+    if not mismo_cuerpo:
+        raise IdempotenciaConflicto("Idempotency-Key ya utilizada con distinto cuerpo")
+    return existente
+
+
 def crear_cargo(
     db: Session,
     *,
@@ -126,6 +207,7 @@ def crear_cargo(
     referencia_tipo: str | None = None,
     referencia_id: int | None = None,
     usuario_id: int,
+    transaccion_externa: bool = False,
 ) -> models.Cargo:
     _validar_monto_positivo(total_centavos)
 
@@ -150,7 +232,10 @@ def crear_cargo(
         creado_por=usuario_id,
     )
     db.add(cargo)
-    db.commit()
+    if transaccion_externa:
+        db.flush()
+    else:
+        db.commit()
     db.refresh(cargo)
     return cargo
 
@@ -231,17 +316,25 @@ def listar_deudores(
     return resultado
 
 
-def obtener_cargo_detalle(db: Session, cargo_id: int) -> dict[str, object]:
+def obtener_cargo_detalle(db: Session, cargo_id: int) -> schemas.CargoDetalleOut:
     cargo = _obtener_cargo_o_error(db, cargo_id)
     total_vig = repository.total_vigente(db, cargo_id)
     total_pag = repository.total_pagado(db, cargo_id)
-    saldo_c = total_vig - total_pag
-    return {
-        "cargo": cargo,
-        "total_vigente": total_vig,
-        "total_pagado": total_pag,
-        "saldo": saldo_c,
-    }
+    return schemas.CargoDetalleOut(
+        id=cargo.id,
+        persona_id=cargo.persona_id,
+        paciente_id=cargo.paciente_id,
+        concepto=cargo.concepto,
+        total_inicial=cargo.total_inicial,
+        origen=cargo.origen.value,
+        referencia_tipo=cargo.referencia_tipo,
+        referencia_id=cargo.referencia_id,
+        creado_por=cargo.creado_por,
+        created_at=cargo.created_at,
+        total_vigente=total_vig,
+        total_pagado=total_pag,
+        saldo=total_vig - total_pag,
+    )
 
 
 ROLES_QUE_PUEDEN_BAJAR: frozenset[Rol] = frozenset({Rol.DUENIO})
@@ -268,11 +361,7 @@ def ajustar_precio(
         raise MotivoRequerido()
 
     # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite)
-    try:
-        db.execute(text("BEGIN IMMEDIATE"))
-    except SQLAlchemyError as exc:
-        db.rollback()
-        raise TransaccionNoDisponible() from exc
+    _iniciar_transaccion(db)
 
     try:
         _obtener_cargo_o_error(db, cargo_id)
@@ -327,34 +416,52 @@ def registrar_pago(
     empleado_id: int | None = None,
     fecha_pago: date | None = None,
     clave_idempotencia: str | None = None,
+    transaccion_externa: bool = False,
 ) -> models.Pago:
     monto = _validar_monto_positivo(monto_centavos)
     if clave_idempotencia:
-        existente = repository.obtener_pago_por_clave_idempotencia(db, clave_idempotencia)
+        existente = _pago_idempotente(
+            db,
+            clave=clave_idempotencia,
+            cargo_id=cargo_id,
+            monto=monto,
+            medio=medio,
+            es_sena=es_sena,
+        )
         if existente is not None:
-            # Si llega misma clave con mismo cuerpo, devolver el ya creado (mismo id, 200)
-            # Comparamos lo esencial
-            medio_pago_ex = repository.obtener_medio_pago(db, existente.medio_pago_id)
-            medio_codigo = medio_pago_ex.codigo if medio_pago_ex else None
-            mismo_cuerpo = (
-                existente.cargo_id == cargo_id
-                and existente.monto == monto
-                and medio_codigo == medio.upper()
-                and existente.es_sena == bool(es_sena)
+            return existente
+
+    # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite).
+    # Con transacción externa el lock ya lo tomó el módulo que llama.
+    if not transaccion_externa:
+        _iniciar_transaccion(db)
+
+    try:
+        # Otra sesión pudo crear la misma clave mientras esperábamos el lock.
+        if clave_idempotencia:
+            existente = _pago_idempotente(
+                db,
+                clave=clave_idempotencia,
+                cargo_id=cargo_id,
+                monto=monto,
+                medio=medio,
+                es_sena=es_sena,
             )
-            if mismo_cuerpo:
+            if existente is not None:
+                # Cerrar la transacción de lectura antes de devolver.
+                if not transaccion_externa:
+                    db.rollback()
                 return existente
-            raise IdempotenciaConflicto("Idempotency-Key ya utilizada con distinto cuerpo")
 
-    # Concurrencia: serializar escrituras con BEGIN IMMEDIATE (SQLite)
-    try:
-        db.execute(text("BEGIN IMMEDIATE"))
-    except Exception:
-        # Si falla por algún motivo, seguimos (otros backends/tests)
-        pass
-
-    try:
         cargo = _obtener_cargo_o_error(db, cargo_id)
+        if (
+            cargo.referencia_tipo == "RESERVA"
+            and not es_sena
+            and repository.total_senas(db, cargo_id) <= 0
+        ):
+            raise CargoReservaRequiereSena(
+                "La reserva requiere registrar una seña antes de otros pagos"
+            )
         medio_pago = repository.obtener_medio_pago_por_codigo(db, medio)
         if medio_pago is None or not medio_pago.activo:
             raise MedioPagoInvalido("Medio de pago inválido")
@@ -378,14 +485,39 @@ def registrar_pago(
             clave_idempotencia=clave_idempotencia,
         )
         db.add(pago)
-        db.commit()
+        try:
+            db.flush()
+            if es_sena and cargo.referencia_tipo == "RESERVA":
+                from app.modules.guarderia import service as guarderia_service
+
+                guarderia_service.confirmar_reserva_por_sena(db, cargo_id)
+            if not transaccion_externa:
+                db.commit()
+        except IntegrityError:
+            # Carrera real: dos pedidos con la misma clave pasaron el chequeo.
+            if transaccion_externa or not clave_idempotencia:
+                raise
+            db.rollback()
+            existente = _pago_idempotente(
+                db,
+                clave=clave_idempotencia,
+                cargo_id=cargo_id,
+                monto=monto,
+                medio=medio,
+                es_sena=es_sena,
+            )
+            if existente is None:
+                raise
+            return existente
         db.refresh(pago)
         return pago
     except (CobrosError, IntegrityError):
-        db.rollback()
+        if not transaccion_externa:
+            db.rollback()
         raise
     except Exception:
-        db.rollback()
+        if not transaccion_externa:
+            db.rollback()
         raise
 
 
@@ -397,24 +529,21 @@ def revertir_pago(
     empleado_id: int | None = None,
     motivo: str | None = None,
 ) -> models.Pago:
+    motivo_limpio = (motivo or "").strip()
+    if not motivo_limpio:
+        raise CobrosError("Falta el motivo del reverso")
+
     # Revertir crea un reverso, no borra. Solo DUENIO se controla en router.
-    pago_original = repository.obtener_pago(db, pago_id)
-    if pago_original is None:
-        raise PagoNoEncontrado("Pago no encontrado")
-    if pago_original.tipo != models.TipoPago.PAGO:
-        raise ReversoNoPermitido("Solo se puede revertir un pago")
-    if repository.tiene_reverso(db, pago_original.id):
-        raise ReversoNoPermitido("El pago ya fue revertido")
+    _iniciar_transaccion(db)
 
     try:
-        db.execute(text("BEGIN IMMEDIATE"))
-    except Exception:
-        pass
-
-    try:
-        medio_pago = repository.obtener_medio_pago(db, pago_original.medio_pago_id)
-        if medio_pago is None:
-            raise MedioPagoInvalido("Medio de pago inválido")
+        pago_original = repository.obtener_pago(db, pago_id)
+        if pago_original is None:
+            raise PagoNoEncontrado("Pago no encontrado")
+        if pago_original.tipo != models.TipoPago.PAGO:
+            raise ReversoNoPermitido("Solo se puede revertir un pago")
+        if repository.tiene_reverso(db, pago_original.id):
+            raise ReversoNoPermitido("El pago ya fue revertido")
 
         reverso = models.Pago(
             cargo_id=pago_original.cargo_id,
@@ -427,6 +556,7 @@ def revertir_pago(
             usuario_id=usuario_id,
             empleado_id=empleado_id,
             clave_idempotencia=None,
+            motivo=motivo_limpio,
         )
         db.add(reverso)
         db.commit()
@@ -440,39 +570,49 @@ def revertir_pago(
         raise
 
 
-def cuenta_persona(db: Session, persona_id: int) -> dict[str, object]:
-    persona = padron_service.obtener_persona(db, persona_id)
-    if persona is None:
-        raise CobrosError("Persona no encontrada")
+def cuenta_persona(db: Session, persona_id: int) -> schemas.CuentaClienteOut:
+    if padron_service.obtener_persona(db, persona_id) is None:
+        raise PersonaNoEncontrada("Persona no encontrada")
     cargos = repository.cargos_de_persona(db, persona_id)
-    resultado_cargos: list[dict[str, object]] = []
+    items: list[schemas.CargoCuentaOut] = []
     saldo_total = 0
     for cargo in cargos:
         detalle = obtener_cargo_detalle(db, cargo.id)
-        pagos = repository.pagos_de_cargo(db, cargo.id)
-        item: dict[str, object] = {"cargo": detalle["cargo"], "pagos": pagos}
-        item.update(detalle)
-        resultado_cargos.append(item)
-        s_val = detalle["saldo"]
-        if isinstance(s_val, int) and s_val > 0:
-            saldo_total += s_val
-    return {"persona_id": persona_id, "saldo_total": saldo_total, "cargos": resultado_cargos}
+        items.append(
+            schemas.CargoCuentaOut(
+                cargo=detalle,
+                pagos=[
+                    schemas.PagoOut.model_validate(pago)
+                    for pago in repository.pagos_de_cargo(db, cargo.id)
+                ],
+            )
+        )
+        if detalle.saldo > 0:
+            saldo_total += detalle.saldo
+    return schemas.CuentaClienteOut(
+        persona_id=persona_id, saldo_total=saldo_total, cargos=items
+    )
 
 
-def cuenta_paciente(db: Session, paciente_id: int) -> dict[str, object]:
-    paciente = padron_service.obtener_paciente(db, paciente_id)
-    if paciente is None:
-        raise CobrosError("Paciente no encontrado")
+def cuenta_paciente(db: Session, paciente_id: int) -> schemas.CuentaPacienteOut:
+    if padron_service.obtener_paciente(db, paciente_id) is None:
+        raise PacienteNoEncontrado("Paciente no encontrado")
     cargos = repository.cargos_de_paciente(db, paciente_id)
-    resultado_cargos: list[dict[str, object]] = []
+    items: list[schemas.CargoCuentaOut] = []
     saldo_total = 0
     for cargo in cargos:
         detalle = obtener_cargo_detalle(db, cargo.id)
-        pagos = repository.pagos_de_cargo(db, cargo.id)
-        item: dict[str, object] = {"cargo": detalle["cargo"], "pagos": pagos}
-        item.update(detalle)
-        resultado_cargos.append(item)
-        s_val = detalle["saldo"]
-        if isinstance(s_val, int) and s_val > 0:
-            saldo_total += s_val
-    return {"paciente_id": paciente_id, "saldo_total": saldo_total, "cargos": resultado_cargos}
+        items.append(
+            schemas.CargoCuentaOut(
+                cargo=detalle,
+                pagos=[
+                    schemas.PagoOut.model_validate(pago)
+                    for pago in repository.pagos_de_cargo(db, cargo.id)
+                ],
+            )
+        )
+        if detalle.saldo > 0:
+            saldo_total += detalle.saldo
+    return schemas.CuentaPacienteOut(
+        paciente_id=paciente_id, saldo_total=saldo_total, cargos=items
+    )

@@ -1,0 +1,160 @@
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap');
+
+:root {
+  --pawprint-pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 220 220'%3E%3Cg fill='%239a6a46' opacity='.14' transform='rotate(-20 58 62)'%3E%3Cellipse cx='58' cy='73' rx='14' ry='11'/%3E%3Cellipse cx='39' cy='55' rx='5' ry='7'/%3E%3Cellipse cx='52' cy='45' rx='5' ry='7'/%3E%3Cellipse cx='66' cy='45' rx='5' ry='7'/%3E%3Cellipse cx='78' cy='55' rx='5' ry='7'/%3E%3C/g%3E%3Cg fill='%239a6a46' opacity='.09' transform='rotate(18 167 167)'%3E%3Cellipse cx='167' cy='178' rx='12' ry='9'/%3E%3Cellipse cx='151' cy='163' rx='4' ry='6'/%3E%3Cellipse cx='162' cy='154' rx='4' ry='6'/%3E%3Cellipse cx='174' cy='154' rx='4' ry='6'/%3E%3Cellipse cx='184' cy='163' rx='4' ry='6'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+* {
+  scrollbar-color: var(--color-primary) var(--color-surface-muted);
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+*::-webkit-scrollbar-track {
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-muted);
+}
+
+*::-webkit-scrollbar-thumb {
+  border: 2px solid var(--color-surface-muted);
+  border-radius: var(--radius-pill);
+  background: linear-gradient(180deg, var(--color-peach), var(--color-primary));
+  transition:
+    background var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, var(--color-primary), var(--color-primary-hover));
+  box-shadow: inset 0 0 0 1px rgb(61 43 32 / 12%);
+}
+
+body {
+  overflow-x: hidden;
+  background-color: var(--color-bg);
+  background-image:
+    var(--pawprint-pattern),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .36 0 0 0 0 .23 0 0 0 0 .15 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 220px 220px, 160px 160px;
+}
+
+h1,
+h2,
+h3,
+.marcaNombre,
+.section-title {
+  font-family: var(--font-display), "Fredoka", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+body,
+button,
+input,
+select,
+textarea {
+  font-family: var(--font-sans), "Nunito", system-ui, sans-serif;
+}
+
+h1 {
+  display: table;
+  max-width: 100%;
+  font-weight: 700;
+}
+
+h1::after {
+  display: block;
+  width: 70%;
+  height: 12px;
+  margin-top: 2px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 12' preserveAspectRatio='none'%3E%3Cpath d='M2 8 Q 15 2 30 7 T 60 7 T 90 7 T 118 6' fill='none' stroke='%23d9b48f' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E") no-repeat center / 100% 100%;
+  content: '';
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a {
+  transition:
+    color var(--transition-fast),
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+button:not(:disabled):active {
+  transform: scale(0.98);
+}
+
+@media (hover: hover) {
+  button:not(:disabled):hover {
+    filter: brightness(1.03);
+  }
+}
+
+a[href]:active {
+  opacity: 0.82;
+}
+
+input,
+select,
+textarea {
+  border-radius: var(--radius-md);
+}
+
+::placeholder {
+  color: var(--color-text-soft);
+  opacity: 1;
+}
+
+#contenido-principal > * {
+  animation: entrada-pagina 360ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes entrada-pagina {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    transition: none;
+  }
+
+  button,
+  a,
+  input,
+  select,
+  textarea {
+    transition: none;
+  }
+}

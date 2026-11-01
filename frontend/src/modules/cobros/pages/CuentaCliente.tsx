@@ -27,6 +27,7 @@ import type {
 import estilos from '../cobros.module.css';
 
 type Estado = 'cargando' | 'listo' | 'error';
+const TAMANIO_PAGINA_CARGOS = 20;
 
 type DatosPagina = {
   estado: Estado;
@@ -74,6 +75,10 @@ function pagosPorCargo(cuenta: CuentaClienteDatos): Record<number, Pago[]> {
 export function CuentaCliente() {
   const { personaId } = useParams();
   const id = numeroPositivo(personaId);
+  const [paginaCargos, setPaginaCargos] = useState<{
+    personaId: number | null;
+    indice: number;
+  }>({ personaId: null, indice: 0 });
   const [intento, setIntento] = useState(0);
   const [carga, setCarga] = useState<Carga>(CARGA_INICIAL);
   const [cargoPago, setCargoPago] = useState<CargoDetalle | null>(null);
@@ -210,54 +215,112 @@ export function CuentaCliente() {
 
   const pagos = pagosPorCargo(cuenta);
   const cargos = cuenta.cargos.map((item) => item.cargo);
+  const totalCargosCentavos = cargos.reduce(
+    (total, cargo) => total + cargo.total_vigente,
+    0,
+  );
+  const totalPagadoCentavos = cargos.reduce(
+    (total, cargo) => total + cargo.total_pagado,
+    0,
+  );
+  const indicePagina = paginaCargos.personaId === id ? paginaCargos.indice : 0;
+  const cargosVisibles = cargos.slice(
+    indicePagina * TAMANIO_PAGINA_CARGOS,
+    (indicePagina + 1) * TAMANIO_PAGINA_CARGOS,
+  );
+  const paginasCargos = Math.ceil(cargos.length / TAMANIO_PAGINA_CARGOS);
 
   return (
     <section className={estilos.pagina} aria-labelledby="titulo-cuenta">
-      <div className={estilos.cabecera}>
-        <div>
-          <h1 className={estilos.titulo} id="titulo-cuenta">
-            {persona.apellido}, {persona.nombre}
-          </h1>
-          <p className={estilos.subtitulo}>
-            {persona.dni ? `DNI ${persona.dni}` : 'Sin DNI registrado'}
-            {persona.telefonos.length > 0
-              ? ` · Tel. ${persona.telefonos.join(' · ')}`
-              : ''}
-          </p>
+      <header className={estilos.encabezadoCuenta}>
+        <div className={estilos.identidadCliente}>
+          <span className={estilos.avatarCuenta} aria-hidden="true">
+            {persona.nombre.charAt(0)}
+            {persona.apellido.charAt(0)}
+          </span>
+          <div className={estilos.datosCliente}>
+            <p className={estilos.antetitulo}>Cuenta del cliente</p>
+            <h1 className={estilos.titulo} id="titulo-cuenta">
+              {persona.apellido}, {persona.nombre}
+            </h1>
+            <div className={estilos.contactoCliente}>
+              {persona.dni ? (
+                <span>DNI {persona.dni}</span>
+              ) : (
+                <span>Sin DNI registrado</span>
+              )}
+              {persona.telefonos.map((telefono) => (
+                <span key={telefono}>{telefono}</span>
+              ))}
+            </div>
+          </div>
         </div>
-
         <div className={estilos.acciones}>
           <Link className={estilos.botonEnlaceSecundario} to="/cobros">
+            <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M19 12H5m7 7-7-7 7-7" />
+            </svg>
             Volver a Cobros
           </Link>
         </div>
-      </div>
+      </header>
 
       <BannerDeuda
         debe={resumen.debe}
         deudaMasAntigua={resumen.deuda_mas_antigua}
-        personaId={persona.id}
         saldoTotalCentavos={resumen.saldo_total_centavos}
       />
 
-      <div className={estilos.saldoCaja}>
-        <span className={estilos.saldoEtiqueta}>Saldo total</span>
-        <span
-          className={[
-            estilos.saldoMonto,
-            cuenta.saldo_total > 0 ? estilos.saldoMontoConDeuda : '',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          {formatearDinero(cuenta.saldo_total)}
-        </span>
-        <span className={estilos.textoSuave}>
-          {cuenta.saldo_total > 0
-            ? `Deuda calculada automáticamente. Cargos pendientes: ${resumen.cargos_pendientes}.`
-            : 'Sin deuda pendiente.'}
-        </span>
-      </div>
+      <section className={estilos.resumenCuenta} aria-label="Resumen de la cuenta">
+        <article className={`${estilos.indicadorCuenta} ${estilos.indicadorSaldo}`}>
+          <span className={estilos.indicadorIcono} aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 7.5h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2h13" />
+              <path d="M16 13.5h5m-15-6h13" />
+              <circle cx="16" cy="13.5" r=".75" />
+            </svg>
+          </span>
+          <span className={estilos.indicadorEtiqueta}>Saldo pendiente</span>
+          <strong className={estilos.indicadorMonto}>
+            {formatearDinero(resumen.saldo_total_centavos)}
+          </strong>
+          <span className={estilos.indicadorDetalle}>
+            {resumen.debe ? 'Saldo por cobrar' : 'Cuenta al día'}
+          </span>
+        </article>
+        <article className={estilos.indicadorCuenta}>
+          <span
+            className={`${estilos.indicadorIcono} ${estilos.iconoCargos}`}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M7 3.75h7l4 4v12.5H7a2 2 0 0 1-2-2V5.75a2 2 0 0 1 2-2Z" />
+              <path d="M14 3.75v4h4m-9 4h6m-6 4h6" />
+            </svg>
+          </span>
+          <span className={estilos.indicadorEtiqueta}>Cargos registrados</span>
+          <strong className={estilos.indicadorNumero}>{cargos.length}</strong>
+          <span className={estilos.indicadorDetalle}>En esta cuenta</span>
+        </article>
+        <article className={estilos.indicadorCuenta}>
+          <span
+            className={`${estilos.indicadorIcono} ${estilos.iconoPagos}`}
+            aria-hidden="true"
+          >
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M5 12.5 9.5 17 19 7.5" />
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+          </span>
+          <span className={estilos.indicadorEtiqueta}>Total abonado</span>
+          <strong className={estilos.indicadorMonto}>
+            {formatearDinero(totalPagadoCentavos)}
+          </strong>
+          <span className={estilos.indicadorDetalle}>
+            Sobre {formatearDinero(totalCargosCentavos)} en cargos
+          </span>
+        </article>
+      </section>
 
       {aviso ? (
         <Alerta role="status" tono="exito">
@@ -265,26 +328,58 @@ export function CuentaCliente() {
         </Alerta>
       ) : null}
 
-      <div className={estilos.cabecera}>
-        <div>
-          <h2 className={estilos.tituloSeccion}>Cargos y pagos</h2>
-          <p className={estilos.subtitulo}>
-            Cada cargo muestra su total, lo pagado y el saldo.
-          </p>
+      <section className={estilos.historialCuenta} aria-labelledby="titulo-cargos">
+        <div className={estilos.encabezadoHistorial}>
+          <div>
+            <h2 className={estilos.tituloSeccion} id="titulo-cargos">
+              Cargos y pagos
+            </h2>
+          </div>
+          {cargos.length > 0 ? (
+            <span className={estilos.cantidadCargos}>
+              {cargos.length} {cargos.length === 1 ? 'cargo' : 'cargos'}
+            </span>
+          ) : null}
         </div>
-      </div>
-
-      {cargos.length === 0 ? (
-        <p className={estilos.vacio}>Este cliente todavía no tiene cargos.</p>
-      ) : (
-        <TablaCargos
-          cargos={cargos}
-          mediosPorId={mediosPorId}
-          onAjustar={setCargoAjuste}
-          onCobrar={setCargoPago}
-          pagosPorCargo={pagos}
-        />
-      )}
+        {cargos.length === 0 ? (
+          <p className={estilos.vacio}>Este cliente todavía no tiene cargos.</p>
+        ) : (
+          <TablaCargos
+            cargos={cargosVisibles}
+            mediosPorId={mediosPorId}
+            onAjustar={setCargoAjuste}
+            onCobrar={setCargoPago}
+            pagosPorCargo={pagos}
+          />
+        )}
+        {paginasCargos > 1 ? (
+          <nav className={estilos.paginacion} aria-label="Paginación de cargos">
+            <button
+              className={estilos.botonPaginacion}
+              disabled={indicePagina === 0}
+              onClick={() =>
+                setPaginaCargos({ personaId: id, indice: Math.max(0, indicePagina - 1) })
+              }
+              type="button"
+            >
+              Anterior
+            </button>
+            <span className={estilos.estadoPaginacion}>
+              Página {indicePagina + 1} de {paginasCargos}
+            </span>
+            <button
+              className={estilos.botonPaginacion}
+              disabled={indicePagina + 1 >= paginasCargos}
+              onClick={() =>
+                setPaginaCargos({ personaId: id, indice: indicePagina + 1 })
+              }
+              type="button"
+            >
+              Siguiente
+            </button>
+          </nav>
+        ) : null}
+      </section>
 
       {cargoPago ? (
         <DialogoConfirmacion
