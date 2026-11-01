@@ -81,8 +81,10 @@ def test_sena_confirma_y_deja_pago_y_saldo_en_cobros(
     cargo = cuenta.json()["cargos"][0]
 
     assert creada.status_code == 201
+    assert creada.json()["sena_centavos"] == 0
     assert respuesta.status_code == 200
     assert respuesta.json()["estado"] == "CONFIRMADA"
+    assert respuesta.json()["sena_centavos"] == 500000
     assert cargo["cargo"]["total_pagado"] == 500000
     assert cargo["cargo"]["saldo"] == 6500000
     assert len(cargo["pagos"]) == 1

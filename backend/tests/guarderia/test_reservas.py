@@ -118,6 +118,44 @@ def test_idempotencia_devuelve_la_misma_reserva_o_conflicto_por_cuerpo(
     assert db_session.scalar(select(func.count(Reserva.id))) == 1
 
 
+def test_persiste_detalle_de_cuidados_y_lo_incluye_en_idempotencia(
+    client,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    datos = crear_datos_reserva()
+    usuario = crear_usuario(Rol.DUENIO)
+    headers = token_guarderia(usuario)
+    paciente_id = datos.paciente_ids[0]
+    payload = _payload(datos.tutor_persona_id, [paciente_id])
+    payload["cuidados_extras"] = [
+        {
+            "paciente_id": paciente_id,
+            "cuidados_extras": True,
+            "tipo_cuidado": "Administrar medicación",
+        }
+    ]
+
+    creada = _crear(client, headers, payload, "reserva-cuidado")
+    reintentada = _crear(client, headers, payload, "reserva-cuidado")
+    otra_solicitud = dict(payload)
+    otra_solicitud["cuidados_extras"] = [
+        {
+            "paciente_id": paciente_id,
+            "cuidados_extras": True,
+            "tipo_cuidado": "Cuidado diferente",
+        }
+    ]
+    conflicto = _crear(client, headers, otra_solicitud, "reserva-cuidado")
+
+    assert creada.status_code == 201
+    assert creada.json()["pacientes"][0]["tipo_cuidado"] == "Administrar medicación"
+    assert reintentada.status_code == 200
+    assert conflicto.status_code == 409
+
+
 @pytest.mark.parametrize(
     ("cambios", "codigo"),
     [
