@@ -11,8 +11,7 @@
 | `docs/specs/<modulo>.md` | **MANDA para ese módulo.** Si existe, prevalece para ese ticket. |
 | `AGENTS.md` | Guía transversal para todo el proyecto. |
 
-- **Si la spec y `docs/reglas-de-negocio.md` se contradicen, o falta una regla → PARAR Y PREGUNTAR.**
-- **NO INVENTAR REGLAS.** Si no está escrito, preguntar. Lo dudoso va a "Pendientes del cliente" de la spec.
+- **NO INVENTAR REGLAS.** Si no está escrito, preguntar.
 - **Excel en `data/` es SOLO LECTURA.** La limpieza va en código.
 
 ## 2. STACK Y ARQUITECTURA
@@ -26,7 +25,7 @@
 1. **Aislamiento:** Un módulo solo escribe en sus propias tablas.
 2. **Consumo cruzado:** Solo vía `service.py` público. **PROHIBIDO** importar `models.py` o `repository.py` ajenos. **PROHIBIDO** `relationship()` entre módulos.
 3. **FKs:** Se permiten, pero la consulta debe ir por el `service.py` del dueño.
-4. **Doble toque:** Si toca dos módulos → acordar en la spec y avisar al responsable **ANTES** de implementar.
+4. **Doble toque:** Si toca dos módulos → acordar en la spec que existe (no crear nuevas) y avisar al responsable **ANTES** de implementar.
 5. **Router sin lógica:** Valida, llama al service, devuelve. Nada de reglas de negocio.
 6. **Frontend aislado:** No importar componentes internos de otro módulo. Consumir por API/capa de servicios.
 7. **Tests aislados:** No importar `models.py`/`repository.py` ajenos. Usar `service.py` o factories propias. `backend/tests/test_arquitectura.py` valida todo.
@@ -113,7 +112,7 @@ cd frontend && npm install && npm run dev
 npm test -- --run && npm run lint && npx tsc --noEmit
 5. CÓMO TRABAJAR
 ANTES DE EMPEZAR:
-1. Leer AGENTS.md, docs/reglas-de-negocio.md y docs/specs/<modulo>.md. Si no hay spec → PARAR Y PEDIRLA.
+1. Leer AGENTS.md, docs/reglas-de-negocio.md y docs/specs/<modulo>.md. Si no hay spec → CONTINUAR SIN SPECS.
 2. Identificar módulo, RN aplicables y criterios de aceptación.
 3. Verificar si toca otro módulo. Si sí → PARAR Y PREGUNTAR.
 DURANTE:

@@ -77,13 +77,17 @@ describe('FormularioPago', () => {
     renderizar();
 
     const monto = await screen.findByLabelText('Monto');
-    const medio = screen.getByLabelText('Medio de pago');
+    const medio = await screen.findByRole('combobox', { name: 'Medio de pago' });
 
     expect(monto).toHaveValue('80,00');
     expect(screen.getByText('$80,00')).toBeInTheDocument();
-    expect(medio).toHaveValue('EFECTIVO');
-    expect(screen.getByRole('option', { name: 'Transferencia' })).toBeEnabled();
-    expect(screen.getByRole('option', { name: 'Mercado Pago' })).toBeDisabled();
+    expect(medio).toHaveTextContent('Efectivo');
+    fireEvent.click(medio);
+    expect(screen.getByRole('option', { name: 'Transferencia' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Mercado Pago' })).toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
     expect(screen.getByLabelText('Es seña')).not.toBeChecked();
   });
 
@@ -93,9 +97,8 @@ describe('FormularioPago', () => {
     renderizar(onPagado);
 
     fireEvent.change(await screen.findByLabelText('Monto'), { target: { value: '5.000,50' } });
-    fireEvent.change(screen.getByLabelText('Medio de pago'), {
-      target: { value: 'TRANSFERENCIA' },
-    });
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Medio de pago' }));
+    fireEvent.click(screen.getByRole('option', { name: 'Transferencia' }));
     fireEvent.click(screen.getByLabelText('Es seña'));
     fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
 

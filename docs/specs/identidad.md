@@ -92,6 +92,10 @@ Los routers de todos los módulos protegen con la dependencia `require_role(*rol
 ## Fuera de alcance
 Recuperación de contraseña, doble factor, revocación de tokens, auditoría de inicios de sesión y permisos por registro.
 
+## Criterios de interfaz
+- En la pantalla de creación, las opciones Personal y Veterinario se presentan lado a lado.
+- La acción Volver aparece una sola vez, junto a Crear cuenta.
+
 ## Pendientes
 **Cliente:** quiénes tendrán usuario y con qué rol; si `PERSONAL` puede ver la historia clínica (solo lectura); si alcanza con que el Dueño habilite la plaza de emergencia o tiene que intervenir un veterinario; si solo el Dueño debe poder bajar precios.
 **Equipo (menores, no bloquean T-10):** si se permite cambiar el rol de un usuario existente (hoy `PATCH` solo activa y cambia contraseña); si el logout debe revocar el token.

@@ -94,18 +94,24 @@ describe('AppLayout', () => {
     expect(await screen.findByRole('heading', { name: 'Login' })).toBeInTheDocument();
   });
 
-  it('DUENIO ve sus 8 secciones en el orden pedido', () => {
+  it('saluda al usuario en la ilustración del menú', () => {
+    renderizar('DUENIO');
+
+    expect(screen.getByText('Hola, Prueba!')).toBeInTheDocument();
+    expect(screen.queryByText(/huellitas en casa/)).not.toBeInTheDocument();
+  });
+
+  it('DUENIO ve las secciones sin un enlace separado para nueva reserva', () => {
     renderizar('DUENIO');
 
     expect(enlacesLateral()).toEqual([
       'Panel',
       'Dueños y mascotas',
       'Calendario',
-      'Nueva reserva',
       'Historia clínica',
       'Cobros',
       'Deudores',
-      'Crear cuenta',
+      'Administración',
     ]);
   });
 
@@ -157,13 +163,12 @@ describe('AppLayout', () => {
     expect(within(inferior).queryByRole('link', { name: 'Panel' })).not.toBeInTheDocument();
   });
 
-  it('PERSONAL ve Dueños y mascotas, Calendario, Nueva reserva, Cobros y Turnos', () => {
+  it('PERSONAL ve Dueños y mascotas, Calendario, Cobros y Turnos', () => {
     renderizar('PERSONAL');
 
     expect(enlacesLateral()).toEqual([
       'Dueños y mascotas',
       'Calendario',
-      'Nueva reserva',
       'Cobros',
       'Turnos',
     ]);
@@ -200,25 +205,27 @@ describe('AppLayout', () => {
     }
   });
 
-  it('DUENIO encuentra Historia clínica, Cobros, Deudores y Crear cuenta en Más', async () => {
+  it('DUENIO conserva las secciones de navegación al quitar el enlace Nueva reserva', async () => {
     const usuario = userEvent.setup();
     renderizar('DUENIO');
     const { inferior } = navegaciones();
 
+    expect(
+      within(inferior).getByRole('link', { name: 'Historia' }),
+    ).toBeInTheDocument();
     await usuario.click(within(inferior).getByRole('button', { name: 'Más' }));
 
-    expect(within(inferior).getByRole('link', { name: 'Historia clínica' })).toBeInTheDocument();
     expect(within(inferior).getByRole('link', { name: 'Cobros' })).toBeInTheDocument();
     expect(within(inferior).getByRole('link', { name: 'Deudores' })).toBeInTheDocument();
-    expect(within(inferior).getByRole('link', { name: 'Crear cuenta' })).toBeInTheDocument();
+    expect(within(inferior).getByRole('link', { name: 'Administración' })).toBeInTheDocument();
   });
 
-  it.each(['PERSONAL', 'VETERINARIO'] as const)('%s no ve Crear cuenta', (rol) => {
+  it.each(['PERSONAL', 'VETERINARIO'] as const)('%s no ve Administración', (rol) => {
     renderizar(rol);
     const { lateral, inferior } = navegaciones();
 
-    expect(within(lateral).queryByRole('link', { name: 'Crear cuenta' })).not.toBeInTheDocument();
-    expect(within(inferior).queryByRole('link', { name: 'Crear cuenta' })).not.toBeInTheDocument();
+    expect(within(lateral).queryByRole('link', { name: 'Administración' })).not.toBeInTheDocument();
+    expect(within(inferior).queryByRole('link', { name: 'Administración' })).not.toBeInTheDocument();
   });
 
   it('en Deudores solo se destaca Deudores, no Cobros', async () => {
@@ -271,7 +278,7 @@ describe('AppLayout', () => {
     ['/guarderia/calendario', 'Calendario'],
     ['/guarderia/nueva', 'Nueva reserva'],
     ['/historia-clinica', 'Historia clínica'],
-    ['/identidad/crear-cuenta', 'Crear cuenta'],
+    ['/identidad/crear-cuenta', 'Administración'],
     ['/turnos', 'Turnos'],
     ['/migracion', 'Migración'],
   ] as const)('el encabezado corresponde a la sección de %s', (ruta, etiqueta) => {

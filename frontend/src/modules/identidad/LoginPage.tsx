@@ -54,7 +54,10 @@ export function LoginPage() {
     <main className={estilos.pagina}>
       <section className={estilos.tarjeta} aria-labelledby="login-titulo">
         <div className={estilos.marca}>
-          <span className={estilos.logo} aria-hidden="true">
+          <span
+            className={`${estilos.logo} ${enviando ? estilos.logoIngresando : ''}`}
+            aria-hidden="true"
+          >
             <PatitaIcon />
           </span>
           <div>

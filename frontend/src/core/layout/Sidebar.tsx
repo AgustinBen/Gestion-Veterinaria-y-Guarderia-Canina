@@ -3,6 +3,7 @@ import { Link, NavLink } from 'react-router-dom';
 import type { Sesion } from '../auth/almacenSesion';
 import { etiquetaRol, type Seccion } from '../auth/permisos';
 import { PatitaIcon } from '../components/PatitaIcon';
+import { SeccionIcon } from './SeccionIcon';
 import estilos from './Sidebar.module.css';
 
 type Props = {
@@ -53,7 +54,10 @@ export function Sidebar({
                     end
                     to={seccion.ruta}
                   >
-                    {seccion.etiqueta}
+                    <span className={estilos.icono}>
+                      <SeccionIcon seccion={seccion.id} />
+                    </span>
+                    <span className={estilos.enlaceTexto}>{seccion.etiqueta}</span>
                     {contador ? (
                       <span aria-hidden="true" className={estilos.contador}>
                         {contador}
@@ -65,6 +69,11 @@ export function Sidebar({
             })}
           </ul>
         </nav>
+
+        <div className={estilos.mascota}>
+          <img src="/images/mascotas.png" alt="" />
+          <p>Hola, {sesion.usuario}!</p>
+        </div>
 
         <div className={estilos.pie}>
           <div>

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 
 import type { Seccion } from '../auth/permisos';
+import { SeccionIcon } from './SeccionIcon';
 import estilos from './BottomNav.module.css';
 
 const MAX_PRINCIPALES = 4;
@@ -39,7 +40,10 @@ export function BottomNav({ secciones, contadorDeudores }: Props) {
               onClick={() => setAbierto(false)}
               to={seccion.ruta}
             >
-              {seccion.etiqueta}
+              <span className={estilos.icono}>
+                <SeccionIcon seccion={seccion.id} />
+              </span>
+              <span>{seccion.etiqueta}</span>
               {contador ? (
                 <span aria-hidden="true" className={estilos.contador}>
                   {contador}
@@ -69,6 +73,9 @@ export function BottomNav({ secciones, contadorDeudores }: Props) {
                 end
                 to={seccion.ruta}
               >
+                <span className={estilos.icono}>
+                  <SeccionIcon seccion={seccion.id} />
+                </span>
                 <span className={estilos.etiqueta}>{seccion.etiquetaCorta}</span>
                 {contador ? (
                   <span aria-hidden="true" className={estilos.contador}>

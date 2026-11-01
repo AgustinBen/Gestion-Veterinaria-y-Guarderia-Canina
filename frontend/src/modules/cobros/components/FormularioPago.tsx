@@ -3,6 +3,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Alerta } from '../../../core/components/ui/Alerta';
 import { Boton } from '../../../core/components/ui/Boton';
 import { Campo } from '../../../core/components/ui/Campo';
+import { Selector } from '../../../core/components/ui/Selector';
 import { formatearDinero, formatearMonto, parsearDinero } from '../../../core/formatos/dinero';
 import {
   generarIdempotencyKey,
@@ -205,17 +206,18 @@ export function FormularioPago({
       </Campo>
 
       <Campo etiqueta="Medio de pago" id={ID_MEDIO}>
-        <select
+        <Selector
           id={ID_MEDIO}
-          onChange={(evento) => setMedio(evento.target.value)}
+          onChange={setMedio}
+          opciones={medios.medios.map((item) => ({
+            value: item.codigo,
+            label: item.nombre,
+            disabled: !item.activo,
+          }))}
+          placeholder="Seleccionar medio de pago"
+          required
           value={medio}
-        >
-          {medios.medios.map((item) => (
-            <option disabled={!item.activo} key={item.codigo} value={item.codigo}>
-              {item.nombre}
-            </option>
-          ))}
-        </select>
+        />
       </Campo>
 
       <label className={estilos.check} htmlFor={ID_SENA}>

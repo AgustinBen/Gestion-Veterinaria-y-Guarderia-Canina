@@ -5,17 +5,22 @@
   padding: max(var(--space-6), env(safe-area-inset-top)) var(--space-4)
     max(var(--space-6), env(safe-area-inset-bottom));
   background:
-    radial-gradient(circle at 12% 8%, rgb(245 224 213 / 80%), transparent 28rem),
-    radial-gradient(circle at 92% 92%, rgb(232 236 221 / 90%), transparent 24rem),
+    var(--pawprint-pattern),
+    radial-gradient(circle at 12% 8%, rgb(239 224 207 / 80%), transparent 28rem),
+    radial-gradient(circle at 92% 92%, rgb(217 180 143 / 28%), transparent 24rem),
     var(--color-bg);
+  background-size: 13.75rem 13.75rem, auto, auto, auto;
 }
 
 .tarjeta {
+  position: relative;
   width: min(100%, 26rem);
-  padding: var(--space-6);
+  padding: clamp(var(--space-6), 7vw, var(--space-8));
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background: var(--color-surface);
+  border-radius: 2rem;
+  background:
+    radial-gradient(18rem 12rem at 100% 0%, rgb(217 180 143 / 18%), transparent 75%),
+    var(--color-surface);
   box-shadow: var(--shadow-lg);
 }
 
@@ -32,20 +37,65 @@
   width: 3.25rem;
   height: 3.25rem;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 1.15rem 1.3rem 0.9rem 1.3rem;
   background: var(--color-primary-soft);
   color: var(--color-primary);
+  transform: rotate(-7deg);
+  box-shadow: 3px 3px 0 var(--color-peach);
+  animation: logo-flotar 4.8s ease-in-out infinite;
+}
+
+.logoIngresando {
+  animation: logo-salto 1.6s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
 }
 
 .logo svg {
   width: 2rem;
   height: 2rem;
   fill: currentcolor;
+  animation: patita-latido 2.8s ease-in-out infinite;
+}
+
+@keyframes logo-flotar {
+  0%,
+  100% {
+    transform: rotate(-9deg) translateY(0);
+  }
+
+  50% {
+    transform: rotate(2deg) translateY(-10px);
+  }
+}
+
+@keyframes logo-salto {
+  from {
+    transform: rotate(-10deg) translateY(1px) scale(1);
+  }
+
+  to {
+    transform: rotate(12deg) translateY(-15px) scale(1.12);
+  }
+}
+
+@keyframes patita-latido {
+  0%,
+  70%,
+  100% {
+    transform: scale(1);
+  }
+
+  82% {
+    transform: scale(1.24);
+  }
+
+  90% {
+    transform: scale(0.94);
+  }
 }
 
 .nombreMarca {
   font-family: var(--font-display);
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
 }
@@ -59,7 +109,7 @@
 
 .tarjeta h1 {
   margin-bottom: var(--space-2);
-  font-size: var(--text-2xl);
+  font-size: clamp(var(--text-2xl), 6vw, var(--text-3xl));
 }
 
 .texto {
@@ -87,7 +137,7 @@
   min-height: var(--tap-target);
   padding: 0 var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: 1rem;
   background: var(--color-surface);
   transition:
     border-color var(--transition-fast),
@@ -109,11 +159,22 @@
   background: var(--color-primary);
   color: var(--color-text-inverse);
   font-weight: var(--weight-semibold);
-  transition: background var(--transition-fast);
+  box-shadow: 0 4px 0 var(--color-primary-hover);
+  transition:
+    background var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
 }
 
 .boton:hover:not(:disabled) {
   background: var(--color-primary-hover);
+  box-shadow: 0 6px 0 var(--color-primary-hover);
+  transform: translateY(-2px);
+}
+
+.boton:active:not(:disabled) {
+  box-shadow: 0 1px 0 var(--color-primary-hover);
+  transform: translateY(2px);
 }
 
 .boton:disabled {
@@ -129,8 +190,41 @@
   font-size: var(--text-sm);
 }
 
+.pagina::before,
+.pagina::after {
+  position: fixed;
+  z-index: -1;
+  width: 18rem;
+  aspect-ratio: 1;
+  border-radius: 44% 56% 63% 37% / 47% 42% 58% 53%;
+  background: rgb(239 224 207 / 65%);
+  content: '';
+  pointer-events: none;
+}
+
+.pagina::before {
+  top: -8rem;
+  left: -7rem;
+  transform: rotate(20deg);
+}
+
+.pagina::after {
+  right: -8rem;
+  bottom: -9rem;
+  background: rgb(217 180 143 / 28%);
+  transform: rotate(-18deg);
+}
+
 @media (min-width: 30rem) {
   .tarjeta {
     padding: var(--space-8);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .logo,
+  .logoIngresando,
+  .logo svg {
+    animation: none;
   }
 }

@@ -52,7 +52,7 @@ async function ingresarDatos(
   username = 'recepcion',
   password = 'clave-segura',
 ) {
-  await usuario.type(screen.getByLabelText('Nombre de usuario'), username);
+  await usuario.type(screen.getByLabelText('Usuario'), username);
   await usuario.type(screen.getByLabelText('Contraseña'), password);
 }
 
@@ -74,7 +74,7 @@ describe('CrearCuentaPage', () => {
 
     renderizar('DUENIO');
     await ingresarDatos(usuario);
-    await usuario.selectOptions(screen.getByLabelText('Rol'), rol);
+    await usuario.click(screen.getByRole('radio', { name: new RegExp(etiquetaRol) }));
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(
@@ -105,6 +105,7 @@ describe('CrearCuentaPage', () => {
 
     renderizar('DUENIO');
 
+    expect(screen.getAllByRole('button', { name: 'Volver' })).toHaveLength(1);
     await usuario.click(screen.getByRole('button', { name: 'Volver' }));
 
     expect(await screen.findByRole('heading', { name: 'Inicio' })).toBeInTheDocument();
@@ -123,7 +124,7 @@ describe('CrearCuentaPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Ese nombre de usuario ya está registrado. Probá con otro.',
     );
-    expect(screen.getByLabelText('Nombre de usuario')).toHaveValue('recepcion');
+    expect(screen.getByLabelText('Usuario')).toHaveValue('recepcion');
     expect(screen.getByLabelText('Contraseña')).toHaveValue('clave-segura');
     expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeEnabled();
   });
@@ -144,7 +145,7 @@ describe('CrearCuentaPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Los datos ingresados no son válidos. Revisá el nombre de usuario y la contraseña.',
     );
-    expect(screen.getByLabelText('Nombre de usuario')).toHaveValue('recepcion');
+    expect(screen.getByLabelText('Usuario')).toHaveValue('recepcion');
     expect(screen.getByLabelText('Contraseña')).toHaveValue('clave-segura');
     expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeEnabled();
   });

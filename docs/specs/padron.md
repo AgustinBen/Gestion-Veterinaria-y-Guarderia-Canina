@@ -106,6 +106,7 @@ transferir_paciente(db, paciente_id: int, nueva_persona_id: int, fecha: date | N
 - Los teléfonos de ejemplo de `migracion.md` se normalizan al valor esperado.
 - Ningún campo ni función menciona `factor_cupo`.
 - Los consumidores usan solo `padron/service.py` (lo verifica el test de arquitectura).
+- La pantalla Dueños y mascotas muestra el rótulo “Padrón de clientes” y pagina las mascotas registradas en grupos de cinco.
 
 ## Dependencias con otros módulos
 Usa `core` e `identidad` (`require_role`). Lo consumen `cobros` (titulares), `guarderia` (paciente, titulares, `pacientes_de_persona`), `clinica` (paciente, empleado), `identidad` (empleado) y `migracion` (escrituras).
