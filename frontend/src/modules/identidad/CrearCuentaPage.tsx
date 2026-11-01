@@ -12,6 +12,23 @@ type DatosFormulario = {
   rol: RolUsuarioCreable;
 };
 
+const OPCIONES_ROL: {
+  valor: RolUsuarioCreable;
+  etiqueta: string;
+  descripcion: string;
+}[] = [
+  {
+    valor: 'PERSONAL',
+    etiqueta: 'Personal',
+    descripcion: 'Reservas, guardería y atención diaria.',
+  },
+  {
+    valor: 'VETERINARIO',
+    etiqueta: 'Veterinario',
+    descripcion: 'Historias clínicas y turnos médicos.',
+  },
+];
+
 const FORMULARIO_VACIO: DatosFormulario = {
   username: '',
   password: '',
@@ -91,27 +108,36 @@ export function CrearCuentaPage() {
   return (
     <section className={estilos.pagina} aria-labelledby="crear-cuenta-titulo">
       <div className={estilos.contenido}>
-        <button className={estilos.botonVolver} onClick={volver} type="button">
-          <span aria-hidden="true">←</span>
-          Volver
-        </button>
-
         <header className={estilos.encabezado}>
-          <p className={estilos.eyebrow}>Usuarios</p>
+          <p className={estilos.eyebrow}>Administración</p>
           <h1 id="crear-cuenta-titulo">Crear cuenta</h1>
           <p className={estilos.descripcion}>
-            Creá una cuenta para el personal de recepción o veterinaria.
+            Sumá a alguien nuevo al equipo de Huellitas.
           </p>
         </header>
 
         <form className={estilos.formulario} onSubmit={manejarEnvio}>
+          <div className={estilos.encabezadoFormulario}>
+            <span className={estilos.iconoEncabezado} aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="7.5" cy="15.5" r="5.5" />
+                <path d="m11.5 11.5 9-9 2 2-2 2 1.5 1.5-2.5 2.5-1.5-1.5-4 4M7.5 15.5h.01" />
+              </svg>
+            </span>
+            <div>
+              <h2>Datos de acceso</h2>
+              <p>Con estos datos va a poder ingresar al sistema.</p>
+            </div>
+          </div>
+
           <div className={estilos.campo}>
-            <label htmlFor="nuevo-username">Nombre de usuario</label>
+            <label htmlFor="nuevo-username">Usuario</label>
             <input
-              autoComplete="username"
+              autoComplete="off"
               id="nuevo-username"
               maxLength={50}
               name="username"
+              placeholder="Ej. mariana.lopez"
               required
               type="text"
               value={datos.username}
@@ -125,6 +151,7 @@ export function CrearCuentaPage() {
               autoComplete="new-password"
               id="nueva-password"
               name="password"
+              placeholder="Ingresá una contraseña"
               required
               type="password"
               value={datos.password}
@@ -132,39 +159,107 @@ export function CrearCuentaPage() {
             />
           </div>
 
-          <div className={estilos.campo}>
-            <label htmlFor="nuevo-rol">Rol</label>
-            <select
-              id="nuevo-rol"
-              name="rol"
-              required
-              value={datos.rol}
-              onChange={(evento) => {
-                const rol = evento.target.value;
-                if (rol === 'PERSONAL' || rol === 'VETERINARIO') {
-                  actualizar('rol', rol);
-                }
-              }}
-            >
-              <option value="PERSONAL">Personal</option>
-              <option value="VETERINARIO">Veterinario</option>
-            </select>
-          </div>
+          <fieldset className={estilos.selectorRol}>
+            <legend>Rol</legend>
+            <div className={estilos.opcionesRol}>
+              {OPCIONES_ROL.map((opcion) => {
+                const seleccionado = datos.rol === opcion.valor;
+
+                return (
+                  <label
+                    className={`${estilos.opcionRol} ${
+                      seleccionado ? estilos.opcionRolSeleccionada : ''
+                    }`}
+                    key={opcion.valor}
+                  >
+                    <input
+                      checked={seleccionado}
+                      className={estilos.radioOculto}
+                      name="rol"
+                      type="radio"
+                      value={opcion.valor}
+                      onChange={() => actualizar('rol', opcion.valor)}
+                    />
+                    <span className={estilos.iconoRol} aria-hidden="true">
+                      {opcion.valor === 'PERSONAL' ? (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <circle cx="12" cy="8" r="4" />
+                          <path d="M4 21a8 8 0 0 1 16 0" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" fill="none">
+                          <path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" />
+                          <path d="M12 8v6m-3-3h6" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className={estilos.detalleRol}>
+                      <strong>{opcion.etiqueta}</strong>
+                      <small>{opcion.descripcion}</small>
+                    </span>
+                    {seleccionado ? (
+                      <svg
+                        className={estilos.confirmacionRol}
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path d="m5 12 4 4L19 6" />
+                      </svg>
+                    ) : null}
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
 
           {error ? (
             <p className={estilos.error} role="alert">
               {error}
             </p>
           ) : null}
-          {confirmacion ? (
-            <p className={estilos.confirmacion} role="status">
-              {confirmacion}
-            </p>
-          ) : null}
 
-          <button className={estilos.boton} disabled={enviando} type="submit">
-            {enviando ? 'Creando cuenta…' : 'Crear cuenta'}
-          </button>
+          <div className={estilos.accionesFormulario}>
+            <button
+              className={estilos.botonVolverFormulario}
+              onClick={volver}
+              type="button"
+            >
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m15 18-6-6 6-6M9 12h12" />
+              </svg>
+              Volver
+            </button>
+            <button
+              className={estilos.boton}
+              disabled={enviando}
+              type="submit"
+            >
+              {enviando ? (
+                'Creando cuenta…'
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                    <circle cx="9" cy="8" r="3.5" />
+                    <path d="M3 20v-1.2A4.8 4.8 0 0 1 7.8 14h2.4a4.8 4.8 0 0 1 4.8 4.8V20M19 7v6M22 10h-6" />
+                  </svg>
+                  Crear cuenta
+                </>
+              )}
+            </button>
+          </div>
+
+          {confirmacion ? (
+            <div className={estilos.confirmacion} role="status">
+              <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="m5 12 4 4L19 6" />
+              </svg>
+              <div>
+                <strong>¡Cuenta creada!</strong>
+                <span>{confirmacion}</span>
+              </div>
+            </div>
+          ) : null}
         </form>
       </div>
     </section>
