@@ -148,3 +148,41 @@ class ResumenDeuda(BaseModel):
     cargos_pendientes: int
     deuda_mas_antigua: date | None
     incluye_migracion: bool
+
+
+class GastoExternoCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    empleado_id: int
+    descripcion: str = Field(min_length=1)
+    monto_centavos: int = Field(gt=0, strict=True)
+    fecha: date
+    cargo_id: int | None = None
+    pago_id: int | None = None
+
+
+class GastoAnular(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: str = Field(min_length=1)
+
+
+class GastoOut(BaseModel):
+    id: int
+    empleado_id: int
+    empleado_nombre: str
+    descripcion: str
+    monto_centavos: int
+    fecha: date
+    cargo_id: int | None
+    pago_id: int | None
+    registrado_por: int
+    created_at: datetime
+    anulado_en: datetime | None
+    anulado_por: int | None
+    motivo_anulacion: str | None
+
+
+class ListaGastosOut(BaseModel):
+    items: list[GastoOut]
+    total_centavos: int

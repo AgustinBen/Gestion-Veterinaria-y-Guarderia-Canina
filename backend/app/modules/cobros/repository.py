@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 from sqlalchemy import case, func, select
@@ -257,3 +258,98 @@ def cargos_de_paciente(db: Session, paciente_id: int) -> list[models.Cargo]:
     return list(
         db.execute(select(models.Cargo).where(models.Cargo.paciente_id == paciente_id).order_by(models.Cargo.id)).scalars().all()
     )
+
+
+def crear_gasto_externo(
+    db: Session,
+    *,
+    empleado_id: int,
+    descripcion: str,
+    monto: int,
+    fecha: date,
+    cargo_id: int | None,
+    pago_id: int | None,
+    registrado_por: int,
+) -> models.GastoExterno:
+    gasto = models.GastoExterno(
+        empleado_id=empleado_id,
+        descripcion=descripcion,
+        monto=monto,
+        fecha=fecha,
+        cargo_id=cargo_id,
+        pago_id=pago_id,
+        registrado_por=registrado_por,
+    )
+    db.add(gasto)
+    db.flush()
+    return gasto
+
+
+def obtener_gasto_externo(db: Session, gasto_id: int) -> models.GastoExterno | None:
+    return db.get(models.GastoExterno, gasto_id)
+
+
+def _filtros_gastos(
+    *,
+    desde: date | None,
+    hasta: date | None,
+    empleado_id: int | None,
+    cargo_id: int | None,
+) -> list[Any]:
+    filtros: list[Any] = []
+    if desde is not None:
+        filtros.append(models.GastoExterno.fecha >= desde)
+    if hasta is not None:
+        filtros.append(models.GastoExterno.fecha <= hasta)
+    if empleado_id is not None:
+        filtros.append(models.GastoExterno.empleado_id == empleado_id)
+    if cargo_id is not None:
+        filtros.append(models.GastoExterno.cargo_id == cargo_id)
+    return filtros
+
+
+def listar_gastos_externos(
+    db: Session,
+    *,
+    desde: date | None,
+    hasta: date | None,
+    empleado_id: int | None,
+    cargo_id: int | None,
+    limite: int,
+    desplazamiento: int,
+) -> list[models.GastoExterno]:
+    stmt = (
+        select(models.GastoExterno)
+        .where(
+            *_filtros_gastos(
+                desde=desde,
+                hasta=hasta,
+                empleado_id=empleado_id,
+                cargo_id=cargo_id,
+            )
+        )
+        .order_by(models.GastoExterno.fecha.desc(), models.GastoExterno.id.desc())
+        .limit(limite)
+        .offset(desplazamiento)
+    )
+    return list(db.execute(stmt).scalars().all())
+
+
+def total_gastos_externos(
+    db: Session,
+    *,
+    desde: date | None,
+    hasta: date | None,
+    empleado_id: int | None,
+    cargo_id: int | None,
+) -> int:
+    stmt = select(func.coalesce(func.sum(models.GastoExterno.monto), 0)).where(
+        models.GastoExterno.anulado_en.is_(None),
+        *_filtros_gastos(
+            desde=desde,
+            hasta=hasta,
+            empleado_id=empleado_id,
+            cargo_id=cargo_id,
+        ),
+    )
+    return int(db.execute(stmt).scalar_one())

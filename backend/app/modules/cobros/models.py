@@ -164,6 +164,16 @@ class GastoExterno(Base):
     cargo_id: Mapped[int | None] = mapped_column(ForeignKey("cargo.id"), nullable=True)
     pago_id: Mapped[int | None] = mapped_column(ForeignKey("pago.id"), nullable=True)
     registrado_por: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    anulado_en: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    anulado_por: Mapped[int | None] = mapped_column(
+        ForeignKey("usuario.id"), nullable=True
+    )
+    motivo_anulacion: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
 # Índice único parcial para clave_idempotencia (solo donde no es NULL)
