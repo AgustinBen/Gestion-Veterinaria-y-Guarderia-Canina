@@ -5,7 +5,14 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictInt,
+    field_validator,
+    model_validator,
+)
 
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import EstadoReserva
@@ -49,6 +56,21 @@ class CuidadoExtraAnimal(BaseModel):
 
     paciente_id: int = Field(gt=0, strict=True)
     cuidados_extras: bool
+    tipo_cuidado: str | None = None
+
+    @field_validator("tipo_cuidado")
+    @classmethod
+    def normalizar_tipo_cuidado(cls, valor: str | None) -> str | None:
+        if valor is None:
+            return None
+        detalle = valor.strip()
+        return detalle or None
+
+    @model_validator(mode="after")
+    def validar_tipo_cuidado(self) -> CuidadoExtraAnimal:
+        if not self.cuidados_extras and self.tipo_cuidado is not None:
+            raise ValueError("No puede indicar tipo de cuidado si cuidados_extras es falso")
+        return self
 
 
 class ReservaCrear(BaseModel):
@@ -87,6 +109,7 @@ class ReservaSenaCrear(BaseModel):
 class ReservaPacienteOut(BaseModel):
     paciente_id: int
     cuidados_extras: bool
+    tipo_cuidado: str | None
 
 
 class ReservaOut(BaseModel):
@@ -99,5 +122,6 @@ class ReservaOut(BaseModel):
     estado: EstadoReserva
     cargo_id: int | None
     total_centavos: int | None
+    sena_centavos: int
     pacientes: list[ReservaPacienteOut]
     created_at: datetime

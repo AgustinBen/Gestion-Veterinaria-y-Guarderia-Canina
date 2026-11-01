@@ -3,6 +3,10 @@
 - Responsable: Aldana
 - Servicio público: `disponibilidad`, `calendario`, `verificar_cupo` y
   `franjas_del_tramo`.
+- `ReservaOut.sena_centavos` expone el total neto de señas por el recurso
+  `reservas_cupo`, sin exponer pagos ni saldos de Cobros.
+- Cada paciente de una reserva conserva el indicador de cuidados extras y su
+  detalle opcional en `reserva_paciente`.
 - El rango máximo del calendario se configura en Settings con
   `GUARDERIA_CALENDARIO_MAX_DIAS` (por defecto, 366).
 - El cupo máximo y las plazas de emergencia se leen desde la configuración del

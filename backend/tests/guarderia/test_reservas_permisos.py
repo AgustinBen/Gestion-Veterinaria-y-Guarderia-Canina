@@ -83,6 +83,11 @@ def test_veterinario_solo_lectura_para_reservas(
         json=_payload(datos.tutor_persona_id, datos.paciente_ids[0]),
         headers={**headers_duenio, "Idempotency-Key": "vet-read-reserva"},
     )
+    registrada = client.post(
+        f"/api/guarderia/reservas/{creada.json()['id']}/sena",
+        json={"monto_centavos": 100000, "medio": "EFECTIVO"},
+        headers={**headers_duenio, "Idempotency-Key": "vet-read-sena"},
+    )
     veterinario = crear_usuario(Rol.VETERINARIO)
     headers_veterinario = token_guarderia(veterinario)
 
@@ -106,6 +111,9 @@ def test_veterinario_solo_lectura_para_reservas(
     )
 
     assert lectura_detalle.status_code == 200
+    assert creada.status_code == 201
+    assert registrada.status_code == 200
+    assert lectura_detalle.json()["sena_centavos"] == 100000
     assert lectura_lista.status_code == 200
     assert escritura_reserva.status_code == 403
     assert escritura_sena.status_code == 403
