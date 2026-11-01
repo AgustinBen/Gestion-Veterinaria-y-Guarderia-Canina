@@ -531,7 +531,7 @@ def _resolver_cargos(
 
         cuenta = cobros_service.cuenta_persona(db, persona_id)
         encontrado = next(
-            (item for item in cuenta["cargos"] if _coincide(item["cargo"], demo)),
+            (item for item in cuenta.cargos if _coincide(item.cargo, demo)),
             None,
         )
         if encontrado is None:
@@ -550,8 +550,8 @@ def _resolver_cargos(
             cargos_creados += 1
             estado = "creado"
         else:
-            cargo_id = encontrado["cargo"].id
-            pagos_existentes = encontrado["pagos"]
+            cargo_id = encontrado.cargo.id
+            pagos_existentes = encontrado.pagos
             cargos_existentes += 1
             estado = "existente"
 
@@ -592,8 +592,8 @@ def _resolver_cargos(
         detalle = cobros_service.obtener_cargo_detalle(db, cargo_id)
         print(
             f"  {demo.referencia} {mascota.nombre}: {demo.concepto} -> {estado} · "
-            f"total {dinero.formatear_pesos(int(detalle['total_vigente']))} · "
-            f"saldo {dinero.formatear_pesos(int(detalle['saldo']))} · "
+            f"total {dinero.formatear_pesos(int(detalle.total_vigente))} · "
+            f"saldo {dinero.formatear_pesos(int(detalle.saldo))} · "
             f"{len(demo.pagos)} pago(s) en el dato"
         )
 

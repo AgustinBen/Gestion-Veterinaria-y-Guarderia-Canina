@@ -46,6 +46,7 @@ def test_reverso_devuelve_saldo_a_estado_anterior_sin_borrar_original(
     reverso = rev.json()
     assert reverso["tipo"] == "REVERSO"
     assert reverso["pago_revertido_id"] == pago_id
+    assert reverso["motivo"] == "Error de carga"
 
     detalle_despues = client.get(f"/api/cargos/{cargo_id}", headers=headers_duenio).json()
     assert detalle_despues["saldo"] == 20000

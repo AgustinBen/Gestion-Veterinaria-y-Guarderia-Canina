@@ -83,3 +83,21 @@ def test_saldo_pendiente_suma_varios_cargos_y_no_cuenta_saldados(
 
     pendiente = service.saldo_pendiente(db_session, referencias_cobros.persona_id)
     assert pendiente == 20000
+
+
+def test_cuenta_de_persona_inexistente_404(
+    client: TestClient,
+    referencias_cobros,
+) -> None:
+    headers = _auth_token(client, "duenio-cobros")
+    respuesta = client.get("/api/personas/999999/cuenta", headers=headers)
+    assert respuesta.status_code == 404
+
+
+def test_cuenta_de_paciente_inexistente_404(
+    client: TestClient,
+    referencias_cobros,
+) -> None:
+    headers = _auth_token(client, "duenio-cobros")
+    respuesta = client.get("/api/pacientes/999999/cuenta", headers=headers)
+    assert respuesta.status_code == 404

@@ -106,6 +106,7 @@ class PagoOut(BaseModel):
     usuario_id: int
     empleado_id: int | None
     clave_idempotencia: str | None
+    motivo: str | None = None
     created_at: datetime
 
 
