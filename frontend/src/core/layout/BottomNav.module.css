@@ -103,6 +103,24 @@
   gap: var(--space-2);
 }
 
+.masEnlace .contador {
+  min-width: 1.75rem;
+  height: 1.75rem;
+  padding: 0 var(--space-2);
+  margin-left: auto;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-pill);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+}
+
+.masEnlace.activo .contador {
+  border-color: var(--color-surface);
+  background: var(--color-surface);
+  color: var(--color-danger);
+  box-shadow: 0 2px 8px rgb(61 43 32 / 18%);
+}
+
 .masEnlace .icono {
   width: 1.1rem;
   height: 1.1rem;

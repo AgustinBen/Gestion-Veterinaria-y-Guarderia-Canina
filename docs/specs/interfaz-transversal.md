@@ -52,6 +52,8 @@ permisos, datos ni reglas de negocio.
   indicación visual mientras no haya valor elegido.
 - La ilustración de la navegación lateral saluda al usuario autenticado por su
   nombre, sin consultar datos de Guardería.
+- El contador de Deudores queda alineado al extremo derecho del menú y destaca
+  con mayor tamaño y contraste, también en el menú secundario móvil.
 
 ## Fuera de alcance
 
