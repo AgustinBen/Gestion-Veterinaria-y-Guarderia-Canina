@@ -1,110 +1,55 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
-import { listarCalendario } from '../api';
+import { AuthContext } from '../../../core/auth/contexto';
+import type { Rol } from '../../../core/auth/permisos';
 import { Calendario } from '../pages/Calendario';
-import type { Disponibilidad } from '../tipos';
 
-vi.mock('../api', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../api')>();
-
-  return { ...actual, listarCalendario: vi.fn() };
-});
-
-vi.mock('../permisos', () => ({
-  usePuedeEscribirReservas: vi.fn(() => true),
-}));
-
-function disponibilidad(
-  franja: 'DIA' | 'NOCHE',
-  disponible: number,
-  fecha = '2026-12-14',
-): Disponibilidad {
-  return {
-    fecha,
-    franja,
-    cupo_maximo: 6,
-    plazas_emergencia: 3,
-    habilitadas: 0,
-    publico: 3,
-    ocupado: 3 - disponible,
-    disponible,
-  };
-}
-
-function renderizar() {
+function renderizarCalendario(rol: Rol) {
   return render(
-    <MemoryRouter>
-      <Calendario />
-    </MemoryRouter>,
+    <AuthContext.Provider
+      value={{
+        sesion: { token: 'token-test', rol, usuario: 'Prueba' },
+        iniciarSesion: async () => undefined,
+        cerrarSesion: () => undefined,
+      }}
+    >
+      <MemoryRouter>
+        <Calendario />
+      </MemoryRouter>
+    </AuthContext.Provider>,
   );
 }
 
-beforeEach(() => {
-  vi.setSystemTime(new Date(2026, 11, 14, 12));
-  vi.mocked(listarCalendario).mockReset();
-  vi.mocked(listarCalendario).mockResolvedValue([
-    disponibilidad('DIA', 1),
-    disponibilidad('NOCHE', 0),
-  ]);
-});
+describe('Calendario de guardería', () => {
+  it('muestra la agenda y permite cambiar el mes y la fecha seleccionada', () => {
+    renderizarCalendario('PERSONAL');
 
-describe('Calendario', () => {
-  it('muestra el mes completo y la ocupación de Día y Noche con el cupo público', async () => {
-    renderizar();
+    const calendario = screen.getByRole('region', { name: 'Calendario mensual' });
+    const encabezadoMes = within(calendario).getByRole('heading', { level: 2 });
+    const mesActual = encabezadoMes.textContent;
 
-    expect(await screen.findByRole('button', { name: /Día: 2 ocupadas de 3, Con lugar/i }))
-      .toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Noche: 3 ocupadas de 3, Completo/i }))
-      .toBeInTheDocument();
-    expect(screen.getAllByRole('link', { name: /Reservar/ })).toHaveLength(31);
-    expect(screen.getByRole('heading', { name: 'diciembre de 2026' })).toBeInTheDocument();
-  });
-
-  it('al tocar un chip muestra ocupación, plazas de emergencia y habilitaciones', async () => {
-    renderizar();
-    const chip = await screen.findByRole('button', { name: /Día: 2 ocupadas/ });
-
-    fireEvent.click(chip);
-
-    const detalle = screen.getByLabelText('Detalle Día');
-    expect(detalle).toHaveTextContent('Ocupado2');
-    expect(detalle).toHaveTextContent('Plazas de emergencia3');
-    expect(detalle).toHaveTextContent('Habilitadas0');
-  });
-
-  it('permite navegar al mes siguiente', async () => {
-    renderizar();
-    await screen.findByRole('button', { name: /Día: 2 ocupadas/ });
-    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
-
-    await waitFor(() =>
-      expect(listarCalendario).toHaveBeenLastCalledWith(
-        '2027-01-01',
-        '2027-01-31',
-        expect.objectContaining({ signal: expect.any(AbortSignal) }),
-      ),
+    expect(screen.getByRole('heading', { name: 'Calendario de agenda' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Reservas de guardería' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Turnos clínicos' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Nueva reserva' })).toHaveAttribute(
+      'href',
+      '/guarderia/nueva',
     );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mes siguiente' }));
+    expect(encabezadoMes.textContent).not.toBe(mesActual);
+
+    const diaPrimero = screen.getByRole('button', { name: /^1 de / });
+    fireEvent.click(diaPrimero);
+    expect(diaPrimero).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('enlaza el día elegido a una nueva reserva con la fecha preseleccionada', async () => {
-    renderizar();
-    const fecha = await screen.findByRole('link', { name: 'Reservar 14 de diciembre' });
+  it('mantiene la vista de solo lectura para veterinaria', () => {
+    renderizarCalendario('VETERINARIO');
 
-    expect(fecha).toHaveAttribute('href', '/guarderia/reservar?fecha=2026-12-14');
-  });
-
-  it('muestra un error de carga con opción para reintentar', async () => {
-    vi.mocked(listarCalendario)
-      .mockRejectedValueOnce(new Error('Sin conexión'))
-      .mockResolvedValueOnce([disponibilidad('DIA', 2)]);
-    renderizar();
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Sin conexión');
-    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
-
-    expect(await screen.findByRole('button', { name: /Día: 1 ocupadas/ })).toBeInTheDocument();
-    expect(listarCalendario).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Solo lectura')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Nueva reserva' })).not.toBeInTheDocument();
   });
 });

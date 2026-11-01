@@ -53,19 +53,21 @@ describe('rutas de guardería y permisos', () => {
   it('PERSONAL puede abrir calendario y crear reservas', async () => {
     renderizar('PERSONAL', '/guarderia/calendario');
 
-    expect(await screen.findByText('No hay datos de cupo para este mes.'))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Calendario de agenda' }),
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Nueva reserva' })).toHaveAttribute(
       'href',
-      '/guarderia/reservar',
+      '/guarderia/nueva',
     );
   });
 
   it('VETERINARIO ve el calendario pero no el botón de nueva reserva', async () => {
     renderizar('VETERINARIO', '/guarderia/calendario');
 
-    expect(await screen.findByText('No hay datos de cupo para este mes.'))
-      .toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { name: 'Calendario de agenda' }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Nueva reserva' })).not.toBeInTheDocument();
   });
 
