@@ -1,9 +1,9 @@
 # Spec: migracion
 
-**Responsable:** Agustín · **Módulo:** `backend/app/modules/migracion/` y `backend/scripts/migracion/` · **Tickets:** T-15, T-16, T-27, T-48 · **Reglas:** `docs/reglas-de-negocio.md`
+**Responsable:** Agustín · **Módulo:** `backend/app/modules/migracion/` y `backend/scripts/` · **Tickets:** T-15, T-16, T-27, T-48 · **Reglas:** `docs/reglas-de-negocio.md`
 
 ## Estado
-Borrador v0.2 (2026-10-21). Decisiones D7, D8 y D13 cerradas (registro en la sección 6 de `docs/reglas-de-negocio.md`). La hoja de clientes está definida. Las hojas de atenciones y guardería dependen de las specs de `clinica`, `cobros` y `guarderia` (T-06, T-07): su mapeo es de alto nivel y se completa cuando existan.
+Borrador v0.3 (2026-11-01). Decisiones D7, D8 y D13 cerradas (registro en la sección 6 de `docs/reglas-de-negocio.md`). La hoja de clientes está definida y su carga (Fase B de T-16) está implementada: simulación, archivo de revisión y reporte. La Fase C (`--revision-resuelta`) queda pendiente. Las hojas de atenciones y guardería dependen de las specs de `clinica`, `cobros` y `guarderia` (T-06, T-07): su mapeo es de alto nivel y se completa cuando existan.
 
 ## Objetivo
 Limpiar, normalizar y cargar la planilla histórica al modelo nuevo sin perder datos, sin duplicar y dejando a una persona todo lo dudoso. Se carga solo a través de los `service.py` de cada módulo.
@@ -25,11 +25,11 @@ Limpiar, normalizar y cargar la planilla histórica al modelo nuevo sin perder d
 **Hoja 1 (T-16, vía `padron.service`)**
 | Columna | Destino | Regla |
 |---|---|---|
-| ID_Registro | `migracion_origen` | no es clave (hay `REG-001`, `002`, `4`) |
+| ID_Registro | `migracion_registro.id_origen` | no es clave (hay `REG-001`, `002`, `4`) |
 | Nombre_Duenio | persona.nombre, apellido | quitar títulos (Dr., Dra.); el último término es el apellido; un solo término u otros casos dudosos, a revisión |
-| Telefono_Contacto | telefono | normalizado; "Sin telefono" crea la persona sin teléfono |
+| Telefono_Contacto | telefono | normalizado; los textos centinela ("Sin telefono (dejo mail)", "no tiene telefono", "sin numero", ...) crean la persona sin teléfono; una fila sin teléfono con igual nombre y apellido va a revisión |
 | Nombre_Mascota | paciente.nombre | |
-| Especie_Raza | paciente.especie, raza, tamaño | diccionario editable; razas nuevas se crean por `padron.service`; sin especie deducible, a revisión |
+| Especie_Raza | paciente.especie, raza, tamaño | diccionario editable; razas nuevas se crean por `padron.service`; una raza conocida implica su especie (decisión del equipo, a validar con el cliente) y "Mestizo mediano" va a revisión; sin especie deducible, a revisión |
 | Edad_Aprox | paciente.fecha_nacimiento_aprox | fecha de corte menos la edad |
 | Peso_Kg | paciente.peso_kg | |
 | Direccion_Localidad | domicilio | calle, número y piso si se reconocen; siempre `referencia` = texto original |
@@ -43,7 +43,7 @@ Limpiar, normalizar y cargar la planilla histórica al modelo nuevo sin perder d
 | Fecha | formatos reconocidos: `dd/mm/aaaa`, `aaaa-mm-dd`, `d de Mes aaaa` (mes en español), `dd/mm/aa`. Se asume día antes que mes. Salida ISO. Fecha inválida a revisión |
 | Edad | "4 años", "4" (años), "2 años y medio", "6 meses", "3 años aprox" |
 | Peso | quitar "kg", coma a punto. Fuera del rango configurado (`migracion.peso_max_kg`) a revisión |
-| Especie y raza | `Perro - Labrador`, `canino`, `Gata Siamesa`, `Mestizo mediano`. Sin especie explícita ni en el diccionario, a revisión (nunca se asume) |
+| Especie y raza | `Perro - Labrador`, `canino`, `Gata Siamesa`, `Mestizo mediano`. Una raza conocida implica su especie (mapa raza→especie, decisión del equipo a validar con el cliente); la especie explícita tiene prioridad y el texto sobrante no se guarda. Sin raza ni especie reconocible ("Mestizo mediano") o con dos razas de especies distintas, a revisión (nunca se asume) |
 | Nombres | recortar espacios, capitalizar ("VALERIA GOMEZ" pasa a "Valeria Gomez"); comparar sin tildes ni mayúsculas |
 
 **Ejemplos de teléfono (criterio de aceptación)**
@@ -58,18 +58,22 @@ Limpiar, normalizar y cargar la planilla histórica al modelo nuevo sin perder d
 
 ## Política de duplicados
 - **Misma persona:** mismo teléfono normalizado y mismo nombre y apellido normalizados.
-- Mismo teléfono con otro nombre: personas distintas (familia). Se lista en el reporte.
-- Mismo nombre con otro teléfono: no se fusiona y va a revisión.
+- Mismo teléfono con otro nombre: personas distintas (familia). La fila va a revisión con `ASOCIAR_A:<id>` y no se fusiona.
+- Mismo nombre y apellido con otro teléfono (o sin teléfono): no se fusiona y va a revisión con `ASOCIAR_A:<id>` del candidato.
 - **Misma mascota:** mismo titular y nombre normalizado **idéntico**. "Rocco" y "Rocco Jr." son animales distintos. No se usa similitud difusa.
 - Datos en conflicto (peso de Firulais: 28,5 y 29): gana la fila posterior y ambas quedan en el reporte.
 
 ## A revisión manual
-Todo lo dudoso se escribe en `revision.csv` y no se carga: `hoja, fila, id_origen, campo, valor_original, motivo, accion_sugerida`. Nada se descarta ni se corrige en silencio. Los montos y las deudas ambiguos los revisa una persona antes de cargarse. Los empleados sin apellido esperan a que se complete.
+Todo lo dudoso se escribe en `revision.csv` y no se carga. Columnas: `hoja, fila, id_origen, campo, valor_original, motivo, accion_sugerida, decision`. La columna `decision` la completa una persona y se conserva por (hoja, fila) al regenerar el archivo. En simulación se escribe `revision_simulada.csv`. Nada se descarta ni se corrige en silencio. Los montos y las deudas ambiguos los revisa una persona antes de cargarse. Los empleados sin apellido esperan a que se complete.
 
 ## Ejecución e idempotencia
-- Modo `--dry-run` (no escribe) y modo carga.
-- Tabla propia `migracion_origen` (hoja, id_fila_origen, hash_fila, entidad, entidad_id, corrida). Repetir la corrida no duplica; si el hash de una fila cambió, va a revisión y no pisa datos.
-- Informe final: filas leídas, cargadas, fusionadas y enviadas a revisión.
+- Script: `backend/scripts/cargar_padron.py` (toma la config de `backend/.env`). `--simular` no escribe nada en la base y deja `revision_simulada.csv` y `reporte_carga_simulado.json`.
+- Parámetros en configuración: `migracion.fecha_corte` (fecha ISO; hay que cargarla antes de la primera corrida, si falta el script termina sin escribir) y `migracion.peso_max_kg`.
+- Tabla propia `migracion_registro` (migración 0006): `hoja, fila, id_origen, hash_fila, texto_original, entidad, entidad_id, estado, motivo, origen_confirmacion, fecha`, única por (hoja, fila). `origen_confirmacion` queda reservado para las confirmaciones de duplicados.
+- Repetir la corrida no duplica: la fila ya CARGADA se informa como "ya cargada". Si el hash de una fila CARGADA cambió, se informa como "cambiada" y no se pisa ningún dato.
+- Cada fila se escribe en su propia transacción: persona, mascota, titularidad y registro caen juntos o no cae ninguno.
+- Informe final en `reporte_carga.json` (o `reporte_carga_simulado.json`): leídas, cargadas, ya cargadas, cambiadas, mascotas existentes, a revisión por motivo, conflictos de peso y errores.
+- `--revision-resuelta` (aplicar las decisiones de `revision.csv`) queda pendiente para la Fase C.
 
 ## Criterios de aceptación
 - Con el Excel de muestra: 9 personas, 11 mascotas, Firulais una sola vez, Rocco y Rocco Jr. separados.
@@ -85,5 +89,5 @@ Todo lo dudoso se escribe en `revision.csv` y no se carga: `hoja, fila, id_orige
 Corrección de datos ya cargados, fusión de duplicados posteriores (T-47) y migración continua.
 
 ## Pendientes
-**Cliente:** cantidad real de filas y fecha de última edición del Excel (fecha de corte de la edad); si las deudas del Excel siguen vigentes.
-**Equipo:** el mapeo de las hojas 2 y 3, cuando existan las specs de `clinica`, `cobros` y `guarderia`.
+**Cliente:** cantidad real de filas y fecha de última edición del Excel (fecha de corte de la edad); si las deudas del Excel siguen vigentes; validar que una raza conocida implique su especie.
+**Equipo:** el mapeo de las hojas 2 y 3, cuando existan las specs de `clinica`, `cobros` y `guarderia`; `--revision-resuelta` (Fase C).
