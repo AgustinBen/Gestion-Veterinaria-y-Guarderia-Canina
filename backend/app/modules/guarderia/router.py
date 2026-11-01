@@ -1,4 +1,4 @@
-"""Endpoints de solo lectura para el cupo de guardería."""
+"""Endpoints de consulta y operación de reservas y cupo de guardería."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import EstadoReserva
 from app.modules.guarderia.schemas import (
     Disponibilidad,
+    HabilitacionEmergenciaCrear,
     ReservaCrear,
     ReservaOut,
     ReservaSenaCrear,
@@ -49,6 +50,43 @@ def calendario(
     try:
         return service.calendario(db, desde, hasta)
     except service.RangoCalendarioInvalido as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+
+
+@router.post("/emergencias", response_model=Disponibilidad)
+def habilitar_emergencia(
+    solicitud: HabilitacionEmergenciaCrear,
+    clave_idempotencia: str = Header(
+        alias="Idempotency-Key",
+        min_length=1,
+        max_length=64,
+    ),
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.EMERGENCIA, Nivel.ESCRITURA)
+    ),
+) -> Disponibilidad:
+    try:
+        return service.habilitar_plaza_emergencia(
+            db,
+            solicitud,
+            clave_idempotencia=clave_idempotencia,
+            usuario_id=usuario.id,
+        )
+    except service.IdempotenciaEmergenciaConflicto as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except service.CupoEmergenciaAgotado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except service.ReservaInvalida as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
@@ -197,6 +235,56 @@ def obtener_reserva(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
+
+
+@router.post(
+    "/reservas/{reserva_id}/cancelar",
+    response_model=ReservaOut,
+)
+def cancelar_reserva(
+    reserva_id: int,
+    clave_idempotencia: str = Header(
+        alias="Idempotency-Key",
+        min_length=1,
+        max_length=64,
+    ),
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.RESERVAS_CUPO, Nivel.ESCRITURA)
+    ),
+) -> ReservaOut:
+    try:
+        return service.cancelar_reserva(
+            db,
+            reserva_id,
+            clave_idempotencia=clave_idempotencia,
+            usuario_id=usuario.id,
+        )
+    except service.ReservaNoEncontrada as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except (
+        service.EstadoReservaInvalido,
+        service.IdempotenciaCancelacionConflicto,
+    ) as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+    except service.ReservaInvalida as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
+    except cobros_service.CargoNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+    except cobros_service.CobrosError as exc:
+        raise _error_cobros(exc) from exc
 
 
 @router.get("/reservas", response_model=list[ReservaOut])

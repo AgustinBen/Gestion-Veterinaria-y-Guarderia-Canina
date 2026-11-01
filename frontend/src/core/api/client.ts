@@ -18,7 +18,7 @@ export type OpcionesPost = OpcionesSolicitud & {
   /**
    * Marca la operación como crítica. El cliente genera una Idempotency-Key,
    * la mantiene en los reintentos por error de red y no la regenera.
-   * Usar en pagos, reservas y habilitación de plaza de emergencia.
+   * Usar en pagos, reservas, cancelaciones y habilitación de plaza de emergencia.
    */
   idempotente?: boolean;
   /** Clave provista por quien llama, por ejemplo al reintentar desde la UI. */

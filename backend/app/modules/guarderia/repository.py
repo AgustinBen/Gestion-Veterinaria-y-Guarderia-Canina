@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import (
+    CancelacionReserva,
     EstadoReserva,
     HabilitacionEmergencia,
     Ocupacion,
@@ -45,6 +46,21 @@ def contar_habilitaciones(
     return db.execute(stmt).scalar_one()
 
 
+def obtener_habilitacion_por_clave(
+    db: Session,
+    clave_idempotencia: str,
+) -> HabilitacionEmergencia | None:
+    stmt = select(HabilitacionEmergencia).where(
+        HabilitacionEmergencia.clave_idempotencia == clave_idempotencia
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def crear_habilitacion(db: Session, habilitacion: HabilitacionEmergencia) -> None:
+    db.add(habilitacion)
+    db.flush()
+
+
 def contar_habilitaciones_por_franja(
     db: Session,
     desde: date,
@@ -80,6 +96,31 @@ def obtener_reserva_por_clave(db: Session, clave: str) -> Reserva | None:
 def obtener_reserva_por_cargo(db: Session, cargo_id: int) -> Reserva | None:
     stmt = select(Reserva).where(Reserva.cargo_id == cargo_id)
     return db.execute(stmt).scalar_one_or_none()
+
+
+def obtener_cancelacion_por_clave(
+    db: Session,
+    clave_idempotencia: str,
+) -> CancelacionReserva | None:
+    stmt = select(CancelacionReserva).where(
+        CancelacionReserva.clave_idempotencia == clave_idempotencia
+    )
+    return db.execute(stmt).scalar_one_or_none()
+
+
+def crear_cancelacion(
+    db: Session,
+    cancelacion: CancelacionReserva,
+) -> None:
+    db.add(cancelacion)
+    db.flush()
+
+
+def eliminar_ocupaciones_reserva(db: Session, reserva_id: int) -> None:
+    stmt = select(Ocupacion).where(Ocupacion.reserva_id == reserva_id)
+    for ocupacion in db.execute(stmt).scalars():
+        db.delete(ocupacion)
+    db.flush()
 
 
 def listar_reservas(

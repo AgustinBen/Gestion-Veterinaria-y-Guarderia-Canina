@@ -629,7 +629,7 @@ export function NuevaReserva() {
           </fieldset>
 
           <fieldset
-            className={estilos.grupoFormulario}
+            className={`${estilos.grupoFormulario} ${estilos.grupoSena}`}
             disabled={enviando || datosSenaReintento !== null}
           >
             <legend>Seña obligatoria</legend>
@@ -651,6 +651,7 @@ export function NuevaReserva() {
               </Campo>
               <Campo etiqueta="Medio de pago de la seña" id="medio-sena">
                 <select
+                  disabled={enviando || datosSenaReintento !== null}
                   id="medio-sena"
                   onChange={(evento) => setMedioSena(evento.currentTarget.value)}
                   required

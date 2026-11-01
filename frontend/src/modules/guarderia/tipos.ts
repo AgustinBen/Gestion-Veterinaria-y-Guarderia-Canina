@@ -19,6 +19,12 @@ export type Disponibilidad = {
   disponible: number;
 };
 
+export type HabilitacionEmergenciaCrear = {
+  fecha: string;
+  franja: Franja;
+  motivo: string;
+};
+
 export type CuidadoExtraAnimal = {
   paciente_id: number;
   cuidados_extras: boolean;

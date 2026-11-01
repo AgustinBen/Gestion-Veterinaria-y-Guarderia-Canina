@@ -1,9 +1,10 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { AuthContext, type ValorAuth } from '../../../core/auth/contexto';
 import {
+  cancelarReserva,
   generarIdempotencyKey,
   obtenerReserva,
   registrarSena,
@@ -20,6 +21,7 @@ vi.mock('../api', async (importOriginal) => {
 
   return {
     ...actual,
+    cancelarReserva: vi.fn(),
     generarIdempotencyKey: vi.fn(() => 'clave-sena-detalle'),
     obtenerReserva: vi.fn(),
     registrarSena: vi.fn(),
@@ -63,6 +65,12 @@ const RESERVA_CONFIRMADA: Reserva = {
   ...RESERVA_PENDIENTE,
   estado: 'CONFIRMADA',
   sena_centavos: 5000,
+};
+
+const RESERVA_CANCELADA: Reserva = {
+  ...RESERVA_CONFIRMADA,
+  estado: 'CANCELADA',
+  total_centavos: 5000,
 };
 
 const MASCOTA: PacienteDetalle = {
@@ -109,6 +117,7 @@ beforeEach(() => {
   vi.mocked(generarIdempotencyKey).mockReturnValue('clave-sena-detalle');
   vi.mocked(obtenerReserva).mockReset();
   vi.mocked(registrarSena).mockReset();
+  vi.mocked(cancelarReserva).mockReset();
   vi.mocked(listarMediosPago).mockReset();
   vi.mocked(obtenerPaciente).mockReset();
   vi.mocked(obtenerReserva).mockResolvedValue(RESERVA_PENDIENTE);
@@ -117,6 +126,7 @@ beforeEach(() => {
     { id: 1, codigo: 'EFECTIVO', nombre: 'Efectivo', activo: true },
   ]);
   vi.mocked(registrarSena).mockResolvedValue(RESERVA_CONFIRMADA);
+  vi.mocked(cancelarReserva).mockResolvedValue(RESERVA_CANCELADA);
 });
 
 describe('DetalleReserva', () => {
@@ -162,6 +172,32 @@ describe('DetalleReserva', () => {
     expect(screen.queryByRole('button', { name: 'Registrar seña' })).not.toBeInTheDocument();
     expect(listarMediosPago).not.toHaveBeenCalled();
     expect(registrarSena).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Cancelar reserva' }))
+      .not.toBeInTheDocument();
+  });
+
+  it('permite cancelar una reserva confirmada y conserva la seña informada', async () => {
+    vi.mocked(obtenerReserva).mockResolvedValue(RESERVA_CONFIRMADA);
+    renderizar('PERSONAL');
+
+    await screen.findByText('Confirmada');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar reserva' }));
+
+    const dialogo = await screen.findByRole('dialog', { name: 'Cancelar reserva' });
+    expect(dialogo).toHaveTextContent('se conservarán y no se devolverán');
+    expect(dialogo).toHaveTextContent('saldo pendiente se cerrará mediante un ajuste auditable');
+    const pie = dialogo.querySelector('[class*="botonesCancelacion"]');
+    expect(pie?.firstElementChild).toHaveTextContent('Volver');
+    expect(pie?.lastElementChild).toHaveTextContent('Confirmar cancelación');
+    fireEvent.click(
+      within(dialogo).getByRole('button', { name: 'Confirmar cancelación' }),
+    );
+
+    expect(await screen.findByText('Cancelada')).toBeInTheDocument();
+    expect(screen.getAllByText('$50,00')).toHaveLength(2);
+    expect(cancelarReserva).toHaveBeenCalledWith(71, {
+      idempotencyKey: 'clave-sena-detalle',
+    });
   });
 
   it('permite reintentar si falla la carga del detalle', async () => {
