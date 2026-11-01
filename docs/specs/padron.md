@@ -111,6 +111,16 @@ transferir_paciente(db, paciente_id: int, nueva_persona_id: int, fecha: date | N
 ## Dependencias con otros módulos
 Usa `core` e `identidad` (`require_role`). Lo consumen `cobros` (titulares), `guarderia` (paciente, titulares, `pacientes_de_persona`), `clinica` (paciente, empleado), `identidad` (empleado) y `migracion` (escrituras).
 
+### Acuerdo de integración T-40
+
+Clínica consulta `padron.service.obtener_paciente`, `obtener_empleado` y
+`titulares_vigentes`; no accede a modelos ni repositorios de Padrón. El estudio
+guarda el `persona_id` del titular principal vigente para que
+`cobros.service.crear_cargo` registre opcionalmente su costo con referencia
+`ESTUDIO` y el ID del estudio. Clínica conserva solo el `cargo_id`, no dinero.
+El cargo se crea dentro de la transacción del estudio para que ambos registros
+se confirmen o reviertan juntos.
+
 ## Fuera de alcance
 Notas de comportamiento (T-36), fusión de duplicados (T-47), fotos, historial de cambios de datos personales y baja de personas.
 
