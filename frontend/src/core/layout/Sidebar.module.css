@@ -8,10 +8,16 @@
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-8) var(--space-4) var(--space-5);
   overflow-y: auto;
-  border-right: 1px solid var(--color-border);
-  background: var(--color-bg-strong);
+  border-right: 1px solid rgb(231 215 197 / 78%);
+  border-radius: 0 2rem 2rem 0;
+  background-color: var(--color-warning-soft);
+  background-image: var(--pawprint-pattern), var(--pawprint-pattern);
+  background-position: 0 0, 0 0;
+  background-size: 13.75rem 13.75rem, 13.75rem 13.75rem;
+  background-attachment: fixed, fixed;
+  box-shadow: 8px 0 28px rgb(61 43 32 / 5%);
 }
 
 .marca {
@@ -25,21 +31,41 @@
 .monograma {
   display: grid;
   flex: 0 0 auto;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   place-items: center;
-  border-radius: 50%;
+  border-radius: 1rem 1.15rem 0.85rem 1.15rem;
   background: var(--color-primary);
   color: var(--color-text-inverse);
   font-family: var(--font-display);
   font-size: var(--text-xl);
   font-weight: var(--weight-bold);
+  box-shadow: 3px 3px 0 var(--color-peach);
+  transform: rotate(-7deg);
 }
 
 .monograma svg {
   width: 1.5rem;
   height: 1.5rem;
   fill: currentcolor;
+  animation: patita-menu 4.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@keyframes patita-menu {
+  0%,
+  72%,
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+
+  84% {
+    transform: translateY(-7px) rotate(-16deg);
+  }
+
+  92% {
+    transform: translateY(0) rotate(8deg);
+  }
 }
 
 .marcaTexto {
@@ -49,7 +75,7 @@
 
 .marcaNombre {
   font-family: var(--font-display);
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
 }
@@ -62,12 +88,12 @@
 
 .nav {
   flex: 1;
-  margin-top: var(--space-8);
+  margin-top: var(--space-10);
 }
 
 .nav ul {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
   padding: 0;
   margin: 0;
   list-style: none;
@@ -76,9 +102,10 @@
 .enlace {
   display: flex;
   align-items: center;
+  gap: var(--space-3);
   min-height: var(--tap-target);
   padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-pill);
   color: var(--color-text-soft);
   font-size: var(--text-sm);
   font-weight: var(--weight-medium);
@@ -88,23 +115,40 @@
 }
 
 .enlace:hover {
-  background: var(--color-surface-muted);
-  color: var(--color-text);
+  background: var(--color-primary-soft);
+  color: var(--color-primary-hover);
+  transform: translateX(3px);
 }
 
 .activo {
-  background: var(--color-primary-soft);
-  color: var(--color-primary-hover);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
   font-weight: var(--weight-semibold);
+  box-shadow: 0 5px 14px rgb(116 73 45 / 22%);
 }
 
 .activo::before {
-  width: 3px;
-  height: 1.1rem;
-  margin-right: var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--color-primary);
-  content: '';
+  display: none;
+}
+
+.icono {
+  display: grid;
+  width: 1.25rem;
+  height: 1.25rem;
+  flex: 0 0 auto;
+  place-items: center;
+}
+
+.icono svg {
+  width: 100%;
+  height: 100%;
+}
+
+.enlaceTexto {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .contador {
@@ -124,23 +168,63 @@
   line-height: 1;
 }
 
+.activo .contador {
+  background: rgb(255 255 255 / 24%);
+  color: var(--color-text-inverse);
+}
+
+.mascota {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  margin: var(--space-5) 0;
+  border: 1px dashed rgb(217 180 143 / 70%);
+  border-radius: 1.35rem 1.35rem 1.35rem 0.5rem;
+  background: var(--color-peach-soft);
+  transform: rotate(-1deg);
+}
+
+.mascota img {
+  width: 100%;
+  height: 5.5rem;
+  object-fit: contain;
+  mix-blend-mode: multiply;
+}
+
+.mascota p {
+  color: var(--color-primary-hover);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+}
+
 .pie {
   display: grid;
   gap: var(--space-3);
   padding-top: var(--space-4);
   margin-top: var(--space-6);
-  border-top: 1px solid var(--color-border);
+  border-top: 1px dashed var(--color-border-strong);
+}
+
+.pie > div {
+  display: grid;
+  justify-items: center;
+  text-align: center;
 }
 
 .usuario {
   overflow-wrap: anywhere;
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
+  text-align: center;
 }
 
 .rol {
   display: inline-flex;
   margin-top: var(--space-1);
+  justify-self: center;
   padding: 2px var(--space-2);
   border-radius: var(--radius-pill);
   background: var(--color-accent-soft);
@@ -168,5 +252,11 @@
 @media (min-width: 64rem) {
   .sidebar {
     display: block;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .monograma svg {
+    animation: none;
   }
 }
