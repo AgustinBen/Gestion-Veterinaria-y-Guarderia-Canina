@@ -5,6 +5,7 @@ import type {
   ErrorReserva,
   Franja,
   FranjaSinLugar,
+  HabilitacionEmergenciaCrear,
   OcupacionExistente,
   OpcionesIdempotentes,
   OpcionesLectura,
@@ -93,6 +94,28 @@ export function listarCalendario(
   });
 }
 
+export function listarReservas(
+  desde: string,
+  hasta: string,
+  opciones: OpcionesLectura = {},
+): Promise<Reserva[]> {
+  const params = new URLSearchParams({ desde, hasta });
+
+  return api.get<Reserva[]>(`/guarderia/reservas?${params.toString()}`, {
+    signal: opciones.signal,
+  });
+}
+
+export function habilitarPlazaEmergencia(
+  datos: HabilitacionEmergenciaCrear,
+  opciones: OpcionesIdempotentes,
+): Promise<Disponibilidad> {
+  return api.post<Disponibilidad>('/guarderia/emergencias', datos, {
+    idempotencyKey: opciones.idempotencyKey,
+    signal: opciones.signal,
+  });
+}
+
 export function crearReserva(
   datos: ReservaCrear,
   opciones: OpcionesIdempotentes,
@@ -109,6 +132,16 @@ export function registrarSena(
   opciones: OpcionesIdempotentes,
 ): Promise<Reserva> {
   return api.post<Reserva>(`/guarderia/reservas/${reservaId}/sena`, datos, {
+    idempotencyKey: opciones.idempotencyKey,
+    signal: opciones.signal,
+  });
+}
+
+export function cancelarReserva(
+  reservaId: number,
+  opciones: OpcionesIdempotentes,
+): Promise<Reserva> {
+  return api.post<Reserva>(`/guarderia/reservas/${reservaId}/cancelar`, undefined, {
     idempotencyKey: opciones.idempotencyKey,
     signal: opciones.signal,
   });

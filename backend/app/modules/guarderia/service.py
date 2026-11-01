@@ -16,7 +16,9 @@ from app.modules.cobros import service as cobros_service
 from app.modules.guarderia import cupo, repository
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import (
+    CancelacionReserva,
     EstadoReserva,
+    HabilitacionEmergencia,
     Ocupacion,
     Reserva,
     ReservaPaciente,
@@ -24,6 +26,7 @@ from app.modules.guarderia.models import (
 from app.modules.guarderia.schemas import (
     Disponibilidad,
     FranjaSinLugar,
+    HabilitacionEmergenciaCrear,
     OcupacionExistente,
     ReservaCrear,
     ReservaOut,
@@ -68,6 +71,18 @@ class ReservaCupoConflicto(ValueError):
 
 class EstadoReservaInvalido(ValueError):
     """La reserva no admite el cambio solicitado."""
+
+
+class IdempotenciaEmergenciaConflicto(ValueError):
+    """Una clave de habilitación se reutilizó con otros datos."""
+
+
+class CupoEmergenciaAgotado(ValueError):
+    """Ya se habilitaron todas las plazas de emergencia configuradas."""
+
+
+class IdempotenciaCancelacionConflicto(ValueError):
+    """Una clave de cancelación se reutilizó para otra reserva."""
 
 
 def _configuracion_cupo(db: Session) -> tuple[int, int]:
@@ -197,6 +212,60 @@ def calendario(db: Session, desde: date, hasta: date) -> list[Disponibilidad]:
             )
         fecha += timedelta(days=1)
     return filas
+
+
+def habilitar_plaza_emergencia(
+    db: Session,
+    solicitud: HabilitacionEmergenciaCrear,
+    *,
+    clave_idempotencia: str,
+    usuario_id: int,
+) -> Disponibilidad:
+    clave = clave_idempotencia.strip()
+    if not clave:
+        raise ReservaInvalida("Idempotency-Key no puede estar vacía")
+
+    with transaccion_inmediata(db):
+        existente = repository.obtener_habilitacion_por_clave(
+            db, clave
+        )
+        if existente is not None:
+            if (
+                existente.fecha != solicitud.fecha
+                or existente.franja != solicitud.franja
+                or existente.motivo != solicitud.motivo
+                or existente.usuario_id != usuario_id
+            ):
+                raise IdempotenciaEmergenciaConflicto(
+                    "Idempotency-Key ya utilizada con otros datos"
+                )
+            resultado = calcular_disponibilidad(
+                db, existente.fecha, existente.franja
+            )
+        else:
+            _, plazas_emergencia = _configuracion_cupo(db)
+            habilitadas = repository.contar_habilitaciones(
+                db, solicitud.fecha, solicitud.franja
+            )
+            if habilitadas >= plazas_emergencia:
+                raise CupoEmergenciaAgotado(
+                    "Ya se habilitaron todas las plazas de emergencia"
+                )
+            repository.crear_habilitacion(
+                db,
+                HabilitacionEmergencia(
+                    fecha=solicitud.fecha,
+                    franja=solicitud.franja,
+                    usuario_id=usuario_id,
+                    motivo=solicitud.motivo,
+                    clave_idempotencia=clave,
+                ),
+            )
+            resultado = calcular_disponibilidad(
+                db, solicitud.fecha, solicitud.franja
+            )
+
+    return resultado
 
 
 def verificar_cupo(
@@ -555,6 +624,64 @@ def obtener_reserva(db: Session, reserva_id: int) -> ReservaOut:
     reserva = repository.obtener_reserva(db, reserva_id)
     if reserva is None:
         raise ReservaNoEncontrada("Reserva no encontrada")
+    return _reserva_out(db, reserva)
+
+
+def cancelar_reserva(
+    db: Session,
+    reserva_id: int,
+    *,
+    clave_idempotencia: str,
+    usuario_id: int,
+) -> ReservaOut:
+    clave = clave_idempotencia.strip()
+    if not clave:
+        raise ReservaInvalida("Idempotency-Key no puede estar vacía")
+
+    with transaccion_inmediata(db):
+        cancelacion_existente = repository.obtener_cancelacion_por_clave(
+            db, clave
+        )
+        if cancelacion_existente is not None:
+            if cancelacion_existente.reserva_id != reserva_id:
+                raise IdempotenciaCancelacionConflicto(
+                    "Idempotency-Key ya utilizada para otra reserva"
+                )
+            reserva = repository.obtener_reserva(db, reserva_id)
+            if reserva is None:
+                raise ReservaNoEncontrada("Reserva no encontrada")
+            return _reserva_out(db, reserva)
+
+        reserva = repository.obtener_reserva(db, reserva_id)
+        if reserva is None:
+            raise ReservaNoEncontrada("Reserva no encontrada")
+        if reserva.estado not in {
+            EstadoReserva.PENDIENTE_SENA,
+            EstadoReserva.CONFIRMADA,
+        }:
+            raise EstadoReservaInvalido(
+                "Solo se pueden cancelar reservas pendientes o confirmadas"
+            )
+
+        if reserva.cargo_id is not None:
+            cobros_service.cerrar_cargo_por_cancelacion(
+                db,
+                cargo_id=reserva.cargo_id,
+                usuario_id=usuario_id,
+                transaccion_externa=True,
+            )
+        repository.eliminar_ocupaciones_reserva(db, reserva.id)
+        reserva.estado = EstadoReserva.CANCELADA
+        repository.crear_cancelacion(
+            db,
+            CancelacionReserva(
+                reserva_id=reserva.id,
+                usuario_id=usuario_id,
+                clave_idempotencia=clave,
+            ),
+        )
+        db.flush()
+
     return _reserva_out(db, reserva)
 
 

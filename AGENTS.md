@@ -44,7 +44,7 @@
 | Listado global de deudores | Sí | No | No |
 | Padrón | Sí | Sí | Solo lectura |
 | Reservas/cupo guardería | Sí | Sí | Solo lectura |
-| Habilitar plaza de emergencia | Sí | No | Sí |
+| Habilitar plaza de emergencia | Sí | No | No |
 | Turnos | Sí | Sí | Sí |
 | Historia clínica | Sí | Solo lectura (a confirmar) | Sí (escritura) |
 
@@ -52,8 +52,9 @@
 - **Franjas:** Día/Noche. "Medio día" del Excel → Día.
 - **Cupo:** Por fecha y franja. **1 plaza/animal**. Perros y gatos comparten cupo. **Tamaño NO interviene. Sin fracciones.**
 - **Día+Noche:** Ocupa **1 plaza en cada franja**.
-- **Plaza de emergencia:** Cupo público = cupo máx - emergencias (1 por defecto). Solo habilitable con **acción explícita** de `VETERINARIO` o `DUENIO`, con **quién/cuándo/fecha/franja/motivo** auditado.
+- **Plaza de emergencia:** Cupo público = cupo máx - emergencias (1 por defecto). Solo habilitable por `DUENIO` con **acción explícita** y **quién/cuándo/fecha/franja/motivo** auditado.
 - **Reserva:** Si supera cupo → **RECHAZAR**. Solo se amplía por RN-14 o subiendo cupo máx.
+- **Cancelación manual:** `DUENIO` o `PERSONAL` pueden cancelar reservas pendientes o confirmadas. Se liberan las plazas; los pagos (incluida la seña) se conservan sin devolución y el saldo pendiente se cierra con un ajuste auditado.
 - **Anticipación:** Máx **4 meses**.
 - **Seña:** **Obligatoria**, monto libre.
 - **Multimascota:** **20%** de descuento sobre tarifa diaria total si el **mismo tutor** reserva **a la vez** 2+ mascotas.

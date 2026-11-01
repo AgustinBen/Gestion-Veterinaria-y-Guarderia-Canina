@@ -59,7 +59,8 @@ export function SelectorTramo({ tramo, bloqueado = false, onChange }: Props) {
             onChange={(evento) =>
               onChange({
                 ...tramo,
-                desdeFranja: evento.currentTarget.value === 'NOCHE' ? 'NOCHE' : 'DIA',
+                desdeFranja:
+                  evento.currentTarget.value === 'NOCHE' ? 'NOCHE' : 'DIA',
               })
             }
             value={tramo.desdeFranja}
@@ -87,7 +88,8 @@ export function SelectorTramo({ tramo, bloqueado = false, onChange }: Props) {
             onChange={(evento) =>
               onChange({
                 ...tramo,
-                hastaFranja: evento.currentTarget.value === 'NOCHE' ? 'NOCHE' : 'DIA',
+                hastaFranja:
+                  evento.currentTarget.value === 'NOCHE' ? 'NOCHE' : 'DIA',
               })
             }
             value={tramo.hastaFranja}

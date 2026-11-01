@@ -7,6 +7,7 @@ from app.modules.identidad.permisos import Rol
 
 RUTA_DISPONIBILIDAD = "/api/guarderia/disponibilidad"
 RUTA_CALENDARIO = "/api/guarderia/calendario"
+RUTA_EMERGENCIA = "/api/guarderia/emergencias"
 FECHA = date(2030, 12, 15)
 
 
@@ -112,3 +113,77 @@ def test_calendario_devuelve_una_fila_por_fecha_y_franja(
         ("2030-12-16", "DIA"),
         ("2030-12-16", "NOCHE"),
     ]
+
+
+def test_dueño_habilita_plaza_de_emergencia_con_idempotencia(
+    client,
+    db_session,
+    sembrar_cupo,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    usuario = crear_usuario(Rol.DUENIO)
+    solicitud = {
+        "fecha": FECHA.isoformat(),
+        "franja": "DIA",
+        "motivo": "Necesidad operativa",
+    }
+    headers = {
+        **token_guarderia(usuario),
+        "Idempotency-Key": "emergencia-guarderia",
+    }
+
+    primera = client.post(RUTA_EMERGENCIA, json=solicitud, headers=headers)
+    repetida = client.post(RUTA_EMERGENCIA, json=solicitud, headers=headers)
+
+    assert primera.status_code == 200
+    assert primera.json()["habilitadas"] == 1
+    assert primera.json()["publico"] == primera.json()["cupo_maximo"]
+    assert repetida.status_code == 200
+    assert repetida.json()["habilitadas"] == 1
+
+
+@pytest.mark.parametrize("rol", [Rol.PERSONAL, Rol.VETERINARIO])
+def test_solo_duenio_puede_habilitar_emergencia(
+    client,
+    sembrar_cupo,
+    crear_usuario,
+    token_guarderia,
+    rol: Rol,
+) -> None:
+    usuario = crear_usuario(rol)
+
+    respuesta = client.post(
+        RUTA_EMERGENCIA,
+        json={
+            "fecha": FECHA.isoformat(),
+            "franja": "DIA",
+            "motivo": "Necesidad operativa",
+        },
+        headers={
+            **token_guarderia(usuario),
+            "Idempotency-Key": f"emergencia-{rol.value.lower()}",
+        },
+    )
+
+    assert respuesta.status_code == 403
+
+
+def test_habilitar_emergencia_exige_motivo(
+    client,
+    sembrar_cupo,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    usuario = crear_usuario(Rol.DUENIO)
+
+    respuesta = client.post(
+        RUTA_EMERGENCIA,
+        json={"fecha": FECHA.isoformat(), "franja": "DIA", "motivo": "  "},
+        headers={
+            **token_guarderia(usuario),
+            "Idempotency-Key": "emergencia-sin-motivo",
+        },
+    )
+
+    assert respuesta.status_code == 422

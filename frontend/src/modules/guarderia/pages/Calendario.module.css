@@ -56,7 +56,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1.6fr) minmax(17rem, 0.9fr);
   gap: var(--space-4);
-  align-items: stretch;
+  align-items: start;
 }
 
 .tarjetaCalendario,
@@ -126,7 +126,7 @@
 }
 
 .grilla {
-  grid-auto-rows: clamp(3.4rem, 7vw, 4rem);
+  grid-auto-rows: minmax(4rem, auto);
   gap: var(--space-2);
 }
 
@@ -167,14 +167,54 @@
 }
 
 .cupo {
-  width: fit-content;
-  padding: 3px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--color-surface-muted);
-  color: var(--color-text-soft);
-  font-size: 0.625rem;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  column-gap: 0.15rem;
+  row-gap: 0.1rem;
+}
+
+.cupoFranja {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.1rem;
+  font-size: 0.65rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.puntoFranja {
+  width: 0.45rem;
+  height: 0.45rem;
+  flex: 0 0 auto;
+  border-radius: 50%;
+}
+
+.cupoDia {
+  background: var(--color-primary);
+}
+
+.cupoNoche {
+  background: var(--color-peach);
+}
+
+.cupoSinDatos {
+  background: var(--color-border-strong);
+}
+
+.cupoOcupadoParcial {
+  color: #43834b;
   font-weight: var(--weight-bold);
-  line-height: 1.2;
+}
+
+.cupoOcupadoCompleto,
+.cupoMaximo {
+  color: #c44f4f;
+  font-weight: var(--weight-bold);
 }
 
 .leyenda {
@@ -270,6 +310,61 @@
   font-size: var(--text-sm);
 }
 
+.formularioEmergencia {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.formularioEmergencia > p {
+  color: var(--color-text-soft);
+  font-size: var(--text-sm);
+}
+
+.listaReservas {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reservaAgenda {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  font-size: var(--text-sm);
+}
+
+.reservaAgenda a {
+  width: fit-content;
+  color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.errorCarga {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-danger);
+}
+
+.errorCarga button {
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  color: var(--color-danger);
+  font: inherit;
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+
 .botonReserva {
   display: inline-flex;
   min-height: var(--tap-target);
@@ -316,7 +411,7 @@
   }
 
   .grilla {
-    grid-auto-rows: clamp(2.9rem, 11vw, 3.5rem);
+    grid-auto-rows: minmax(3.7rem, auto);
     gap: var(--space-1);
   }
 
@@ -324,11 +419,6 @@
     gap: var(--space-1);
     padding: 5px;
     border-radius: 0.8rem;
-  }
-
-  .cupo {
-    padding: 2px 4px;
-    font-size: 0.5625rem;
   }
 
   .diasSemana {

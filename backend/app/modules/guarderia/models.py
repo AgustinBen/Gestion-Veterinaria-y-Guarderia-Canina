@@ -86,6 +86,22 @@ class Reserva(Base):
     )
 
 
+class CancelacionReserva(Base):
+    __tablename__ = "cancelacion_reserva"
+    __table_args__ = (
+        UniqueConstraint("clave_idempotencia", name="uq_cancelacion_clave_idempotencia"),
+    )
+
+    reserva_id: Mapped[int] = mapped_column(
+        ForeignKey("reserva.id"), primary_key=True
+    )
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
+    clave_idempotencia: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class ReservaPaciente(Base):
     __tablename__ = "reserva_paciente"
 

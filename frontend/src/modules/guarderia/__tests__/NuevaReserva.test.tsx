@@ -179,12 +179,17 @@ beforeEach(() => {
 });
 
 describe('NuevaReserva', () => {
-  it('preselecciona la fecha elegida en el calendario', async () => {
+  it('usa la fecha del calendario al iniciar el formulario y conserva los controles nativos', async () => {
     renderizar('/guarderia/reservar?fecha=2026-12-17');
     await elegirTutorYLuna();
 
     expect(screen.getByLabelText('Fecha de inicio')).toHaveValue('2026-12-17');
     expect(screen.getByLabelText('Fecha de fin')).toHaveValue('2026-12-17');
+    expect(screen.getByLabelText('Franja de inicio').tagName).toBe('SELECT');
+    expect(screen.getByLabelText('Medio de pago de la seña').tagName).toBe(
+      'SELECT',
+    );
+    expect(document.querySelector('[role="dialog"]')).not.toBeInTheDocument();
   });
 
   it('no habilita Reservar si no hay una seña positiva', async () => {
