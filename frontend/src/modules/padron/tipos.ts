@@ -40,6 +40,22 @@ export type DomicilioNuevo = {
   referencia?: string | null;
 };
 
+export type TipoEmpleado = 'INTERNO' | 'EXTERNO';
+
+export type EmpleadoDetalle = {
+  persona_id: number;
+  nombre: string;
+  apellido: string;
+  dni: string | null;
+  dni_pendiente: boolean;
+  telefonos: string[];
+  tipo: TipoEmpleado;
+  es_veterinario: boolean;
+  especialidad: string | null;
+  email: string | null;
+  activo: boolean;
+};
+
 export type PacienteResumen = {
   id: number;
   nombre: string;

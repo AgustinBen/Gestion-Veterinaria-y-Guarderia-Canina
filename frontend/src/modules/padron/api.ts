@@ -2,6 +2,7 @@ import { api, ApiError } from '../../core/api/client';
 
 import type {
   CoincidenciaDuplicado,
+  EmpleadoDetalle,
   ErrorDuplicado,
   Especie,
   PacienteActualizar,
@@ -194,4 +195,11 @@ export function listarTamanios(opciones: OpcionesLectura = {}): Promise<Tamanio[
 
 export function crearRaza(datos: RazaNueva): Promise<Raza> {
   return api.post<Raza>('/razas', datos);
+}
+
+/** Empleados internos y externos. La agenda clínica resuelve nombres con esta lista. */
+export function listarEmpleados(
+  opciones: OpcionesLectura = {},
+): Promise<EmpleadoDetalle[]> {
+  return api.get<EmpleadoDetalle[]>('/empleados', { signal: opciones.signal });
 }

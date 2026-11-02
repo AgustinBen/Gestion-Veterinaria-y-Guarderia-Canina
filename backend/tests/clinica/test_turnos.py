@@ -70,6 +70,10 @@ def test_agenda_medica_valida_horario_y_dia_sin_atencion(
         )
         assert fuera.status_code == 422
         assert fuera.json()["detail"]["codigo"] == "FUERA_DE_HORARIO"
+        assert fuera.json()["detail"]["mensaje"] == (
+            "La clínica no atiende en ese horario. "
+            "Por favor seleccione un horario válido"
+        )
 
     domingo = lunes + timedelta(days=6)
     sin_horario = _crear_turno(
@@ -499,7 +503,10 @@ def test_matriz_de_permisos_de_turnos_medicos(
             inicio,
             inicio + timedelta(minutes=30),
         )
-        assert respuesta.status_code == 201
+        # El veterinario atiende turnos pero no los agenda.
+        assert respuesta.status_code == (
+            403 if rol == Rol.VETERINARIO else 201
+        )
 
     sin_token = client.post(
         "/api/turnos",

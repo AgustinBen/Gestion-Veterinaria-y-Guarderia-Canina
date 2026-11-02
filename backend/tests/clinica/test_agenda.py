@@ -93,3 +93,46 @@ def test_agenda_combina_turnos_horarios_personal_y_traspasos(
     assert dia["ventanas_traspaso"][2]["empleados_salen"][0]["empleado_id"] == (
         clinica_context["veterinario_id"]
     )
+
+
+def test_agenda_sin_turnos_devuelve_dias_vacios(
+    client, crear_usuario_clinica
+) -> None:
+    _, headers = crear_usuario_clinica(Rol.DUENIO)
+    hoy = date.today()
+
+    respuesta = client.get(
+        "/api/clinica/agenda",
+        headers=headers,
+        params={"desde": hoy.isoformat(), "hasta": hoy.isoformat()},
+    )
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == [
+        {
+            "fecha": hoy.isoformat(),
+            "horarios_atencion": [],
+            "turnos": [],
+            "turnos_personal": [],
+            "ventanas_traspaso": [],
+        }
+    ]
+
+
+def test_veterinarios_de_agenda_requiere_rol_y_perfil_clinico(
+    client, crear_usuario_clinica, clinica_context
+) -> None:
+    crear_usuario_clinica(
+        Rol.VETERINARIO,
+        empleado_id=clinica_context["veterinario_id"],
+    )
+    crear_usuario_clinica(
+        Rol.VETERINARIO,
+        empleado_id=clinica_context["personal_no_veterinario_id"],
+    )
+    _, headers = crear_usuario_clinica(Rol.PERSONAL)
+
+    respuesta = client.get("/api/clinica/veterinarios", headers=headers)
+
+    assert respuesta.status_code == 200
+    assert respuesta.json() == [clinica_context["veterinario_id"]]

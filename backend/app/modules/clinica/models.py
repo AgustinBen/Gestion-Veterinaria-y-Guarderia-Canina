@@ -308,6 +308,7 @@ class Turno(Base):
     externo_actual_id: Mapped[int | None] = mapped_column(
         ForeignKey("empleado.persona_id"), nullable=True
     )
+    cargo_id: Mapped[int | None] = mapped_column(ForeignKey("cargo.id"), nullable=True)
     created_by: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

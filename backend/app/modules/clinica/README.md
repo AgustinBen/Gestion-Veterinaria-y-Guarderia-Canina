@@ -20,3 +20,19 @@
   `horarios.py` y el cálculo puro de traspasos en `traspaso.py`.
 - La clínica consulta pacientes y empleados únicamente mediante
   `padron.service`; la agenda común solo permite veterinarios internos.
+- `/api/clinica/veterinarios` devuelve los empleados internos activos con perfil
+  veterinario y usuario activo de rol `VETERINARIO`; requiere acceso de lectura
+  a turnos.
+
+## Pendientes
+
+- **Pantalla de Administración para los horarios de atención.** Hoy solo se
+  definen con `PUT /api/clinica/horarios` (Dueño); sin horarios cargados, el
+  alta de turnos responde "Aún no se definieron horarios de atención". Ticket
+  propio de `clinica` (frontend + spec).
+
+## Cobro del turno
+
+- `POST /api/turnos` acepta `monto_centavos` (opcional, entero positivo). Si viene, clínica llama a `cobros.service.crear_cargo` (referencia `TURNO` y el id del turno) a nombre del **titular principal vigente** de la mascota, en la misma transacción del turno: si el turno falla no queda cargo. Mismo acuerdo que el de estudios (T-40). La tabla `turno` guarda solo el `cargo_id`, no el dinero.
+- La deuda se calcula en Cobros (total menos pagos); el turno no registra pagos. Una mascota sin titular principal rechaza el monto (422 `SIN_TITULAR`).
+- Pendiente: cancelar o marcar ausente un turno **no** anula su cargo; hace falta un ajuste desde Cobros.

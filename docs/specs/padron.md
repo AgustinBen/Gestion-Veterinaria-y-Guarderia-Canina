@@ -6,7 +6,7 @@
 Borrador v0.2 (2026-10-21). Decisiones D1 a D14 cerradas (registro en la sección 6 de `docs/reglas-de-negocio.md`). Donde el DER y el ticket difieren, se siguió el ticket. Pendiente de revisión cruzada (Emiliano y Aldana), sobre todo del contrato público.
 
 ## Objetivo
-Padrón único de personas (dueños y empleados) y mascotas, sin duplicados, con varios titulares por mascota y cambio de titular conservando el historial. Lo consumen `cobros`, `guarderia`, `clinica` y `migracion`.
+Padrón de dueños de mascotas y mascotas (las personas empleadas siguen siendo `persona`, pero su alta no se hace desde el Padrón: ver más abajo), sin duplicados, con varios titulares por mascota y cambio de titular conservando el historial. Lo consumen `cobros`, `guarderia`, `clinica` y `migracion`.
 
 ## Reglas de negocio que implementa
 - **RN-01** El alta de un cliente nuevo exige DNI, nombre, apellido y teléfono. La dirección es opcional. El router lo exige; `crear_persona(..., migrado=True)` permite omitir el DNI.
@@ -63,7 +63,7 @@ Padrón único de personas (dueños y empleados) y mascotas, sin duplicados, con
 | POST | /api/pacientes/{id}/titular-principal | D, P | designa otro principal entre los vigentes (T-13) |
 | POST | /api/pacientes/{id}/transferencia | D, P | cambio de titular; acepta `de_persona_id`; también `/transferir` como alias (T-13) |
 | GET | /api/empleados | autenticado | lista |
-| POST / PATCH | /api/empleados | D | alta / modificación |
+| POST / PATCH | /api/empleados | D | alta / modificación. El alta de empleados internos la hace `identidad` al crear la cuenta (PERSONAL o VETERINARIO) vía `crear_empleado`; la pantalla del Padrón no ofrece alta de empleados. El `POST` queda solo para el Dueño (empleados externos), a la espera de su pantalla en Administración |
 | GET | /api/especies, /api/razas, /api/tamanios | autenticado | catálogos |
 | POST | /api/razas | D, P | alta rápida de raza |
 
@@ -84,6 +84,7 @@ obtener_personas_resumen(db, ids: list[int]) -> dict[int, PersonaResumen]   # AG
 # Escrituras (routers y migracion)
 crear_persona(db, datos: PersonaNueva, *, confirmar_duplicado: bool = False, migrado: bool = False) -> PersonaDetalle   # lanza DniDuplicado o PosibleDuplicado(coincidencias)
 crear_paciente(db, datos: PacienteNuevo, titular_persona_id: int) -> PacienteDetalle
+crear_empleado(db, datos: EmpleadoNuevo, *, creado_por: int | None = None, migrado: bool = False) -> EmpleadoDetalle
 agregar_titular(db, paciente_id: int, persona_id: int, tipo_contacto_id: int | None = None, *, principal: bool = False, usuario_id: int | None = None, fecha: date | None = None) -> TitularVigente   # T-13
 quitar_titular(db, titularidad_id: int, *, usuario_id: int | None = None, fecha: date | None = None) -> None                                      # T-13
 quitar_titular_de_persona(db, paciente_id: int, persona_id: int, *, usuario_id: int | None = None, fecha: date | None = None) -> None             # T-13
@@ -92,7 +93,7 @@ transferir_paciente(db, paciente_id: int, nueva_persona_id: int, fecha: date | N
 ```
 
 ## Casos borde
-- Persona sin DNI: el router la rechaza; solo entra con `migrado=True`.
+- Persona sin DNI: el router la rechaza; solo entra con `migrado=True`. Para empleados se permite omitir DNI al crear la ficha mediante el servicio con `migrado=True`.
 - Mismo DNI en otra persona: 409, no se puede confirmar. DNI con puntos o espacios: se guarda solo con dígitos.
 - Dos personas con el mismo teléfono: se permite con confirmación explícita registrada.
 - Quitar el último titular, quitar al principal sin designar otro, o dejar dos principales: 409.
@@ -109,7 +110,7 @@ transferir_paciente(db, paciente_id: int, nueva_persona_id: int, fecha: date | N
 - La pantalla Dueños y mascotas muestra el rótulo “Padrón de clientes” y pagina las mascotas registradas en grupos de cinco.
 
 ## Dependencias con otros módulos
-Usa `core` e `identidad` (`require_role`). Lo consumen `cobros` (titulares), `guarderia` (paciente, titulares, `pacientes_de_persona`), `clinica` (paciente, empleado), `identidad` (empleado) y `migracion` (escrituras).
+Usa `core` e `identidad` (`require_role`). Lo consumen `cobros` (titulares), `guarderia` (paciente, titulares, `pacientes_de_persona`), `clinica` (paciente, empleado), `identidad` (empleado; **escribe** vía `crear_empleado` al crear cuentas PERSONAL/VETERINARIO) y `migracion` (escrituras).
 
 ### Acuerdo de integración T-40
 

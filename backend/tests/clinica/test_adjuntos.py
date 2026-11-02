@@ -135,16 +135,79 @@ def test_pdf_real_es_aceptado_y_adjunto_inexistente_responde_404(
     assert client.get("/api/adjuntos/99999/archivo", headers=headers).status_code == 404
 
 
-def test_no_hay_endpoints_para_borrar_estudios_ni_adjuntos(
+def _subir_placa(client, clinica_context, headers, tmp_path, monkeypatch):
+    directorio = tmp_path / "uploads"
+    settings = Settings(
+        uploads_dir=str(directorio),
+        upload_max_bytes=1024,
+        upload_allowed_mime_types=["image/jpeg", "image/png", "image/webp", "application/pdf"],
+    )
+    monkeypatch.setattr(clinica_router, "get_settings", lambda: settings)
+    estudio = client.post(
+        f"/api/pacientes/{clinica_context['paciente_id']}/estudios",
+        json={
+            "tipo": "RADIOGRAFIA",
+            "fecha": "2026-11-01",
+            "descripcion": "Radiografía",
+            "realizado_por_empleado_id": clinica_context["veterinario_id"],
+        },
+        headers=headers,
+    ).json()
+    adjunto = client.post(
+        f"/api/estudios/{estudio['id']}/adjuntos",
+        files={"archivo": ("placa.png", PNG_CHICO, "image/png")},
+        headers=headers,
+    ).json()
+    return directorio, estudio, adjunto
+
+
+def test_eliminar_adjunto_quita_el_registro_y_el_archivo(
+    client, clinica_context, crear_usuario_clinica, tmp_path, monkeypatch
+) -> None:
+    _, headers = crear_usuario_clinica(Rol.DUENIO)
+    directorio, estudio, adjunto = _subir_placa(
+        client, clinica_context, headers, tmp_path, monkeypatch
+    )
+    assert len(list(directorio.iterdir())) == 1
+
+    respuesta = client.delete(f"/api/adjuntos/{adjunto['id']}", headers=headers)
+
+    assert respuesta.status_code == 204
+    assert list(directorio.iterdir()) == []
+    listado = client.get(
+        f"/api/pacientes/{clinica_context['paciente_id']}/estudios", headers=headers
+    )
+    assert listado.json()[0]["id"] == estudio["id"]
+    assert listado.json()[0]["adjuntos"] == []
+    assert (
+        client.get(f"/api/adjuntos/{adjunto['id']}/archivo", headers=headers).status_code
+        == 404
+    )
+    # Repetir la baja no encuentra nada.
+    assert client.delete(f"/api/adjuntos/{adjunto['id']}", headers=headers).status_code == 404
+
+
+def test_eliminar_adjunto_es_de_quien_escribe_historia(
+    client, clinica_context, crear_usuario_clinica, tmp_path, monkeypatch
+) -> None:
+    _, duenio = crear_usuario_clinica(Rol.DUENIO)
+    _, personal = crear_usuario_clinica(Rol.PERSONAL)
+    _, veterinario = crear_usuario_clinica(Rol.VETERINARIO)
+    directorio, _, adjunto = _subir_placa(
+        client, clinica_context, duenio, tmp_path, monkeypatch
+    )
+    ruta = f"/api/adjuntos/{adjunto['id']}"
+
+    assert client.delete(ruta).status_code == 401
+    assert client.delete(ruta, headers=personal).status_code == 403
+    assert len(list(directorio.iterdir())) == 1
+    assert client.delete(ruta, headers=veterinario).status_code == 204
+
+
+def test_no_hay_endpoint_para_borrar_estudios(
     client, clinica_context, crear_usuario_clinica
 ) -> None:
     _, headers = crear_usuario_clinica(Rol.DUENIO)
 
-    assert (
-        client.delete(
-            "/api/estudios/1",
-            headers=headers,
-        ).status_code
-        == 404
-    )
-    assert client.delete("/api/adjuntos/1", headers=headers).status_code == 404
+    assert client.delete("/api/estudios/1", headers=headers).status_code in (404, 405)
+    assert client.delete("/api/adjuntos/999999", headers=headers).status_code == 404

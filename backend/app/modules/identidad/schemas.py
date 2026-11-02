@@ -37,8 +37,22 @@ class UsuarioActual(BaseModel):
     empleado_id: int | None = None
 
 
+class EmpleadoCuenta(BaseModel):
+    """Datos del empleado que se da de alta junto con su cuenta (RN-01)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: str
+    apellido: str
+    dni: str
+    telefono: str
+    especialidad: str | None = None
+    confirmar_duplicado: bool = False
+    persona_coincidente_id: int | None = None
+
+
 class UsuarioCrear(BaseModel):
-    """Datos para crear un usuario."""
+    """Datos para crear un usuario sobre un empleado ya existente (opcional)."""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -46,6 +60,22 @@ class UsuarioCrear(BaseModel):
     password: str
     rol: Rol
     empleado_id: int | None = None
+
+
+class CuentaCrear(BaseModel):
+    """Alta de cuenta desde Administración.
+
+    Las cuentas PERSONAL y VETERINARIO llevan los datos del empleado, que se
+    crea y vincula en la misma operación. El resto de los roles no tiene
+    empleado.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str
+    password: str
+    rol: Rol
+    empleado: EmpleadoCuenta | None = None
 
 
 class UsuarioActualizar(BaseModel):
@@ -56,6 +86,7 @@ class UsuarioActualizar(BaseModel):
     activo: bool | None = None
     rol: Rol | None = None
     password: str | None = None
+    empleado_id: int | None = None
 
 
 class UsuarioPublico(BaseModel):

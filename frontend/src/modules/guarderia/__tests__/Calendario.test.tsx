@@ -9,19 +9,39 @@ import {
   habilitarPlazaEmergencia,
   listarCalendario,
   listarReservas,
+  listarTurnosClinicos,
 } from '../api';
+import { obtenerPaciente } from '../../padron/api';
 import { fechaLocal } from '../fechas';
 import { Calendario } from '../pages/Calendario';
-import type { Reserva } from '../tipos';
+import type { Reserva, TurnoClinico } from '../tipos';
 
 vi.mock('../api', () => ({
   generarIdempotencyKey: vi.fn(() => 'clave-emergencia-calendario'),
   habilitarPlazaEmergencia: vi.fn(),
   listarCalendario: vi.fn(),
   listarReservas: vi.fn(),
+  listarTurnosClinicos: vi.fn(),
   mensajeDeError: (error: unknown) =>
     error instanceof Error ? error.message : 'Error desconocido',
 }));
+
+vi.mock('../../padron/api', () => ({
+  obtenerPaciente: vi.fn(),
+}));
+
+function turnoClinico(sobrescribir: Partial<TurnoClinico> = {}): TurnoClinico {
+  return {
+    id: 90,
+    paciente_id: 21,
+    tipo: 'CONSULTA',
+    veterinario_empleado_id: 5,
+    inicio: `${fechaLocal(new Date())}T10:30:00`,
+    fin: `${fechaLocal(new Date())}T11:00:00`,
+    estado: 'PROGRAMADO',
+    ...sobrescribir,
+  };
+}
 
 const RESERVA: Reserva = {
   id: 71,
@@ -41,6 +61,10 @@ const RESERVA: Reserva = {
 beforeEach(() => {
   vi.mocked(listarCalendario).mockReset().mockResolvedValue([]);
   vi.mocked(listarReservas).mockReset().mockResolvedValue([]);
+  vi.mocked(listarTurnosClinicos).mockReset().mockResolvedValue([]);
+  vi.mocked(obtenerPaciente)
+    .mockReset()
+    .mockResolvedValue({ id: 21, nombre: 'Luna' } as never);
   vi.mocked(generarIdempotencyKey).mockReset().mockReturnValue(
     'clave-emergencia-calendario',
   );
@@ -211,6 +235,56 @@ describe('Calendario de guardería', () => {
       .toBeInTheDocument();
     expect(screen.getByRole('heading', { name: /\d+ de / }))
       .toBeInTheDocument();
+  });
+
+  it('lista los turnos clínicos de la fecha seleccionada, sin los cancelados', async () => {
+    const mañana = new Date();
+    mañana.setDate(mañana.getDate() + 1);
+    vi.mocked(listarTurnosClinicos).mockResolvedValue([
+      turnoClinico(),
+      turnoClinico({ id: 91, estado: 'CANCELADO' }),
+      turnoClinico({
+        id: 92,
+        inicio: `${fechaLocal(mañana)}T09:00:00`,
+        fin: `${fechaLocal(mañana)}T09:30:00`,
+      }),
+    ]);
+
+    renderizarCalendario('PERSONAL');
+
+    const enlace = await screen.findByRole('link', { name: /10:30 · Luna/ });
+    expect(enlace).toHaveAttribute('href', '/turnos/90');
+    const seccion = screen
+      .getByRole('heading', { name: 'Turnos clínicos' })
+      .closest('section') as HTMLElement;
+    expect(within(seccion).getByText('Consulta')).toBeInTheDocument();
+    expect(within(seccion).getByText('Programado')).toBeInTheDocument();
+    expect(within(seccion).getAllByRole('listitem')).toHaveLength(1);
+  });
+
+  it('avisa cuando no hay turnos clínicos en la fecha', async () => {
+    renderizarCalendario('DUENIO');
+    expect(
+      await screen.findByText('No hay turnos clínicos para esta fecha.'),
+    ).toBeInTheDocument();
+  });
+
+  it('si fallan los turnos igual muestra las reservas', async () => {
+    vi.mocked(listarTurnosClinicos).mockRejectedValue(new Error('sin señal'));
+    vi.mocked(listarReservas).mockResolvedValue([
+      {
+        ...RESERVA,
+        desde_fecha: fechaLocal(new Date()),
+        hasta_fecha: fechaLocal(new Date()),
+      },
+    ]);
+
+    renderizarCalendario('PERSONAL');
+
+    expect(
+      await screen.findByText('No pudimos cargar los turnos clínicos.'),
+    ).toBeInTheDocument();
+    expect(await screen.findByText('Reserva #71')).toBeInTheDocument();
   });
 
   it('no ofrece habilitar emergencias al Personal', async () => {

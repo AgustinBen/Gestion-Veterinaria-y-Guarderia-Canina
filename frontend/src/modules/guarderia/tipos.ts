@@ -102,3 +102,20 @@ export type OpcionesLectura = {
 export type OpcionesIdempotentes = OpcionesLectura & {
   idempotencyKey: string;
 };
+
+/** Turno clínico tal como lo expone `GET /api/turnos` (solo lectura aquí). */
+export type TurnoClinico = {
+  id: number;
+  paciente_id: number;
+  tipo: 'CONSULTA' | 'VACUNA' | 'CIRUGIA' | 'ESTUDIO' | 'CONTROL';
+  veterinario_empleado_id: number;
+  inicio: string;
+  fin: string;
+  estado:
+    | 'PROGRAMADO'
+    | 'PENDIENTE_EXTERNO'
+    | 'CONFIRMADO'
+    | 'ATENDIDO'
+    | 'CANCELADO'
+    | 'AUSENTE';
+};

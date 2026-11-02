@@ -12,6 +12,7 @@ import type {
   Reserva,
   ReservaCrear,
   ReservaSenaCrear,
+  TurnoClinico,
 } from './tipos';
 
 function esRegistro(valor: unknown): valor is Record<string, unknown> {
@@ -102,6 +103,19 @@ export function listarReservas(
   const params = new URLSearchParams({ desde, hasta });
 
   return api.get<Reserva[]>(`/guarderia/reservas?${params.toString()}`, {
+    signal: opciones.signal,
+  });
+}
+
+/** Turnos clínicos del período, para mostrarlos junto a las reservas. */
+export function listarTurnosClinicos(
+  desde: string,
+  hasta: string,
+  opciones: OpcionesLectura = {},
+): Promise<TurnoClinico[]> {
+  const params = new URLSearchParams({ desde, hasta });
+
+  return api.get<TurnoClinico[]>(`/turnos?${params.toString()}`, {
     signal: opciones.signal,
   });
 }
