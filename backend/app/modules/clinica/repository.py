@@ -7,7 +7,13 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.modules.clinica.models import Atencion, TipoAtencion, VacunaAplicada
+from app.modules.clinica.models import (
+    Adjunto,
+    Atencion,
+    Estudio,
+    TipoAtencion,
+    VacunaAplicada,
+)
 
 
 def crear_atencion(db: Session, atencion: Atencion) -> Atencion:
@@ -72,3 +78,43 @@ def listar_vacunas(db: Session, paciente_id: int) -> list[VacunaAplicada]:
         )
     )
     return list(db.execute(consulta).scalars())
+
+
+def crear_estudio(db: Session, estudio: Estudio) -> Estudio:
+    db.add(estudio)
+    db.flush()
+    return estudio
+
+
+def obtener_estudio(db: Session, estudio_id: int) -> Estudio | None:
+    return db.get(Estudio, estudio_id)
+
+
+def listar_estudios(db: Session, paciente_id: int) -> list[Estudio]:
+    consulta = (
+        select(Estudio)
+        .where(Estudio.paciente_id == paciente_id)
+        .order_by(Estudio.fecha.desc(), Estudio.id.desc())
+    )
+    return list(db.execute(consulta).scalars())
+
+
+def listar_adjuntos(db: Session, estudio_ids: list[int]) -> list[Adjunto]:
+    if not estudio_ids:
+        return []
+    consulta = (
+        select(Adjunto)
+        .where(Adjunto.estudio_id.in_(estudio_ids))
+        .order_by(Adjunto.created_at, Adjunto.id)
+    )
+    return list(db.execute(consulta).scalars())
+
+
+def obtener_adjunto(db: Session, adjunto_id: int) -> Adjunto | None:
+    return db.get(Adjunto, adjunto_id)
+
+
+def crear_adjunto(db: Session, adjunto: Adjunto) -> Adjunto:
+    db.add(adjunto)
+    db.flush()
+    return adjunto

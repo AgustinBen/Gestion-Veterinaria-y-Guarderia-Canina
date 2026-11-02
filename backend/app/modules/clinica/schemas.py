@@ -7,7 +7,7 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.modules.clinica.models import OrigenAtencion, TipoAtencion
+from app.modules.clinica.models import OrigenAtencion, TipoAtencion, TipoEstudio
 
 
 class VacunaNueva(BaseModel):
@@ -96,3 +96,37 @@ class LibretaVacunasItem(BaseModel):
     fecha_aplicacion: date
     proxima_dosis: date | None
     estado: EstadoVacuna
+
+
+class EstudioCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tipo: TipoEstudio
+    fecha: date
+    descripcion: str = Field(min_length=1)
+    realizado_por_empleado_id: int = Field(gt=0, strict=True)
+    costo_centavos: int | None = Field(default=None, gt=0, strict=True)
+
+
+class AdjuntoResumen(BaseModel):
+    id: int
+    nombre_original: str
+    tipo_mime: str
+    tamano_bytes: int
+    sha256: str
+    created_by: int
+    created_at: datetime
+
+
+class EstudioResumen(BaseModel):
+    id: int
+    paciente_id: int
+    atencion_id: int | None
+    tipo: TipoEstudio
+    fecha: date
+    descripcion: str
+    realizado_por_empleado_id: int
+    cargo_id: int | None
+    created_by: int
+    created_at: datetime
+    adjuntos: list[AdjuntoResumen] = Field(default_factory=list)
