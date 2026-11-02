@@ -16,12 +16,16 @@ from app.modules.identidad.permisos import Nivel, Recurso, Rol
 from app.modules.identidad.schemas import (
     ConfiguracionItem,
     ConfiguracionUpdate,
+    CuentaCrear,
+    EmpleadoCuenta,
     LoginResponse,
     UsuarioActual,
     UsuarioActualizar,
     UsuarioCrear,
     UsuarioPublico,
 )
+from app.modules.padron import schemas as padron_schemas
+from app.modules.padron import service as padron_service
 
 
 class NoAutenticado(Exception):
@@ -46,6 +50,14 @@ class UsuarioExistenteNoDuenio(Exception):
 
 class DatosInvalidos(Exception):
     """Datos que no cumplen una regla de negocio."""
+
+
+class EmpleadoDuplicado(Exception):
+    """El Padrón bloquea (DNI) o pide confirmar (teléfono/nombre) el empleado."""
+
+    def __init__(self, detalle: dict[str, Any]) -> None:
+        super().__init__("El empleado ya existe o hay posibles duplicados")
+        self.detalle = detalle
 
 
 class OperacionNoPermitida(Exception):
@@ -132,20 +144,113 @@ def listar_usuarios(db: Session) -> list[UsuarioPublico]:
     ]
 
 
+def _validar_empleado(db: Session, empleado_id: int | None) -> None:
+    if (
+        empleado_id is not None
+        and padron_service.obtener_empleado(db, empleado_id) is None
+    ):
+        raise DatosInvalidos("El empleado indicado no existe")
+
+
+ROLES_CON_EMPLEADO = (Rol.PERSONAL, Rol.VETERINARIO)
+
+
+def _crear_empleado_de_cuenta(
+    db: Session, rol: Rol, datos: EmpleadoCuenta
+) -> int:
+    """Da de alta el empleado interno de una cuenta vía el servicio del Padrón."""
+    try:
+        empleado = padron_service.crear_empleado(
+            db,
+            padron_schemas.EmpleadoNuevo(
+                persona=padron_schemas.PersonaNueva(
+                    nombre=datos.nombre,
+                    apellido=datos.apellido,
+                    dni=datos.dni,
+                    telefonos=[datos.telefono],
+                    confirmar_duplicado=datos.confirmar_duplicado,
+                    persona_coincidente_id=datos.persona_coincidente_id,
+                ),
+                es_veterinario=rol == Rol.VETERINARIO,
+                especialidad=(
+                    (datos.especialidad or "").strip() or None
+                    if rol == Rol.VETERINARIO
+                    else None
+                ),
+            ),
+        )
+    except padron_service.DniDuplicado as exc:
+        raise EmpleadoDuplicado(
+            {"codigo": "DNI_DUPLICADO", "persona": exc.persona.model_dump()}
+        ) from exc
+    except padron_service.PosibleDuplicado as exc:
+        raise EmpleadoDuplicado(
+            {
+                "codigo": "POSIBLE_DUPLICADO",
+                "coincidencias": [c.model_dump() for c in exc.coincidencias],
+            }
+        ) from exc
+    except padron_service.DatosInvalidos as exc:
+        raise DatosInvalidos(str(exc)) from exc
+    return empleado.persona_id
+
+
 def crear_usuario(db: Session, datos: UsuarioCrear) -> UsuarioPublico:
     """Crea un usuario con username normalizado y contraseña hasheada."""
     username = _normalizar_username(datos.username)
     _validar_password(datos.password)
+    _validar_empleado(db, datos.empleado_id)
 
     if repository.obtener_por_username(db, username) is not None:
         raise UsernameDuplicado(username)
 
+    return _guardar_usuario(
+        db, username, datos.password, datos.rol, datos.empleado_id
+    )
+
+
+def crear_cuenta(db: Session, datos: CuentaCrear) -> UsuarioPublico:
+    """Crea una cuenta; PERSONAL y VETERINARIO crean además su empleado interno.
+
+    El empleado se da de alta en el Padrón (``padron.service.crear_empleado``)
+    y queda vinculado por ``empleado_id``. Se valida todo lo propio antes de
+    escribir el empleado para no dejar fichas huérfanas.
+    """
+    username = _normalizar_username(datos.username)
+    _validar_password(datos.password)
+
+    if datos.rol in ROLES_CON_EMPLEADO:
+        if datos.empleado is None:
+            raise DatosInvalidos(
+                "Las cuentas de personal y veterinario requieren los datos "
+                "del empleado"
+            )
+    elif datos.empleado is not None:
+        raise DatosInvalidos("Este rol no lleva datos de empleado")
+
+    if repository.obtener_por_username(db, username) is not None:
+        raise UsernameDuplicado(username)
+
+    empleado_id: int | None = None
+    if datos.empleado is not None:
+        empleado_id = _crear_empleado_de_cuenta(db, datos.rol, datos.empleado)
+
+    return _guardar_usuario(db, username, datos.password, datos.rol, empleado_id)
+
+
+def _guardar_usuario(
+    db: Session,
+    username: str,
+    password: str,
+    rol: Rol,
+    empleado_id: int | None,
+) -> UsuarioPublico:
     usuario = repository.crear_usuario(
         db,
         username=username,
-        password_hash=security.hash_password(datos.password),
-        rol=datos.rol,
-        empleado_id=datos.empleado_id,
+        password_hash=security.hash_password(password),
+        rol=rol,
+        empleado_id=empleado_id,
     )
     try:
         db.commit()
@@ -191,6 +296,11 @@ def actualizar_usuario(
             raise DatosInvalidos("El campo password no puede ser nulo")
         _validar_password(password)
 
+    nuevo_empleado_id = usuario.empleado_id
+    if "empleado_id" in campos:
+        nuevo_empleado_id = datos.empleado_id
+        _validar_empleado(db, nuevo_empleado_id)
+
     if "activo" in campos and not nuevo_activo and usuario.id == actor.id:
         raise OperacionNoPermitida("No podés desactivar tu propio usuario")
 
@@ -210,6 +320,8 @@ def actualizar_usuario(
         usuario.activo = nuevo_activo
     if "rol" in campos:
         usuario.rol = nuevo_rol
+    if "empleado_id" in campos:
+        usuario.empleado_id = nuevo_empleado_id
     if password is not None:
         usuario.password_hash = security.hash_password(password)
 

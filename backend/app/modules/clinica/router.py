@@ -39,6 +39,7 @@ from app.modules.clinica.schemas import (
     HorarioAtencionIn,
     HorarioAtencionOut,
     LibretaVacunasItem,
+    PacienteClinicaResumen,
     TurnoAtendido,
     TurnoAtendidoOut,
     TurnoCancelar,
@@ -50,7 +51,7 @@ from app.modules.clinica.schemas import (
     TurnosPersonalDefinicionIn,
     TurnosPersonalDefinicionOut,
 )
-from app.modules.identidad.deps import require_acceso
+from app.modules.identidad.deps import require_acceso, require_role
 from app.modules.identidad.permisos import Nivel, Recurso, Rol
 from app.modules.identidad.schemas import UsuarioActual
 
@@ -69,6 +70,18 @@ def _error_agenda(exc: service.AgendaError) -> HTTPException:
         status_code=exc.status_code,
         detail={"codigo": exc.codigo, "mensaje": str(exc)},
     )
+
+
+def _turno_propio(db: Session, usuario: UsuarioActual, turno_id: int) -> None:
+    """Un veterinario solo accede a los turnos que tiene asignados."""
+    try:
+        service.obtener_turno_visible(
+            db,
+            turno_id,
+            service.veterinario_restringido(usuario.rol, usuario.empleado_id),
+        )
+    except service.AgendaError as exc:
+        raise _error_agenda(exc) from exc
 
 
 @router.post(
@@ -130,6 +143,31 @@ def listar_atenciones(
         ) from exc
     except (service.DatosInvalidos, service.RangoFechasInvalido) as exc:
         raise _error_datos_invalidos(exc) from exc
+
+
+@router.get(
+    "/api/clinica/pacientes-por-atencion",
+    response_model=list[PacienteClinicaResumen],
+)
+def pacientes_por_atencion(
+    tipo: TipoAtencion,
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(require_acceso(Recurso.HISTORIA_CLINICA, Nivel.LECTURA)),
+) -> list[PacienteClinicaResumen]:
+    return service.pacientes_por_atencion(db, tipo)
+
+
+@router.get(
+    "/api/clinica/veterinarios",
+    response_model=list[int],
+)
+def listar_veterinarios(
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.TURNOS, Nivel.LECTURA)
+    ),
+) -> list[int]:
+    return service.listar_ids_veterinarios(db)
 
 
 @router.get(
@@ -298,6 +336,29 @@ def subir_adjunto(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Estudio no encontrado",
         ) from exc
+
+
+@router.delete(
+    "/api/adjuntos/{adjunto_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def eliminar_adjunto(
+    adjunto_id: int,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(require_acceso(Recurso.HISTORIA_CLINICA, Nivel.ESCRITURA)),
+) -> Response:
+    try:
+        nombre_archivo = service.eliminar_adjunto(db, adjunto_id, eliminado_por=usuario.id)
+    except service.AdjuntoNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Adjunto no encontrado",
+        ) from exc
+
+    almacenamiento.eliminar(
+        almacenamiento.ruta_archivo(Path(get_settings().uploads_dir), nombre_archivo)
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/api/adjuntos/{adjunto_id}/archivo")
@@ -471,9 +532,7 @@ def eliminar_turno_personal(
 def crear_turno(
     solicitud: TurnoCrear,
     db: Session = Depends(get_db),
-    usuario: UsuarioActual = Depends(
-        require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
-    ),
+    usuario: UsuarioActual = Depends(require_role(Rol.DUENIO, Rol.PERSONAL)),
 ) -> TurnoOut:
     try:
         return service.agendar_turno(db, solicitud, created_by=usuario.id)
@@ -489,7 +548,7 @@ def listar_turnos(
     paciente_id: int | None = Query(default=None, gt=0),
     estado: str | None = None,
     db: Session = Depends(get_db),
-    _usuario: UsuarioActual = Depends(
+    usuario: UsuarioActual = Depends(
         require_acceso(Recurso.TURNOS, Nivel.LECTURA)
     ),
 ) -> list[TurnoOut]:
@@ -507,7 +566,9 @@ def listar_turnos(
             db,
             desde=desde,
             hasta=hasta,
-            veterinario_id=veterinario_id,
+            veterinario_id=service.veterinario_filtrado(
+                usuario.rol, usuario.empleado_id, veterinario_id
+            ),
             paciente_id=paciente_id,
             estado=estado_turno,
         )
@@ -519,12 +580,16 @@ def listar_turnos(
 def obtener_turno(
     turno_id: int,
     db: Session = Depends(get_db),
-    _usuario: UsuarioActual = Depends(
+    usuario: UsuarioActual = Depends(
         require_acceso(Recurso.TURNOS, Nivel.LECTURA)
     ),
 ) -> TurnoOut:
     try:
-        return service.obtener_turno(db, turno_id)
+        return service.obtener_turno_visible(
+            db,
+            turno_id,
+            service.veterinario_restringido(usuario.rol, usuario.empleado_id),
+        )
     except service.AgendaError as exc:
         raise _error_agenda(exc) from exc
 
@@ -534,9 +599,7 @@ def reprogramar_turno(
     turno_id: int,
     solicitud: TurnoReprogramar,
     db: Session = Depends(get_db),
-    _usuario: UsuarioActual = Depends(
-        require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
-    ),
+    _usuario: UsuarioActual = Depends(require_role(Rol.DUENIO, Rol.PERSONAL)),
 ) -> TurnoOut:
     try:
         return service.reprogramar_turno(db, turno_id, solicitud)
@@ -549,9 +612,7 @@ def cancelar_turno(
     turno_id: int,
     solicitud: TurnoCancelar,
     db: Session = Depends(get_db),
-    _usuario: UsuarioActual = Depends(
-        require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
-    ),
+    _usuario: UsuarioActual = Depends(require_role(Rol.DUENIO, Rol.PERSONAL)),
 ) -> TurnoOut:
     try:
         return service.cancelar_turno(db, turno_id, solicitud.motivo)
@@ -563,10 +624,11 @@ def cancelar_turno(
 def marcar_turno_ausente(
     turno_id: int,
     db: Session = Depends(get_db),
-    _usuario: UsuarioActual = Depends(
+    usuario: UsuarioActual = Depends(
         require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
     ),
 ) -> TurnoOut:
+    _turno_propio(db, usuario, turno_id)
     try:
         return service.marcar_turno_ausente(db, turno_id)
     except service.AgendaError as exc:
@@ -581,9 +643,10 @@ def marcar_turno_atendido(
     solicitud: TurnoAtendido | None = None,
     db: Session = Depends(get_db),
     usuario: UsuarioActual = Depends(
-        require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
+        require_role(Rol.DUENIO, Rol.VETERINARIO)
     ),
 ) -> TurnoAtendidoOut:
+    _turno_propio(db, usuario, turno_id)
     try:
         return service.marcar_turno_atendido(
             db,
@@ -611,6 +674,7 @@ def listar_eventos_externo(
         require_acceso(Recurso.TURNOS, Nivel.LECTURA)
     ),
 ) -> list[EventoExternoOut]:
+    _turno_propio(db, usuario, turno_id)
     try:
         return service.eventos_externo_turno(
             db, turno_id, ver_costo=_ver_costo(usuario)
@@ -632,6 +696,7 @@ def registrar_contacto_externo(
         require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
     ),
 ) -> EventoExternoOut:
+    _turno_propio(db, usuario, turno_id)
     try:
         return service.registrar_contacto_externo(
             db,
@@ -657,6 +722,7 @@ def confirmar_externo(
         require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
     ),
 ) -> EventoExternoOut:
+    _turno_propio(db, usuario, turno_id)
     try:
         return service.confirmar_externo(
             db,
@@ -682,6 +748,7 @@ def rechazar_externo(
         require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
     ),
 ) -> EventoExternoOut:
+    _turno_propio(db, usuario, turno_id)
     try:
         return service.rechazar_externo(
             db,
@@ -707,6 +774,7 @@ def reemplazar_externo(
         require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
     ),
 ) -> EventoExternoOut:
+    _turno_propio(db, usuario, turno_id)
     try:
         return service.reemplazar_externo(
             db,
@@ -725,11 +793,18 @@ def agenda(
     hasta: date,
     veterinario_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
-    _usuario: UsuarioActual = Depends(
+    usuario: UsuarioActual = Depends(
         require_acceso(Recurso.TURNOS, Nivel.LECTURA)
     ),
 ) -> list[AgendaDiaOut]:
     try:
-        return service.agenda(db, desde, hasta, veterinario_id)
+        return service.agenda(
+            db,
+            desde,
+            hasta,
+            service.veterinario_filtrado(
+                usuario.rol, usuario.empleado_id, veterinario_id
+            ),
+        )
     except service.AgendaError as exc:
         raise _error_agenda(exc) from exc

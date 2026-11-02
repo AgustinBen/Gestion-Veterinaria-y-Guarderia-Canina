@@ -5,15 +5,22 @@ import { useAuth } from '../../../core/auth/contexto';
 import { puedeAcceder } from '../../../core/auth/permisos';
 import { Boton } from '../../../core/components/ui/Boton';
 import { Campo } from '../../../core/components/ui/Campo';
+import { obtenerPaciente } from '../../padron/api';
 import {
   generarIdempotencyKey,
   habilitarPlazaEmergencia,
   listarCalendario,
   listarReservas,
+  listarTurnosClinicos,
   mensajeDeError,
 } from '../api';
 import { fechaLocal } from '../fechas';
-import type { Disponibilidad, Franja, Reserva } from '../tipos';
+import type {
+  Disponibilidad,
+  Franja,
+  Reserva,
+  TurnoClinico,
+} from '../tipos';
 import estilos from './Calendario.module.css';
 
 const DIAS_SEMANA = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -114,6 +121,33 @@ function franjasDeReservaEnFecha(reserva: Reserva, fecha: string): Franja[] {
   return ['DIA', 'NOCHE'];
 }
 
+const ETIQUETA_TIPO_TURNO: Record<TurnoClinico['tipo'], string> = {
+  CONSULTA: 'Consulta',
+  VACUNA: 'Vacuna',
+  CIRUGIA: 'Cirugía',
+  ESTUDIO: 'Estudio',
+  CONTROL: 'Control',
+};
+
+const ETIQUETA_ESTADO_TURNO: Record<TurnoClinico['estado'], string> = {
+  PROGRAMADO: 'Programado',
+  PENDIENTE_EXTERNO: 'Pendiente externo',
+  CONFIRMADO: 'Confirmado',
+  ATENDIDO: 'Atendido',
+  CANCELADO: 'Cancelado',
+  AUSENTE: 'Ausente',
+};
+
+type CargaTurnos = {
+  periodo: string;
+  estado: 'cargando' | 'lista' | 'error';
+  turnos: TurnoClinico[];
+};
+
+function horaDeTurno(iso: string): string {
+  return iso.slice(11, 16);
+}
+
 function nombreFranja(franja: Franja): string {
   return franja === 'DIA' ? 'Día' : 'Noche';
 }
@@ -127,6 +161,14 @@ export function Calendario() {
     disponibilidad: [],
     reservas: [],
   });
+  const [cargaTurnos, setCargaTurnos] = useState<CargaTurnos>({
+    periodo: '',
+    estado: 'cargando',
+    turnos: [],
+  });
+  const [nombresMascotas, setNombresMascotas] = useState<Map<number, string>>(
+    new Map(),
+  );
   const [emergenciaAbierta, setEmergenciaAbierta] = useState(false);
   const [franjaEmergencia, setFranjaEmergencia] = useState<Franja>('DIA');
   const [motivoEmergencia, setMotivoEmergencia] = useState('');
@@ -165,6 +207,23 @@ export function Calendario() {
             franjasDeReservaEnFecha(reserva, fechaSeleccionadaISO).length > 0,
         )
       : [];
+  const turnosDelMes: CargaTurnos =
+    cargaTurnos.periodo === periodoVisible
+      ? cargaTurnos
+      : { periodo: periodoVisible, estado: 'cargando', turnos: [] };
+  const turnosDelDia =
+    turnosDelMes.estado === 'lista'
+      ? turnosDelMes.turnos
+          .filter(
+            (turno) =>
+              turno.estado !== 'CANCELADO' &&
+              turno.inicio.slice(0, 10) === fechaSeleccionadaISO,
+          )
+          .sort((a, b) => a.inicio.localeCompare(b.inicio))
+      : [];
+  const idsMascotasDelDia = turnosDelDia
+    .map((turno) => turno.paciente_id)
+    .join(',');
   const disponibilidadEmergencia =
     cargaDelMes.estado === 'lista'
       ? cargaDelMes.disponibilidad.find(
@@ -222,6 +281,62 @@ export function Calendario() {
 
     return () => controlador.abort();
   }, [anioVisible, indiceMesVisible, periodoVisible, reintento]);
+
+  useEffect(() => {
+    const controlador = new AbortController();
+    const desde = fechaLocal(new Date(anioVisible, indiceMesVisible, 1));
+    const hasta = fechaLocal(new Date(anioVisible, indiceMesVisible + 1, 0));
+
+    // Se carga aparte: si falla, las reservas igual se muestran.
+    listarTurnosClinicos(desde, hasta, { signal: controlador.signal })
+      .then((turnos) => {
+        if (!controlador.signal.aborted) {
+          setCargaTurnos({ periodo: periodoVisible, estado: 'lista', turnos });
+        }
+      })
+      .catch(() => {
+        if (!controlador.signal.aborted) {
+          setCargaTurnos({ periodo: periodoVisible, estado: 'error', turnos: [] });
+        }
+      });
+
+    return () => controlador.abort();
+  }, [anioVisible, indiceMesVisible, periodoVisible, reintento]);
+
+  useEffect(() => {
+    const ids =
+      idsMascotasDelDia === '' ? [] : idsMascotasDelDia.split(',').map(Number);
+    if (ids.length === 0) {
+      return;
+    }
+
+    const controlador = new AbortController();
+
+    void Promise.all(
+      [...new Set(ids)].map((id) =>
+        obtenerPaciente(id, { signal: controlador.signal }).then(
+          (paciente) => [id, paciente.nombre] as const,
+          () => null,
+        ),
+      ),
+    ).then((pares) => {
+      if (controlador.signal.aborted) {
+        return;
+      }
+
+      setNombresMascotas((actuales) => {
+        const copia = new Map(actuales);
+        for (const par of pares) {
+          if (par) {
+            copia.set(par[0], par[1]);
+          }
+        }
+        return copia;
+      });
+    });
+
+    return () => controlador.abort();
+  }, [idsMascotasDelDia]);
 
   function cambiarMes(desplazamiento: number) {
     setEmergenciaAbierta(false);
@@ -565,11 +680,47 @@ export function Calendario() {
             <div className={estilos.encabezadoAgenda}>
               <IconoAgenda tipo="clinica" />
               <h3 id="titulo-turnos">Turnos clínicos</h3>
-              <span aria-label="Turnos sin datos">—</span>
+              <span
+                aria-label={
+                  turnosDelMes.estado === 'lista'
+                    ? `${turnosDelDia.length} turnos`
+                    : 'Turnos sin datos'
+                }
+              >
+                {turnosDelMes.estado === 'lista'
+                  ? turnosDelDia.length
+                  : turnosDelMes.estado === 'cargando'
+                    ? '…'
+                    : '—'}
+              </span>
             </div>
-            <p className={estilos.vacioAgenda}>
-              Los turnos de esta fecha aparecerán aquí.
-            </p>
+            {turnosDelMes.estado === 'cargando' ? (
+              <p className={estilos.vacioAgenda} role="status">
+                Cargando turnos…
+              </p>
+            ) : turnosDelMes.estado === 'error' ? (
+              <p className={estilos.vacioAgenda} role="alert">
+                No pudimos cargar los turnos clínicos.
+              </p>
+            ) : turnosDelDia.length === 0 ? (
+              <p className={estilos.vacioAgenda}>
+                No hay turnos clínicos para esta fecha.
+              </p>
+            ) : (
+              <ul className={estilos.listaReservas}>
+                {turnosDelDia.map((turno) => (
+                  <li className={estilos.reservaAgenda} key={turno.id}>
+                    <Link to={`/turnos/${turno.id}`}>
+                      {horaDeTurno(turno.inicio)} ·{' '}
+                      {nombresMascotas.get(turno.paciente_id) ??
+                        `Mascota #${turno.paciente_id}`}
+                    </Link>
+                    <span>{ETIQUETA_TIPO_TURNO[turno.tipo]}</span>
+                    <span>{ETIQUETA_ESTADO_TURNO[turno.estado]}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
           {!soloLectura ? (

@@ -46,7 +46,9 @@ def test_costo_oculto_para_personal_y_veterinario(
 ) -> None:
     _, headers_duenio = crear_usuario_clinica(Rol.DUENIO)
     _, headers_personal = crear_usuario_clinica(Rol.PERSONAL)
-    _, headers_veterinario = crear_usuario_clinica(Rol.VETERINARIO)
+    _, headers_veterinario = crear_usuario_clinica(
+        Rol.VETERINARIO, empleado_id=clinica_context["veterinario_id"]
+    )
     _sembrar_horario(client, headers_duenio)
     lunes = _lunes_futuro()
 

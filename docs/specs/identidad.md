@@ -3,10 +3,10 @@
 **Responsable:** Agustín · **Módulo:** `backend/app/modules/identidad/` · **Tickets:** T-10 · **Reglas:** `docs/reglas-de-negocio.md`
 
 ## Estado
-Borrador v0.3 (2026-10-25). Decisión D6 cerrada y matriz aprobada por Aldana y Emiliano (registro en la sección 6 de `docs/reglas-de-negocio.md`). Actualizada con las decisiones del 2026-10-25: la plaza de emergencia la habilita solo el Dueño (provisional) y bajar un precio es exclusivo del Dueño.
+Borrador v0.5 (2026-11-02): turnos veterinarios separados en agendar/gestionar (Dueño y Personal) y atender (Dueño y Veterinario, este último solo los suyos). Un veterinario sin `empleado_id` no ve turnos. Borrador v0.4 (2026-11-02): el alta de cuentas PERSONAL y VETERINARIO crea también el empleado interno (acordado con el responsable; `padron.md` actualizado en el mismo cambio). Borrador v0.3 (2026-10-25). Decisión D6 cerrada y matriz aprobada por Aldana y Emiliano (registro en la sección 6 de `docs/reglas-de-negocio.md`). Actualizada con las decisiones del 2026-10-25: la plaza de emergencia la habilita solo el Dueño (provisional) y bajar un precio es exclusivo del Dueño.
 
 ## Objetivo
-Autenticar usuarios, aplicar roles en todos los endpoints y dejar que el Dueño edite la configuración parametrizable. No gestiona personas ni empleados (eso es `padron`).
+Autenticar usuarios, aplicar roles en todos los endpoints y dejar que el Dueño edite la configuración parametrizable. Crea las cuentas de PERSONAL y VETERINARIO junto con su ficha de empleado interno, pero esa ficha vive en `padron` y se escribe solo vía `padron.service.crear_empleado`.
 
 ## Reglas de negocio que implementa
 - **RN-40:** tres roles (`DUENIO`, `PERSONAL`, `VETERINARIO`). Las deudas están separadas de las finanzas.
@@ -14,6 +14,9 @@ Autenticar usuarios, aplicar roles en todos los endpoints y dejar que el Dueño 
 - **RN-22 (solo permisos):** subir el precio de un servicio lo pueden hacer `DUENIO` y `PERSONAL`; bajarlo, solo `DUENIO`. La regla del ajuste (límites, auditoría) la implementa `cobros`.
 - **Default denegar:** todo endpoint declara sus roles con `require_role`. Si no los declara, nadie accede.
 - Solo `DUENIO` crea y modifica usuarios y cambia la configuración. `DUENIO` pasa en todos los endpoints.
+- **Alta de cuenta con empleado:** las cuentas `PERSONAL` y `VETERINARIO` exigen los datos del empleado: nombre, apellido, DNI y teléfono (RN-01); el veterinario suma `especialidad` (opcional). En una misma operación se crea el empleado (`tipo=INTERNO`, `es_veterinario` = rol `VETERINARIO`), se crea el usuario y se los vincula por `empleado_id`. Se validan username y contraseña antes de escribir el empleado. Un rol `DUENIO` no lleva empleado.
+- Las reglas del Padrón se mantienen para el empleado: DNI repetido bloquea (409 `DNI_DUPLICADO`); teléfono repetido o nombre parecido avisan (409 `POSIBLE_DUPLICADO`) y se reenvía con `confirmar_duplicado=true`.
+- Los empleados externos no tienen usuario. `empleado_id` de un usuario existente se puede corregir mediante `PATCH`.
 - Sesión con vencimiento. Los minutos salen de `Settings` (variable de entorno), no del código.
 - Contraseñas con hash argon2. Nunca en texto plano, en respuestas ni en logs.
 
@@ -29,7 +32,8 @@ Autenticar usuarios, aplicar roles en todos los endpoints y dejar que el Dueño 
 | Subir el precio de un servicio | Sí | Sí | No |
 | Bajar el precio de un servicio | Sí | No | No |
 | Habilitar plaza de emergencia (provisional) | Sí | No | No |
-| Turnos veterinarios | Sí | Sí | Sí |
+| Agendar, reprogramar y cancelar turnos veterinarios | Sí | Sí | No |
+| Ver turnos y atenderlos (atendido, ausente, atención) | Sí, todos | Ver todos y marcar ausente; no marca atendido | Solo los suyos (por `empleado_id`) |
 | Historia clínica | Sí | Lectura (PENDIENTE CLIENTE) | Sí, con escritura |
 
 El **listado global de deudores** es información financiera: solo lo ve el Dueño. Personal conserva Cobros y la deuda dentro de la cuenta del cliente.
@@ -55,12 +59,12 @@ La configuración no tiene tabla propia: usa `core.configuracion` (clave, valor,
 | POST | /api/auth/logout | autenticado | el cliente descarta el token (sin revocación en el servidor, SUPUESTO) |
 | GET | /api/auth/me | autenticado | id, username, rol, empleado_id |
 | GET | /api/usuarios | DUENIO | lista de usuarios (agregado respecto del ticket) |
-| POST | /api/usuarios | DUENIO | crea usuario (username, password, rol, empleado_id opcional) |
-| PATCH | /api/usuarios/{id} | DUENIO | activa o desactiva y cambia contraseña |
+| POST | /api/usuarios | DUENIO | crea usuario (username, password, rol). PERSONAL y VETERINARIO llevan `empleado` = `{nombre, apellido, dni, telefono, especialidad?, confirmar_duplicado?, persona_coincidente_id?}`; se crea la ficha de empleado y se vincula. Otro rol con `empleado`, o PERSONAL/VETERINARIO sin él: 422 |
+| PATCH | /api/usuarios/{id} | DUENIO | activa/desactiva, cambia contraseña/rol y vincula un empleado existente |
 | GET | /api/config | DUENIO | lista los parámetros |
 | PUT | /api/config/{clave} | DUENIO | cambia el valor y valida el tipo; guarda quién y cuándo |
 
-Códigos: 401 sin token, token inválido o vencido, o usuario inactivo; 403 rol insuficiente; 404 clave de configuración inexistente; 409 username repetido; 422 datos inválidos.
+Códigos: 401 sin token, token inválido o vencido, o usuario inactivo; 403 rol insuficiente; 404 clave de configuración inexistente; 409 username repetido, DNI repetido o posible duplicado del empleado (con `codigo` en el detalle); 422 datos inválidos.
 
 ## Contrato público (`identidad/service.py`)
 ```python
@@ -86,7 +90,7 @@ Los routers de todos los módulos protegen con la dependencia `require_role(*rol
 
 ## Dependencias con otros módulos
 - `core`: `parametros` (`get_param`, `set_param`), `db`, `Settings`.
-- `padron`: valida `empleado_id` con `padron.service.obtener_empleado`.
+- `padron`: crea el empleado con `padron.service.crear_empleado` y valida `empleado_id` con `padron.service.obtener_empleado`.
 - Todos los módulos usan `require_role`.
 
 ## Fuera de alcance
@@ -95,7 +99,8 @@ Recuperación de contraseña, doble factor, revocación de tokens, auditoría de
 ## Criterios de interfaz
 - En la pantalla de creación, las opciones Personal y Veterinario se presentan lado a lado.
 - La acción Volver aparece una sola vez, junto a Crear cuenta.
+- Para ambos roles se piden nombre, apellido, DNI y teléfono; solo Veterinario muestra Especialidad (opcional). Ante un posible duplicado se muestran las coincidencias y se exige marcar la confirmación antes de reenviar.
 
 ## Pendientes
 **Cliente:** quiénes tendrán usuario y con qué rol; si `PERSONAL` puede ver la historia clínica (solo lectura); si alcanza con que el Dueño habilite la plaza de emergencia o tiene que intervenir un veterinario; si solo el Dueño debe poder bajar precios.
-**Equipo (menores, no bloquean T-10):** si se permite cambiar el rol de un usuario existente (hoy `PATCH` solo activa y cambia contraseña); si el logout debe revocar el token.
+**Equipo (menores, no bloquean T-10):** si el alta de empleado + usuario debe ser atómica del lado de `padron` (hoy `crear_empleado` confirma su propia transacción; un fallo posterior al alta deja la ficha sin cuenta); si se permite cambiar el rol de un usuario existente (hoy `PATCH` solo activa y cambia contraseña); si el logout debe revocar el token.

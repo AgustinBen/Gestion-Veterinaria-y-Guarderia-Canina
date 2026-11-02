@@ -67,7 +67,7 @@ Fecha: 2026-10-25. Fuentes: enunciado, documentos de alcance y plan, apuntes de 
 ### Clínica y personal
 - **RN-30** Cada mascota tiene su propia historia clínica (consultas, vacunas, cirugías, tratamientos), separada de los pagos. `CONFIRMADA`
 - **RN-31** Una cirugía (por ejemplo castración) requiere un veterinario externo, que se registra con su costo. `CONFIRMADA`
-- **RN-32** La agenda veterinaria funciona en un horario acotado. Los turnos de personal son Mañana, Tarde y Noche, con 30 minutos de traspaso. `CONFIRMADA`
+- **RN-32** La agenda veterinaria funciona en un horario acotado: de 9 a 18 (confirmado por el cliente el 2026-11-02; los días de atención se cargan como configuración, no en el código). Un turno fuera de ese horario se rechaza con "La clínica no atiende en ese horario. Por favor seleccione un horario válido". Los turnos de personal son Mañana, Tarde y Noche, con 30 minutos de traspaso; la pantalla de turnos del personal se quitó de la interfaz el 2026-11-02. `CONFIRMADA`
 - **RN-33** Cada servicio registra qué empleado o veterinario lo realizó. `CONFIRMADA`
 
 ### Roles y migración
@@ -87,7 +87,8 @@ Fecha: 2026-10-25. Fuentes: enunciado, documentos de alcance y plan, apuntes de 
 | Reservas de guardería y cupo | Sí | Sí | Solo lectura |
 | Habilitar plaza de emergencia (RN-14, provisional) | Sí | No | No |
 | Cancelar reserva manualmente (RN-19a) | Sí | Sí | No |
-| Turnos veterinarios | Sí | Sí | Sí |
+| Agendar, reprogramar y cancelar turnos veterinarios | Sí | Sí | No |
+| Ver turnos y atenderlos (marcar atendido, ausente, registrar la atención) | Sí, todos | Ver todos y marcar ausente; no marca atendido | Solo los suyos |
 | Historia clínica | Sí | Solo lectura (a validar con el cliente) | Sí, con escritura |
 
 El **listado global de deudores** se considera información financiera/detalle por cliente: solo lo ve el Dueño. Personal conserva el acceso a deudas y cobros y ve la deuda dentro de la cuenta de cada cliente.
@@ -130,6 +131,9 @@ Karma de confiabilidad, notificaciones, portal para dueños, política automatiz
 | 2026-10-25 | RN-14: la plaza de emergencia solo la habilita el Dueño (antes, Veterinario o Dueño). **Provisional.** | Decisión de Agustín, "por ahora". Se aparta del requisito original ("firmada por el veterinario a cargo"); queda como pregunta 11 al cliente. |
 | 2026-10-29 | El listado global de deudores es solo del Dueño; Personal conserva deudas y cobros en la cuenta del cliente. | Evitar que Personal acceda al listado global desde el botón "Ver deudores" de Cobros. Se considera información financiera/detalle por cliente. |
 | 2026-11-01 | RN-19a: Dueño y Personal pueden cancelar reservas pendientes o confirmadas; se liberan las plazas, se conservan pagos sin devolución y el saldo se cierra mediante un ajuste auditable. | T-64; mantener el historial de cobros y evitar saldos pendientes asociados a reservas canceladas. |
+| 2026-11-02 | Horario de atención veterinaria de 9 a 18, confirmado por el cliente. | Respuesta del cliente; se carga como configuración (`horario_atencion`). |
+| 2026-11-02 | Turnos veterinarios: solo Dueño y Personal agendan, reprograman y cancelan; el Veterinario ve y atiende únicamente los turnos que tiene asignados. Se quita la pantalla de turnos del personal. | Pedido de Aldana. Reemplaza el "Sí, Sí, Sí" de la matriz para turnos. El filtro del veterinario se aplica en el backend. |
+| 2026-11-02 | Las cuentas PERSONAL y VETERINARIO crean su empleado interno en el mismo alta; el Padrón solo da de alta dueños y mascotas. | Pedido de Aldana; ver `docs/specs/identidad.md`. |
 
 ## 7. Documentos a corregir (tickets y agentes con texto viejo)
 - `AGENTS.md` (PR #15 de Aldana): precio: subir cualquier rol con permiso de cobro, bajar solo Dueño; encabezado que no diga que todo `SUPUESTO` es `DECIDIDA` y remita a este documento; cerrar el bloque de código de la sección 4; reponer la sección de seguridad y datos (secretos, `.env`, `.db`, Excel real fuera del repo, contraseñas con hash).

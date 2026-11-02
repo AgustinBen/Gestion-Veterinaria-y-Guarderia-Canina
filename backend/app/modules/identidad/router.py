@@ -12,11 +12,11 @@ from app.modules.identidad.permisos import Rol
 from app.modules.identidad.schemas import (
     ConfiguracionItem,
     ConfiguracionUpdate,
+    CuentaCrear,
     LoginRequest,
     LoginResponse,
     UsuarioActual,
     UsuarioActualizar,
-    UsuarioCrear,
     UsuarioPublico,
 )
 
@@ -70,16 +70,20 @@ def listar_usuarios(
     status_code=status.HTTP_201_CREATED,
 )
 def crear_usuario(
-    datos: UsuarioCrear,
+    datos: CuentaCrear,
     db: Session = Depends(get_db),
     _actor: UsuarioActual = Depends(require_role(Rol.DUENIO)),
 ) -> UsuarioPublico:
     try:
-        return service.crear_usuario(db, datos)
+        return service.crear_cuenta(db, datos)
     except service.DatosInvalidos as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=str(exc),
+        ) from exc
+    except service.EmpleadoDuplicado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=exc.detalle
         ) from exc
     except service.UsernameDuplicado as exc:
         raise HTTPException(

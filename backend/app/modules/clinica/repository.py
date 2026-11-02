@@ -268,6 +268,19 @@ def listar_atenciones(
     return list(db.execute(consulta).scalars())
 
 
+def listar_paciente_ids_con_atencion(
+    db: Session, tipo: TipoAtencion
+) -> list[int]:
+    """Pacientes que tienen al menos una atención del tipo indicado."""
+    consulta = (
+        select(Atencion.paciente_id)
+        .where(Atencion.tipo == tipo)
+        .distinct()
+        .order_by(Atencion.paciente_id)
+    )
+    return list(db.execute(consulta).scalars())
+
+
 def ultima_atencion(db: Session, paciente_id: int) -> Atencion | None:
     consulta = (
         select(Atencion)
@@ -326,6 +339,11 @@ def listar_adjuntos(db: Session, estudio_ids: list[int]) -> list[Adjunto]:
 
 def obtener_adjunto(db: Session, adjunto_id: int) -> Adjunto | None:
     return db.get(Adjunto, adjunto_id)
+
+
+def eliminar_adjunto(db: Session, adjunto: Adjunto) -> None:
+    db.delete(adjunto)
+    db.flush()
 
 
 def crear_adjunto(db: Session, adjunto: Adjunto) -> Adjunto:

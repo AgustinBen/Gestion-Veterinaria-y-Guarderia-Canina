@@ -1,18 +1,34 @@
 import type { RouteObject } from 'react-router-dom';
 
 import { RequireRole } from '../../core/auth/RequireRole';
-import { PantallaProvisoria } from '../../core/components/PantallaProvisoria';
+import { DetalleTurno } from './pages/DetalleTurno';
+import { HistoriaClinica } from './pages/HistoriaClinica';
+import { NuevoTurnoPage } from './pages/NuevoTurnoPage';
+import { Pacientes } from './pages/Pacientes';
+import { Turnos } from './pages/Turnos';
 
 export const clinicaRoutes: RouteObject[] = [
   {
     path: '/turnos',
     element: (
       <RequireRole seccion="turnos">
-        <PantallaProvisoria
-          seccion="turnos"
-          titulo="Turnos"
-          descripcion="Agenda veterinaria y turnos del personal (mañana, tarde y noche)."
-        />
+        <Turnos />
+      </RequireRole>
+    ),
+  },
+  {
+    path: '/turnos/nueva',
+    element: (
+      <RequireRole nivel="escritura" seccion="nueva-reserva">
+        <NuevoTurnoPage />
+      </RequireRole>
+    ),
+  },
+  {
+    path: '/turnos/:turnoId',
+    element: (
+      <RequireRole seccion="turnos">
+        <DetalleTurno />
       </RequireRole>
     ),
   },
@@ -20,11 +36,15 @@ export const clinicaRoutes: RouteObject[] = [
     path: '/historia-clinica',
     element: (
       <RequireRole seccion="historia-clinica">
-        <PantallaProvisoria
-          seccion="historia-clinica"
-          titulo="Historia clínica"
-          descripcion="Consultas, vacunas, cirugías y tratamientos de cada mascota."
-        />
+        <Pacientes />
+      </RequireRole>
+    ),
+  },
+  {
+    path: '/historia-clinica/:pacienteId',
+    element: (
+      <RequireRole seccion="historia-clinica">
+        <HistoriaClinica />
       </RequireRole>
     ),
   },

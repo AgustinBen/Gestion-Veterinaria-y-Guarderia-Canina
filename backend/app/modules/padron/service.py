@@ -1078,9 +1078,15 @@ def listar_empleados(db: Session) -> list[schemas.EmpleadoDetalle]:
 
 
 def crear_empleado(
-    db: Session, datos: schemas.EmpleadoNuevo, *, creado_por: int | None = None
+    db: Session,
+    datos: schemas.EmpleadoNuevo,
+    *,
+    creado_por: int | None = None,
+    migrado: bool = False,
 ) -> schemas.EmpleadoDetalle:
-    persona = crear_persona(db, datos.persona, creado_por=creado_por)
+    persona = crear_persona(
+        db, datos.persona, creado_por=creado_por, migrado=migrado
+    )
     empleado = models.Empleado(
         persona_id=persona.id,
         tipo=datos.tipo,

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
@@ -45,6 +46,7 @@ from app.modules.clinica.schemas import (
     HorarioAtencionIn,
     HorarioAtencionOut,
     LibretaVacunasItem,
+    PacienteClinicaResumen,
     TurnoAtendidoOut,
     TurnoCrear,
     TurnoOut,
@@ -60,6 +62,8 @@ from app.modules.clinica.schemas import (
 from app.modules.clinica.traspaso import TurnoDefinidoConPersonal, ventanas_traspaso
 from app.modules.clinica.vacunas import estado_vacuna
 from app.modules.cobros import service as cobros_service
+from app.modules.identidad import service as identidad_service
+from app.modules.identidad.permisos import Rol
 from app.modules.padron import schemas as padron_schemas
 from app.modules.padron import service as padron_service
 
@@ -68,6 +72,8 @@ CLAVE_MINUTOS_TRASPASO = "clinica.minutos_traspaso"
 CLAVE_TRASPASO_BLOQUEA_TURNOS = "clinica.traspaso_bloquea_turnos"
 CLAVE_DURACION_TURNO_SUGERIDA = "clinica.duracion_turno_sugerida_min"
 
+
+_log = logging.getLogger(__name__)
 
 class DatosInvalidos(Exception):
     """Datos que no cumplen las reglas de la historia clínica."""
@@ -105,6 +111,11 @@ class AgendaError(Exception):
 class HorarioNoDefinido(AgendaError):
     codigo = "HORARIO_NO_DEFINIDO"
     status_code = 409
+
+
+MENSAJE_FUERA_DE_HORARIO = (
+    "La clínica no atiende en ese horario. Por favor seleccione un horario válido"
+)
 
 
 class TurnoFueraDeHorario(AgendaError):
@@ -163,6 +174,10 @@ class AtencionTurnoNoEncontrada(AgendaError):
 
 class ExternoTurnoInvalido(AgendaError):
     codigo = "EXTERNO_INVALIDO"
+
+
+class TurnoSinTitular(AgendaError):
+    codigo = "SIN_TITULAR"
 
 
 class ExternoOcupado(AgendaError):
@@ -366,6 +381,56 @@ def atenciones_de_paciente(
         offset=offset,
     )
     return [_resumen(db, atencion) for atencion in atenciones]
+
+
+def pacientes_por_atencion(
+    db: Session, tipo: TipoAtencion
+) -> list[PacienteClinicaResumen]:
+    """Pacientes con al menos una atención del tipo indicado, por nombre."""
+    ids = repository.listar_paciente_ids_con_atencion(db, tipo)
+    if not ids:
+        return []
+
+    pacientes = padron_service.obtener_pacientes(db, ids)
+    resumenes = [
+        PacienteClinicaResumen(
+            id=paciente.id,
+            nombre=paciente.nombre,
+            especie_id=paciente.especie_id,
+            especie_nombre=paciente.especie_nombre,
+            raza_id=paciente.raza_id,
+            raza_nombre=paciente.raza_nombre,
+            activo=paciente.activo,
+        )
+        for paciente in pacientes.values()
+    ]
+    return sorted(resumenes, key=lambda paciente: (paciente.nombre.casefold(), paciente.id))
+
+
+def listar_ids_veterinarios(db: Session) -> list[int]:
+    """Empleados clínicos activos con una cuenta activa de rol Veterinario."""
+    ids_con_rol = {
+        usuario.empleado_id
+        for usuario in identidad_service.listar_usuarios(db)
+        if usuario.activo
+        and usuario.rol == Rol.VETERINARIO
+        and usuario.empleado_id is not None
+    }
+    if not ids_con_rol:
+        return []
+
+    empleados = {
+        empleado.persona_id: empleado
+        for empleado in padron_service.listar_empleados(db)
+    }
+    return sorted(
+        empleado_id
+        for empleado_id in ids_con_rol
+        if (empleado := empleados.get(empleado_id)) is not None
+        and empleado.activo
+        and empleado.tipo.value == "INTERNO"
+        and empleado.es_veterinario
+    )
 
 
 def ultima_atencion(db: Session, paciente_id: int) -> AtencionResumen | None:
@@ -579,6 +644,27 @@ def obtener_adjunto_para_descarga(db: Session, adjunto_id: int) -> AdjuntoDescar
     )
 
 
+def eliminar_adjunto(db: Session, adjunto_id: int, *, eliminado_por: int) -> str:
+    """Quita un adjunto cargado por error y devuelve el nombre del archivo guardado.
+
+    El archivo en disco lo borra quien llama, una vez confirmada la baja. Queda
+    constancia en el log de quién lo quitó y qué archivo era.
+    """
+    adjunto = repository.obtener_adjunto(db, adjunto_id)
+    if adjunto is None:
+        raise AdjuntoNoEncontrado()
+    nombre_archivo = adjunto.nombre_archivo
+    registro = (adjunto.id, adjunto.estudio_id, adjunto.nombre_original, adjunto.sha256)
+    repository.eliminar_adjunto(db, adjunto)
+    db.commit()
+    _log.info(
+        "Adjunto eliminado: id=%s estudio=%s archivo=%r sha256=%s por usuario=%s",
+        *registro,
+        eliminado_por,
+    )
+    return nombre_archivo
+
+
 def _horario_out(horario: HorarioAtencion) -> HorarioAtencionOut:
     return HorarioAtencionOut(
         id=horario.id,
@@ -714,6 +800,7 @@ def _turno_out(turno: Turno) -> TurnoOut:
         motivo=turno.motivo,
         atencion_id=turno.atencion_id,
         externo_actual_id=turno.externo_actual_id,
+        cargo_id=turno.cargo_id,
         created_by=turno.created_by,
         created_at=turno.created_at,
     )
@@ -835,7 +922,7 @@ def _validar_turno(
         and fin.time() <= item.hora_hasta
     ]
     if not franjas_del_dia:
-        raise TurnoFueraDeHorario("El turno debe quedar dentro del horario de atención")
+        raise TurnoFueraDeHorario(MENSAJE_FUERA_DE_HORARIO)
 
     if repository.turno_solapado(
         db,
@@ -854,6 +941,14 @@ def _validar_turno(
         ventanas = ventanas_traspaso_del_dia(db, inicio.date())
         if any(ventana.inicio < fin and ventana.fin > inicio for ventana in ventanas):
             raise TraspasoBloqueado("El turno se superpone con una ventana de traspaso")
+
+
+def _titular_principal_id(db: Session, paciente_id: int) -> int:
+    titulares = padron_service.titulares_vigentes(db, paciente_id)
+    principal = next((titular for titular in titulares if titular.principal), None)
+    if principal is None:
+        raise TurnoSinTitular("La mascota no tiene un dueño principal para cobrarle")
+    return principal.persona_id
 
 
 def agendar_turno(
@@ -883,6 +978,11 @@ def agendar_turno(
         externo_id = datos.externo_empleado_id
         if externo_id is not None:
             _validar_externo(db, externo_id)
+        titular_id = (
+            _titular_principal_id(db, datos.paciente_id)
+            if datos.monto_centavos is not None
+            else None
+        )
         turno = repository.crear_turno(
             db,
             Turno(
@@ -901,6 +1001,19 @@ def agendar_turno(
                 created_by=created_by,
             ),
         )
+        if datos.monto_centavos is not None and titular_id is not None:
+            cargo = cobros_service.crear_cargo(
+                db,
+                persona_id=titular_id,
+                concepto=f"Turno {datos.tipo.value}",
+                total_centavos=datos.monto_centavos,
+                paciente_id=datos.paciente_id,
+                referencia_tipo="TURNO",
+                referencia_id=turno.id,
+                usuario_id=created_by,
+                transaccion_externa=True,
+            )
+            turno.cargo_id = cargo.id
     db.refresh(turno)
     return _turno_out(turno)
 
@@ -910,6 +1023,35 @@ def obtener_turno(db: Session, turno_id: int) -> TurnoOut:
     if turno is None:
         raise TurnoNoEncontrado("Turno no encontrado")
     return _turno_out(turno)
+
+
+# Id que ninguna persona tiene: un veterinario sin empleado vinculado no ve nada.
+_SIN_EMPLEADO = 0
+
+
+def veterinario_restringido(rol: Rol, empleado_id: int | None) -> int | None:
+    """Empleado al que se limita la vista de turnos (solo el veterinario)."""
+    if rol != Rol.VETERINARIO:
+        return None
+    return empleado_id if empleado_id is not None else _SIN_EMPLEADO
+
+
+def veterinario_filtrado(
+    rol: Rol, empleado_id: int | None, pedido: int | None
+) -> int | None:
+    """Filtro de veterinario efectivo: el del veterinario prevalece sobre el pedido."""
+    restringido = veterinario_restringido(rol, empleado_id)
+    return restringido if restringido is not None else pedido
+
+
+def obtener_turno_visible(
+    db: Session, turno_id: int, restringido_a: int | None
+) -> TurnoOut:
+    """Devuelve el turno; si hay restricción y no es suyo, responde como inexistente."""
+    turno = obtener_turno(db, turno_id)
+    if restringido_a is not None and turno.veterinario_empleado_id != restringido_a:
+        raise TurnoNoEncontrado("Turno no encontrado")
+    return turno
 
 
 def _evento_out(

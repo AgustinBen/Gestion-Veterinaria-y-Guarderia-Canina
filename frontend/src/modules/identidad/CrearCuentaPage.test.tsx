@@ -54,7 +54,18 @@ async function ingresarDatos(
 ) {
   await usuario.type(screen.getByLabelText('Usuario'), username);
   await usuario.type(screen.getByLabelText('Contraseña'), password);
+  await usuario.type(screen.getByLabelText('Nombre'), 'Ana');
+  await usuario.type(screen.getByLabelText('Apellido'), 'Paz');
+  await usuario.type(screen.getByLabelText('DNI'), '30111222');
+  await usuario.type(screen.getByLabelText('Teléfono'), '1155550101');
 }
+
+const EMPLEADO_ESPERADO = {
+  nombre: 'Ana',
+  apellido: 'Paz',
+  dni: '30111222',
+  telefono: '1155550101',
+};
 
 beforeEach(() => {
   borrarSesion();
@@ -70,11 +81,20 @@ describe('CrearCuentaPage', () => {
     ['VETERINARIO', 'Veterinario'],
   ] as const)('DUENIO puede crear una cuenta %s', async (rol, etiquetaRol) => {
     const usuario = userEvent.setup();
-    crearUsuarioMock.mockResolvedValueOnce({ username: 'recepcion', rol });
+    crearUsuarioMock.mockResolvedValueOnce({
+      username: 'recepcion',
+      rol,
+      empleado_id: 7,
+    });
 
     renderizar('DUENIO');
     await ingresarDatos(usuario);
     await usuario.click(screen.getByRole('radio', { name: new RegExp(etiquetaRol) }));
+    if (rol === 'VETERINARIO') {
+      await usuario.type(screen.getByLabelText('Especialidad (opcional)'), 'Cirugía');
+    } else {
+      expect(screen.queryByLabelText('Especialidad (opcional)')).not.toBeInTheDocument();
+    }
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(await screen.findByRole('status')).toHaveTextContent(
@@ -84,10 +104,76 @@ describe('CrearCuentaPage', () => {
       username: 'recepcion',
       password: 'clave-segura',
       rol,
+      empleado: {
+        ...EMPLEADO_ESPERADO,
+        ...(rol === 'VETERINARIO' ? { especialidad: 'Cirugía' } : {}),
+      },
     });
     expect(screen.getByLabelText('Contraseña')).toHaveValue('');
     expect(screen.getByRole('status')).not.toHaveTextContent('clave-segura');
     expect(window.localStorage.getItem('huellitas.sesion')).not.toContain('clave-segura');
+  });
+
+  it('pide confirmar un posible duplicado y reenvía con la confirmación', async () => {
+    const usuario = userEvent.setup();
+    crearUsuarioMock
+      .mockRejectedValueOnce(
+        new ApiError('Hay posibles duplicados', {
+          tipo: 'http',
+          estado: 409,
+          detalle: {
+            codigo: 'POSIBLE_DUPLICADO',
+            coincidencias: [
+              {
+                persona: { nombre: 'Ana', apellido: 'Paz' },
+                motivo: 'Teléfono repetido',
+              },
+            ],
+          },
+        }),
+      )
+      .mockResolvedValueOnce({
+        username: 'recepcion',
+        rol: 'PERSONAL',
+        empleado_id: 9,
+      });
+
+    renderizar('DUENIO');
+    await ingresarDatos(usuario);
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Teléfono repetido');
+    expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeDisabled();
+
+    await usuario.click(screen.getByLabelText(/Confirmo que es otra persona/));
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('La cuenta de recepcion');
+    expect(crearUsuarioMock).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        empleado: { ...EMPLEADO_ESPERADO, confirmar_duplicado: true },
+      }),
+    );
+  });
+
+  it('informa un DNI ya registrado sin permitir confirmarlo', async () => {
+    const usuario = userEvent.setup();
+    crearUsuarioMock.mockRejectedValueOnce(
+      new ApiError('El DNI ya está registrado', {
+        tipo: 'http',
+        estado: 409,
+        detalle: { codigo: 'DNI_DUPLICADO', persona: { nombre: 'Ana' } },
+      }),
+    );
+
+    renderizar('DUENIO');
+    await ingresarDatos(usuario);
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ya existe una persona con ese DNI.',
+    );
+    expect(screen.queryByLabelText(/Confirmo que es otra persona/)).not.toBeInTheDocument();
   });
 
   it.each(['PERSONAL', 'VETERINARIO'] as const)(
@@ -143,7 +229,7 @@ describe('CrearCuentaPage', () => {
     await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
-      'Los datos ingresados no son válidos. Revisá el nombre de usuario y la contraseña.',
+      'Los datos ingresados no son válidos. Revisá los datos de acceso y los del empleado.',
     );
     expect(screen.getByLabelText('Usuario')).toHaveValue('recepcion');
     expect(screen.getByLabelText('Contraseña')).toHaveValue('clave-segura');
@@ -159,7 +245,11 @@ describe('CrearCuentaPage', () => {
           reintentable: true,
         }),
       )
-      .mockResolvedValueOnce({ username: 'recepcion', rol: 'PERSONAL' });
+      .mockResolvedValueOnce({
+        username: 'recepcion',
+        rol: 'PERSONAL',
+        empleado_id: null,
+      });
 
     renderizar('DUENIO');
     await ingresarDatos(usuario);
@@ -178,7 +268,11 @@ describe('CrearCuentaPage', () => {
 
   it('bloquea un segundo envío mientras el primero sigue pendiente', async () => {
     const usuario = userEvent.setup();
-    let completarCreacion: (resultado: { username: string; rol: 'PERSONAL' }) => void = () => {
+    let completarCreacion: (resultado: {
+      username: string;
+      rol: 'PERSONAL';
+      empleado_id: null;
+    }) => void = () => {
       throw new Error('La solicitud no se inició.');
     };
     crearUsuarioMock.mockImplementationOnce(
@@ -202,7 +296,11 @@ describe('CrearCuentaPage', () => {
     expect(crearUsuarioMock).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Creando cuenta…' })).toBeDisabled();
 
-    completarCreacion({ username: 'recepcion', rol: 'PERSONAL' });
+    completarCreacion({
+      username: 'recepcion',
+      rol: 'PERSONAL',
+      empleado_id: null,
+    });
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Crear cuenta' })).toBeEnabled();
     });

@@ -100,6 +100,8 @@ class TurnoCrear(BaseModel):
     fin: datetime
     motivo: str | None = None
     externo_empleado_id: int | None = Field(default=None, gt=0)
+    # Monto a cobrar al dueño, en centavos. Opcional: sin monto no se crea cargo.
+    monto_centavos: int | None = Field(default=None, gt=0, strict=True)
 
     @model_validator(mode="after")
     def validar_horas_locales(self) -> TurnoCrear:
@@ -161,6 +163,7 @@ class TurnoOut(BaseModel):
     motivo: str | None
     atencion_id: int | None
     externo_actual_id: int | None
+    cargo_id: int | None = None
     created_by: int
     created_at: datetime
 
@@ -350,3 +353,15 @@ class EstudioResumen(BaseModel):
     created_by: int
     created_at: datetime
     adjuntos: list[AdjuntoResumen] = Field(default_factory=list)
+
+
+class PacienteClinicaResumen(BaseModel):
+    """Mascota para listados de historia clínica filtrados por atención."""
+
+    id: int
+    nombre: str
+    especie_id: int
+    especie_nombre: str
+    raza_id: int | None
+    raza_nombre: str | None
+    activo: bool

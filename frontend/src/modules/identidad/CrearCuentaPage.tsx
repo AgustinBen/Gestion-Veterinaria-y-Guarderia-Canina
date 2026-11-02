@@ -10,6 +10,16 @@ type DatosFormulario = {
   username: string;
   password: string;
   rol: RolUsuarioCreable;
+  nombre: string;
+  apellido: string;
+  dni: string;
+  telefono: string;
+  especialidad: string;
+};
+
+type Coincidencia = {
+  persona: { nombre: string; apellido: string };
+  motivo: string;
 };
 
 const OPCIONES_ROL: {
@@ -33,17 +43,38 @@ const FORMULARIO_VACIO: DatosFormulario = {
   username: '',
   password: '',
   rol: 'PERSONAL',
+  nombre: '',
+  apellido: '',
+  dni: '',
+  telefono: '',
+  especialidad: '',
 };
+
+function detalleDe(fallo: unknown): Record<string, unknown> | null {
+  if (
+    fallo instanceof ApiError &&
+    typeof fallo.detalle === 'object' &&
+    fallo.detalle !== null
+  ) {
+    return fallo.detalle as Record<string, unknown>;
+  }
+
+  return null;
+}
 
 function mensajeDeFallo(fallo: unknown): string {
   if (fallo instanceof ApiError) {
     if (fallo.estado === 409) {
+      if (detalleDe(fallo)?.codigo === 'DNI_DUPLICADO') {
+        return 'Ya existe una persona con ese DNI. Revisá el dato ingresado.';
+      }
+
       return 'Ese nombre de usuario ya está registrado. Probá con otro.';
     }
 
     if (fallo.estado === 422) {
       if (fallo.message.startsWith('Error 422 al comunicarse')) {
-        return 'Los datos ingresados no son válidos. Revisá el nombre de usuario y la contraseña.';
+        return 'Los datos ingresados no son válidos. Revisá los datos de acceso y los del empleado.';
       }
 
       return `No se pudieron validar los datos: ${fallo.message}`;
@@ -62,6 +93,8 @@ export function CrearCuentaPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmacion, setConfirmacion] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [coincidencias, setCoincidencias] = useState<Coincidencia[]>([]);
+  const [duplicadoConfirmado, setDuplicadoConfirmado] = useState(false);
   const envioEnCurso = useRef(false);
 
   function volver() {
@@ -77,6 +110,8 @@ export function CrearCuentaPage() {
     setDatos((actuales) => ({ ...actuales, [campo]: valor }));
     setError(null);
     setConfirmacion(null);
+    setCoincidencias([]);
+    setDuplicadoConfirmado(false);
   }
 
   async function manejarEnvio(evento: FormEvent<HTMLFormElement>) {
@@ -92,13 +127,39 @@ export function CrearCuentaPage() {
     setConfirmacion(null);
 
     try {
-      const usuario = await crearUsuario(datos);
+      const especialidad = datos.especialidad.trim();
+      const usuario = await crearUsuario({
+        username: datos.username,
+        password: datos.password,
+        rol: datos.rol,
+        empleado: {
+          nombre: datos.nombre.trim(),
+          apellido: datos.apellido.trim(),
+          dni: datos.dni.trim(),
+          telefono: datos.telefono.trim(),
+          ...(datos.rol === 'VETERINARIO' && especialidad !== ''
+            ? { especialidad }
+            : {}),
+          ...(duplicadoConfirmado ? { confirmar_duplicado: true } : {}),
+        },
+      });
       setConfirmacion(
         `La cuenta de ${usuario.username} con rol ${usuario.rol === 'PERSONAL' ? 'Personal' : 'Veterinario'} fue creada.`,
       );
       setDatos(FORMULARIO_VACIO);
+      setDuplicadoConfirmado(false);
     } catch (fallo) {
-      setError(mensajeDeFallo(fallo));
+      const detalle = detalleDe(fallo);
+      if (detalle?.codigo === 'POSIBLE_DUPLICADO') {
+        setCoincidencias(
+          Array.isArray(detalle.coincidencias)
+            ? (detalle.coincidencias as Coincidencia[])
+            : [],
+        );
+        setDuplicadoConfirmado(false);
+      } else {
+        setError(mensajeDeFallo(fallo));
+      }
     } finally {
       envioEnCurso.current = false;
       setEnviando(false);
@@ -213,6 +274,93 @@ export function CrearCuentaPage() {
             </div>
           </fieldset>
 
+          <div className={estilos.campo}>
+            <label htmlFor="empleado-nombre">Nombre</label>
+            <input
+              autoComplete="off"
+              id="empleado-nombre"
+              required={true}
+              type="text"
+              value={datos.nombre}
+              onChange={(evento) => actualizar('nombre', evento.target.value)}
+            />
+          </div>
+
+          <div className={estilos.campo}>
+            <label htmlFor="empleado-apellido">Apellido</label>
+            <input
+              autoComplete="off"
+              id="empleado-apellido"
+              required={true}
+              type="text"
+              value={datos.apellido}
+              onChange={(evento) => actualizar('apellido', evento.target.value)}
+            />
+          </div>
+
+          <div className={estilos.campo}>
+            <label htmlFor="empleado-dni">DNI</label>
+            <input
+              autoComplete="off"
+              id="empleado-dni"
+              inputMode="numeric"
+              required={true}
+              type="text"
+              value={datos.dni}
+              onChange={(evento) => actualizar('dni', evento.target.value)}
+            />
+          </div>
+
+          <div className={estilos.campo}>
+            <label htmlFor="empleado-telefono">Teléfono</label>
+            <input
+              autoComplete="off"
+              id="empleado-telefono"
+              inputMode="tel"
+              required={true}
+              type="text"
+              value={datos.telefono}
+              onChange={(evento) => actualizar('telefono', evento.target.value)}
+            />
+          </div>
+
+          {datos.rol === 'VETERINARIO' ? (
+            <div className={estilos.campo}>
+              <label htmlFor="empleado-especialidad">Especialidad (opcional)</label>
+              <input
+                autoComplete="off"
+                id="empleado-especialidad"
+                maxLength={45}
+                required={false}
+                type="text"
+                value={datos.especialidad}
+                onChange={(evento) => actualizar('especialidad', evento.target.value)}
+              />
+            </div>
+          ) : null}
+
+          {coincidencias.length > 0 ? (
+            <div className={estilos.error} role="alert">
+              <p>Puede que esta persona ya esté registrada:</p>
+              <ul>
+                {coincidencias.map((coincidencia, indice) => (
+                  <li key={indice}>
+                    {coincidencia.persona.nombre} {coincidencia.persona.apellido} —{' '}
+                    {coincidencia.motivo}
+                  </li>
+                ))}
+              </ul>
+              <label>
+                <input
+                  checked={duplicadoConfirmado}
+                  onChange={(evento) => setDuplicadoConfirmado(evento.target.checked)}
+                  type="checkbox"
+                />{' '}
+                Confirmo que es otra persona
+              </label>
+            </div>
+          ) : null}
+
           {error ? (
             <p className={estilos.error} role="alert">
               {error}
@@ -232,7 +380,7 @@ export function CrearCuentaPage() {
             </button>
             <button
               className={estilos.boton}
-              disabled={enviando}
+              disabled={enviando || (coincidencias.length > 0 && !duplicadoConfirmado)}
               type="submit"
             >
               {enviando ? (
