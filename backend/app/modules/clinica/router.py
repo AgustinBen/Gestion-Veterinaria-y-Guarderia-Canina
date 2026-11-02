@@ -31,10 +31,16 @@ from app.modules.clinica.schemas import (
     AtencionResumen,
     EstudioCrear,
     EstudioResumen,
+    EventoExternoOut,
+    ExternoConfirmarIn,
+    ExternoContactadoIn,
+    ExternoRechazarIn,
+    ExternoReemplazarIn,
     HorarioAtencionIn,
     HorarioAtencionOut,
     LibretaVacunasItem,
     TurnoAtendido,
+    TurnoAtendidoOut,
     TurnoCancelar,
     TurnoCrear,
     TurnoOut,
@@ -45,7 +51,7 @@ from app.modules.clinica.schemas import (
     TurnosPersonalDefinicionOut,
 )
 from app.modules.identidad.deps import require_acceso
-from app.modules.identidad.permisos import Nivel, Recurso
+from app.modules.identidad.permisos import Nivel, Recurso, Rol
 from app.modules.identidad.schemas import UsuarioActual
 
 router = APIRouter(tags=["clinica"])
@@ -567,18 +573,147 @@ def marcar_turno_ausente(
         raise _error_agenda(exc) from exc
 
 
-@router.post("/api/turnos/{turno_id}/atendido", response_model=TurnoOut)
+@router.post(
+    "/api/turnos/{turno_id}/atendido", response_model=TurnoAtendidoOut
+)
 def marcar_turno_atendido(
     turno_id: int,
     solicitud: TurnoAtendido | None = None,
     db: Session = Depends(get_db),
-    _usuario: UsuarioActual = Depends(
+    usuario: UsuarioActual = Depends(
         require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
     ),
-) -> TurnoOut:
+) -> TurnoAtendidoOut:
     try:
         return service.marcar_turno_atendido(
-            db, turno_id, solicitud.atencion_id if solicitud is not None else None
+            db,
+            turno_id,
+            solicitud.atencion_id if solicitud is not None else None,
+            usuario_id=usuario.id,
+        )
+    except service.AgendaError as exc:
+        raise _error_agenda(exc) from exc
+
+
+def _ver_costo(usuario: UsuarioActual) -> bool:
+    """El costo de los externos es información de finanzas: solo el Dueño."""
+    return usuario.rol == Rol.DUENIO
+
+
+@router.get(
+    "/api/turnos/{turno_id}/externo",
+    response_model=list[EventoExternoOut],
+)
+def listar_eventos_externo(
+    turno_id: int,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.TURNOS, Nivel.LECTURA)
+    ),
+) -> list[EventoExternoOut]:
+    try:
+        return service.eventos_externo_turno(
+            db, turno_id, ver_costo=_ver_costo(usuario)
+        )
+    except service.AgendaError as exc:
+        raise _error_agenda(exc) from exc
+
+
+@router.post(
+    "/api/turnos/{turno_id}/externo/contactado",
+    response_model=EventoExternoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def registrar_contacto_externo(
+    turno_id: int,
+    solicitud: ExternoContactadoIn,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
+    ),
+) -> EventoExternoOut:
+    try:
+        return service.registrar_contacto_externo(
+            db,
+            turno_id,
+            solicitud,
+            usuario_id=usuario.id,
+            ver_costo=_ver_costo(usuario),
+        )
+    except service.AgendaError as exc:
+        raise _error_agenda(exc) from exc
+
+
+@router.post(
+    "/api/turnos/{turno_id}/externo/confirmar",
+    response_model=EventoExternoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def confirmar_externo(
+    turno_id: int,
+    solicitud: ExternoConfirmarIn,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
+    ),
+) -> EventoExternoOut:
+    try:
+        return service.confirmar_externo(
+            db,
+            turno_id,
+            solicitud,
+            usuario_id=usuario.id,
+            ver_costo=_ver_costo(usuario),
+        )
+    except service.AgendaError as exc:
+        raise _error_agenda(exc) from exc
+
+
+@router.post(
+    "/api/turnos/{turno_id}/externo/rechazar",
+    response_model=EventoExternoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def rechazar_externo(
+    turno_id: int,
+    solicitud: ExternoRechazarIn,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
+    ),
+) -> EventoExternoOut:
+    try:
+        return service.rechazar_externo(
+            db,
+            turno_id,
+            solicitud.motivo,
+            usuario_id=usuario.id,
+            ver_costo=_ver_costo(usuario),
+        )
+    except service.AgendaError as exc:
+        raise _error_agenda(exc) from exc
+
+
+@router.post(
+    "/api/turnos/{turno_id}/externo/reemplazar",
+    response_model=EventoExternoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def reemplazar_externo(
+    turno_id: int,
+    solicitud: ExternoReemplazarIn,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.TURNOS, Nivel.ESCRITURA)
+    ),
+) -> EventoExternoOut:
+    try:
+        return service.reemplazar_externo(
+            db,
+            turno_id,
+            solicitud,
+            usuario_id=usuario.id,
+            ver_costo=_ver_costo(usuario),
         )
     except service.AgendaError as exc:
         raise _error_agenda(exc) from exc
