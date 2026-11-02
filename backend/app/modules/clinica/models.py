@@ -12,6 +12,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Index,
+    Integer,
     String,
     Text,
     Time,
@@ -58,6 +59,20 @@ class FranjaTurnoPersonal(str, Enum):
 class OrigenAtencion(str, Enum):
     NORMAL = "NORMAL"
     MIGRACION = "MIGRACION"
+
+
+class TipoEventoExterno(str, Enum):
+    CONTACTADO = "CONTACTADO"
+    CONFIRMADO = "CONFIRMADO"
+    RECHAZADO = "RECHAZADO"
+    REEMPLAZADO = "REEMPLAZADO"
+
+
+class MedioEventoExterno(str, Enum):
+    TELEFONO = "TELEFONO"
+    WHATSAPP = "WHATSAPP"
+    PRESENCIAL = "PRESENCIAL"
+    OTRO = "OTRO"
 
 
 class TipoEstudio(str, Enum):
@@ -290,7 +305,63 @@ class Turno(Base):
     )
     motivo: Mapped[str | None] = mapped_column(Text(), nullable=True)
     atencion_id: Mapped[int | None] = mapped_column(ForeignKey("atencion.id"), nullable=True)
+    externo_actual_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empleado.persona_id"), nullable=True
+    )
     created_by: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class TurnoExternoEvento(Base):
+    """Historial inmutable de la gestión del veterinario externo de una cirugía."""
+
+    __tablename__ = "turno_externo_evento"
+    __table_args__ = (
+        CheckConstraint(
+            "costo_acordado_centavos IS NULL OR ("
+            "typeof(costo_acordado_centavos) = 'integer' "
+            "AND costo_acordado_centavos > 0)",
+            name="ck_turno_externo_evento_costo_positivo",
+        ),
+        CheckConstraint(
+            "costo_acordado_centavos IS NULL OR tipo = 'CONFIRMADO'",
+            name="ck_turno_externo_evento_costo_solo_confirmado",
+        ),
+        Index("ix_turno_externo_evento_turno", "turno_id", "created_at", "id"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    turno_id: Mapped[int] = mapped_column(ForeignKey("turno.id"), nullable=False)
+    tipo: Mapped[TipoEventoExterno] = mapped_column(
+        SAEnum(
+            TipoEventoExterno,
+            name="tipo_evento_externo",
+            native_enum=False,
+            length=20,
+            create_constraint=True,
+            validate_strings=True,
+        ),
+        nullable=False,
+    )
+    externo_empleado_id: Mapped[int] = mapped_column(
+        ForeignKey("empleado.persona_id"), nullable=False
+    )
+    medio: Mapped[MedioEventoExterno | None] = mapped_column(
+        SAEnum(
+            MedioEventoExterno,
+            name="medio_evento_externo",
+            native_enum=False,
+            length=20,
+            create_constraint=True,
+            validate_strings=True,
+        ),
+        nullable=True,
+    )
+    nota: Mapped[str | None] = mapped_column(Text(), nullable=True)
+    costo_acordado_centavos: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
