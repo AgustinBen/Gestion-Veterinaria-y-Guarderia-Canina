@@ -14,6 +14,8 @@ from app.modules.guarderia.router import router as guarderia_router
 from app.modules.guarderia.seed import sembrar_parametros
 from app.modules.identidad.router import router as identidad_router
 from app.modules.padron.router import router as padron_router
+from app.modules.panel import models as panel_models  # noqa: F401
+from app.modules.panel.router import router as panel_router
 
 
 @asynccontextmanager
@@ -30,6 +32,7 @@ app.include_router(padron_router)
 app.include_router(cobros_router)
 app.include_router(guarderia_router)
 app.include_router(clinica_router)
+app.include_router(panel_router)
 
 
 @app.get("/health")
