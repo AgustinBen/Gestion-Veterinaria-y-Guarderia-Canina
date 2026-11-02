@@ -10,9 +10,11 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from app.modules.clinica.models import (
     EstadoTurno,
     FranjaTurnoPersonal,
+    MedioEventoExterno,
     OrigenAtencion,
     TipoAtencion,
     TipoEstudio,
+    TipoEventoExterno,
     TipoTurnoMedico,
 )
 
@@ -97,6 +99,7 @@ class TurnoCrear(BaseModel):
     inicio: datetime
     fin: datetime
     motivo: str | None = None
+    externo_empleado_id: int | None = Field(default=None, gt=0)
 
     @model_validator(mode="after")
     def validar_horas_locales(self) -> TurnoCrear:
@@ -104,6 +107,10 @@ class TurnoCrear(BaseModel):
             raise ValueError("Los turnos deben usar la hora local sin zona horaria")
         if self.inicio >= self.fin:
             raise ValueError("El fin debe ser posterior al inicio")
+        if self.tipo == TipoTurnoMedico.CIRUGIA and self.externo_empleado_id is None:
+            raise ValueError("La cirugía requiere un veterinario externo")
+        if self.tipo != TipoTurnoMedico.CIRUGIA and self.externo_empleado_id is not None:
+            raise ValueError("Solo una cirugía puede indicar un veterinario externo")
         return self
 
 
@@ -153,7 +160,51 @@ class TurnoOut(BaseModel):
     estado: EstadoTurno
     motivo: str | None
     atencion_id: int | None
+    externo_actual_id: int | None
     created_by: int
+    created_at: datetime
+
+
+class TurnoAtendidoOut(TurnoOut):
+    gasto_registrado: bool = False
+
+
+class ExternoContactadoIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    medio: MedioEventoExterno
+    nota: str | None = None
+
+
+class ExternoConfirmarIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    costo_acordado_centavos: int = Field(gt=0, strict=True)
+
+
+class ExternoRechazarIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: str = Field(min_length=1)
+
+
+class ExternoReemplazarIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    externo_empleado_id: int = Field(gt=0)
+
+
+class EventoExternoOut(BaseModel):
+    id: int
+    turno_id: int
+    tipo: TipoEventoExterno
+    externo_empleado_id: int
+    externo_nombre: str | None
+    medio: MedioEventoExterno | None
+    nota: str | None
+    costo_acordado_centavos: int | None
+    costo_registrado: bool
+    usuario_id: int
     created_at: datetime
 
 

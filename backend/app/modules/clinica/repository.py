@@ -15,7 +15,10 @@ from app.modules.clinica.models import (
     FranjaTurnoPersonal,
     HorarioAtencion,
     TipoAtencion,
+    TipoEventoExterno,
+    TipoTurnoMedico,
     Turno,
+    TurnoExternoEvento,
     TurnoPersonal,
     TurnoPersonalDef,
     VacunaAplicada,
@@ -171,6 +174,60 @@ def turno_solapado(
     if excluir_id is not None:
         consulta = consulta.where(Turno.id != excluir_id)
     return db.execute(consulta.order_by(Turno.id).limit(1)).scalar_one_or_none()
+
+
+def turno_externo_ocupado(
+    db: Session,
+    *,
+    externo_id: int,
+    inicio: datetime,
+    fin: datetime,
+    excluir_id: int | None = None,
+) -> Turno | None:
+    consulta = select(Turno).where(
+        Turno.tipo == TipoTurnoMedico.CIRUGIA,
+        Turno.estado == EstadoTurno.CONFIRMADO,
+        Turno.externo_actual_id == externo_id,
+        Turno.inicio < fin,
+        Turno.fin > inicio,
+    )
+    if excluir_id is not None:
+        consulta = consulta.where(Turno.id != excluir_id)
+    return db.execute(consulta.order_by(Turno.id).limit(1)).scalar_one_or_none()
+
+
+def crear_evento_externo(
+    db: Session, evento: TurnoExternoEvento
+) -> TurnoExternoEvento:
+    db.add(evento)
+    db.flush()
+    return evento
+
+
+def listar_eventos_externos(
+    db: Session, turno_id: int
+) -> list[TurnoExternoEvento]:
+    consulta = (
+        select(TurnoExternoEvento)
+        .where(TurnoExternoEvento.turno_id == turno_id)
+        .order_by(TurnoExternoEvento.created_at, TurnoExternoEvento.id)
+    )
+    return list(db.execute(consulta).scalars())
+
+
+def ultimo_evento_confirmado(
+    db: Session, turno_id: int
+) -> TurnoExternoEvento | None:
+    consulta = (
+        select(TurnoExternoEvento)
+        .where(
+            TurnoExternoEvento.turno_id == turno_id,
+            TurnoExternoEvento.tipo == TipoEventoExterno.CONFIRMADO,
+        )
+        .order_by(TurnoExternoEvento.created_at.desc(), TurnoExternoEvento.id.desc())
+        .limit(1)
+    )
+    return db.execute(consulta).scalar_one_or_none()
 
 
 def crear_atencion(db: Session, atencion: Atencion) -> Atencion:

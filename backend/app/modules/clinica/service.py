@@ -19,9 +19,13 @@ from app.modules.clinica.models import (
     Estudio,
     FranjaTurnoPersonal,
     HorarioAtencion,
+    MedioEventoExterno,
     OrigenAtencion,
     TipoAtencion,
+    TipoEventoExterno,
+    TipoTurnoMedico,
     Turno,
+    TurnoExternoEvento,
     TurnoPersonal,
     VacunaAplicada,
 )
@@ -34,9 +38,14 @@ from app.modules.clinica.schemas import (
     EmpleadoTraspaso,
     EstudioCrear,
     EstudioResumen,
+    EventoExternoOut,
+    ExternoConfirmarIn,
+    ExternoContactadoIn,
+    ExternoReemplazarIn,
     HorarioAtencionIn,
     HorarioAtencionOut,
     LibretaVacunasItem,
+    TurnoAtendidoOut,
     TurnoCrear,
     TurnoOut,
     TurnoPersonalDefIn,
@@ -150,6 +159,28 @@ class RangoAgendaInvalido(AgendaError):
 
 class AtencionTurnoNoEncontrada(AgendaError):
     codigo = "ATENCION_NO_ENCONTRADA"
+
+
+class ExternoTurnoInvalido(AgendaError):
+    codigo = "EXTERNO_INVALIDO"
+
+
+class ExternoOcupado(AgendaError):
+    codigo = "EXTERNO_OCUPADO"
+    status_code = 409
+
+
+class TurnoNoEsCirugia(AgendaError):
+    codigo = "TURNO_NO_ES_CIRUGIA"
+
+
+class AtencionCirugiaInvalida(AgendaError):
+    codigo = "ATENCION_CIRUGIA_INVALIDA"
+
+
+class CirugiaSinConfirmacion(AgendaError):
+    codigo = "CIRUGIA_SIN_CONFIRMACION"
+    status_code = 409
 
 
 @dataclass(frozen=True)
@@ -682,6 +713,7 @@ def _turno_out(turno: Turno) -> TurnoOut:
         estado=turno.estado,
         motivo=turno.motivo,
         atencion_id=turno.atencion_id,
+        externo_actual_id=turno.externo_actual_id,
         created_by=turno.created_by,
         created_at=turno.created_at,
     )
@@ -703,6 +735,21 @@ def _validar_medico(
         raise EmpleadoTurnoInvalido(
             "El veterinario debe ser un empleado interno con perfil veterinario"
         )
+
+
+def _validar_externo(
+    db: Session, externo_id: int
+) -> padron_schemas.EmpleadoDetalle:
+    empleado = padron_service.obtener_empleado(db, externo_id)
+    if (
+        empleado is None
+        or empleado.tipo.value != "EXTERNO"
+        or not empleado.es_veterinario
+    ):
+        raise ExternoTurnoInvalido(
+            "El externo debe ser un veterinario externo registrado"
+        )
+    return empleado
 
 
 def _fecha_local_valida(inicio: datetime, fin: datetime) -> None:
@@ -817,6 +864,13 @@ def agendar_turno(
     ahora: datetime | None = None,
 ) -> TurnoOut:
     referencia = ahora or datetime.now()
+    es_cirugia = datos.tipo == TipoTurnoMedico.CIRUGIA
+    if es_cirugia and datos.externo_empleado_id is None:
+        raise ExternoTurnoInvalido("La cirugía requiere un veterinario externo")
+    if not es_cirugia and datos.externo_empleado_id is not None:
+        raise ExternoTurnoInvalido(
+            "Solo una cirugía puede indicar un veterinario externo"
+        )
     with transaccion_inmediata(db):
         _validar_turno(
             db,
@@ -826,6 +880,9 @@ def agendar_turno(
             fin=datos.fin,
             ahora=referencia,
         )
+        externo_id = datos.externo_empleado_id
+        if externo_id is not None:
+            _validar_externo(db, externo_id)
         turno = repository.crear_turno(
             db,
             Turno(
@@ -834,8 +891,13 @@ def agendar_turno(
                 veterinario_empleado_id=datos.veterinario_empleado_id,
                 inicio=datos.inicio,
                 fin=datos.fin,
-                estado=EstadoTurno.PROGRAMADO,
+                estado=(
+                    EstadoTurno.PENDIENTE_EXTERNO
+                    if es_cirugia
+                    else EstadoTurno.PROGRAMADO
+                ),
                 motivo=datos.motivo,
+                externo_actual_id=externo_id,
                 created_by=created_by,
             ),
         )
@@ -848,6 +910,183 @@ def obtener_turno(db: Session, turno_id: int) -> TurnoOut:
     if turno is None:
         raise TurnoNoEncontrado("Turno no encontrado")
     return _turno_out(turno)
+
+
+def _evento_out(
+    db: Session, evento: TurnoExternoEvento, *, ver_costo: bool
+) -> EventoExternoOut:
+    return EventoExternoOut(
+        id=evento.id,
+        turno_id=evento.turno_id,
+        tipo=evento.tipo,
+        externo_empleado_id=evento.externo_empleado_id,
+        externo_nombre=_nombre_empleado(db, evento.externo_empleado_id),
+        medio=evento.medio,
+        nota=evento.nota,
+        costo_acordado_centavos=(
+            evento.costo_acordado_centavos if ver_costo else None
+        ),
+        costo_registrado=evento.costo_acordado_centavos is not None,
+        usuario_id=evento.usuario_id,
+        created_at=evento.created_at,
+    )
+
+
+def _turno_cirugia_pendiente(db: Session, turno_id: int) -> tuple[Turno, int]:
+    turno = repository.obtener_turno(db, turno_id)
+    if turno is None:
+        raise TurnoNoEncontrado("Turno no encontrado")
+    if turno.tipo != TipoTurnoMedico.CIRUGIA:
+        raise TurnoNoEsCirugia("El turno no es una cirugía")
+    if turno.estado != EstadoTurno.PENDIENTE_EXTERNO:
+        raise EstadoTurnoInvalido(
+            "Solo se puede gestionar el externo de una cirugía pendiente"
+        )
+    if turno.externo_actual_id is None:
+        raise ExternoTurnoInvalido("El turno no tiene un veterinario externo asignado")
+    return turno, turno.externo_actual_id
+
+
+def _crear_evento_externo(
+    db: Session,
+    turno: Turno,
+    tipo: TipoEventoExterno,
+    *,
+    usuario_id: int,
+    externo_id: int,
+    medio: MedioEventoExterno | None = None,
+    nota: str | None = None,
+    costo_centavos: int | None = None,
+) -> TurnoExternoEvento:
+    evento = TurnoExternoEvento(
+        turno_id=turno.id,
+        tipo=tipo,
+        externo_empleado_id=externo_id,
+        medio=medio,
+        nota=nota,
+        costo_acordado_centavos=costo_centavos,
+        usuario_id=usuario_id,
+    )
+    return repository.crear_evento_externo(db, evento)
+
+
+def registrar_contacto_externo(
+    db: Session,
+    turno_id: int,
+    datos: ExternoContactadoIn,
+    *,
+    usuario_id: int,
+    ver_costo: bool,
+) -> EventoExternoOut:
+    with transaccion_inmediata(db):
+        turno, externo_id = _turno_cirugia_pendiente(db, turno_id)
+        nota = datos.nota.strip() if datos.nota is not None else None
+        evento = _crear_evento_externo(
+            db,
+            turno,
+            TipoEventoExterno.CONTACTADO,
+            usuario_id=usuario_id,
+            externo_id=externo_id,
+            medio=datos.medio,
+            nota=nota or None,
+        )
+    db.refresh(evento)
+    return _evento_out(db, evento, ver_costo=ver_costo)
+
+
+def confirmar_externo(
+    db: Session,
+    turno_id: int,
+    datos: ExternoConfirmarIn,
+    *,
+    usuario_id: int,
+    ver_costo: bool,
+) -> EventoExternoOut:
+    with transaccion_inmediata(db):
+        turno, externo_id = _turno_cirugia_pendiente(db, turno_id)
+        if repository.turno_externo_ocupado(
+            db,
+            externo_id=externo_id,
+            inicio=turno.inicio,
+            fin=turno.fin,
+            excluir_id=turno.id,
+        ):
+            raise ExternoOcupado(
+                "El veterinario externo ya tiene otra cirugía confirmada en ese horario"
+            )
+        turno.estado = EstadoTurno.CONFIRMADO
+        evento = _crear_evento_externo(
+            db,
+            turno,
+            TipoEventoExterno.CONFIRMADO,
+            usuario_id=usuario_id,
+            externo_id=externo_id,
+            costo_centavos=datos.costo_acordado_centavos,
+        )
+    db.refresh(evento)
+    return _evento_out(db, evento, ver_costo=ver_costo)
+
+
+def rechazar_externo(
+    db: Session,
+    turno_id: int,
+    motivo: str,
+    *,
+    usuario_id: int,
+    ver_costo: bool,
+) -> EventoExternoOut:
+    texto = motivo.strip()
+    if not texto:
+        raise AgendaError("El motivo del rechazo es obligatorio")
+    with transaccion_inmediata(db):
+        turno, externo_id = _turno_cirugia_pendiente(db, turno_id)
+        evento = _crear_evento_externo(
+            db,
+            turno,
+            TipoEventoExterno.RECHAZADO,
+            usuario_id=usuario_id,
+            externo_id=externo_id,
+            nota=texto,
+        )
+    db.refresh(evento)
+    return _evento_out(db, evento, ver_costo=ver_costo)
+
+
+def reemplazar_externo(
+    db: Session,
+    turno_id: int,
+    datos: ExternoReemplazarIn,
+    *,
+    usuario_id: int,
+    ver_costo: bool,
+) -> EventoExternoOut:
+    with transaccion_inmediata(db):
+        turno, _externo_actual = _turno_cirugia_pendiente(db, turno_id)
+        _validar_externo(db, datos.externo_empleado_id)
+        evento = _crear_evento_externo(
+            db,
+            turno,
+            TipoEventoExterno.REEMPLAZADO,
+            usuario_id=usuario_id,
+            externo_id=datos.externo_empleado_id,
+        )
+        turno.externo_actual_id = datos.externo_empleado_id
+    db.refresh(evento)
+    return _evento_out(db, evento, ver_costo=ver_costo)
+
+
+def eventos_externo_turno(
+    db: Session, turno_id: int, *, ver_costo: bool
+) -> list[EventoExternoOut]:
+    turno = repository.obtener_turno(db, turno_id)
+    if turno is None:
+        raise TurnoNoEncontrado("Turno no encontrado")
+    if turno.tipo != TipoTurnoMedico.CIRUGIA:
+        return []
+    return [
+        _evento_out(db, evento, ver_costo=ver_costo)
+        for evento in repository.listar_eventos_externos(db, turno_id)
+    ]
 
 
 def listar_turnos(
@@ -954,11 +1193,86 @@ def marcar_turno_ausente(db: Session, turno_id: int) -> TurnoOut:
     return _cambiar_estado(db, turno_id, EstadoTurno.AUSENTE)
 
 
+def _atencion_cirugia_para_turno(
+    db: Session, turno: Turno, atencion_id: int | None
+) -> Atencion:
+    if atencion_id is None:
+        raise AtencionCirugiaInvalida(
+            "La cirugía requiere la atención de tipo CIRUGIA"
+        )
+    atencion = repository.obtener_atencion(db, atencion_id)
+    if atencion is None or atencion.paciente_id != turno.paciente_id:
+        raise AtencionTurnoNoEncontrada(
+            "La atención no existe o no corresponde al paciente del turno"
+        )
+    if atencion.tipo != TipoAtencion.CIRUGIA:
+        raise AtencionCirugiaInvalida("La atención debe ser de tipo CIRUGIA")
+    if atencion.cirujano_externo_id != turno.externo_actual_id:
+        raise AtencionCirugiaInvalida(
+            "La atención debe tener el mismo veterinario externo del turno"
+        )
+    return atencion
+
+
 def marcar_turno_atendido(
-    db: Session, turno_id: int, atencion_id: int | None
-) -> TurnoOut:
-    return _cambiar_estado(
-        db, turno_id, EstadoTurno.ATENDIDO, atencion_id=atencion_id
+    db: Session,
+    turno_id: int,
+    atencion_id: int | None,
+    *,
+    usuario_id: int,
+) -> TurnoAtendidoOut:
+    gasto_registrado = False
+    with transaccion_inmediata(db):
+        turno = repository.obtener_turno(db, turno_id)
+        if turno is None:
+            raise TurnoNoEncontrado("Turno no encontrado")
+        if not estados.puede_transicionar(turno.estado, EstadoTurno.ATENDIDO):
+            raise EstadoTurnoInvalido(
+                f"No se puede cambiar de {turno.estado.value} a ATENDIDO"
+            )
+        if turno.tipo == TipoTurnoMedico.CIRUGIA:
+            atencion = _atencion_cirugia_para_turno(db, turno, atencion_id)
+            externo_id = turno.externo_actual_id
+            if externo_id is None:
+                raise AtencionCirugiaInvalida(
+                    "El turno no tiene un veterinario externo asignado"
+                )
+            evento = repository.ultimo_evento_confirmado(db, turno.id)
+            if evento is None or evento.costo_acordado_centavos is None:
+                raise CirugiaSinConfirmacion(
+                    "La cirugía no tiene un externo confirmado con costo"
+                )
+            turno.estado = EstadoTurno.ATENDIDO
+            turno.atencion_id = atencion.id
+            db.flush()
+            cobros_service.registrar_gasto_externo(
+                db,
+                empleado_externo_id=externo_id,
+                descripcion="Cirugía",
+                monto_centavos=evento.costo_acordado_centavos,
+                fecha=date.today(),
+                cargo_id=atencion.cargo_id,
+                usuario_id=usuario_id,
+            )
+            gasto_registrado = True
+        else:
+            if atencion_id is not None:
+                atencion_opcional: Atencion | None = repository.obtener_atencion(
+                    db, atencion_id
+                )
+                if (
+                    atencion_opcional is None
+                    or atencion_opcional.paciente_id != turno.paciente_id
+                ):
+                    raise AtencionTurnoNoEncontrada(
+                        "La atención no existe o no corresponde al paciente del turno"
+                    )
+            turno.estado = EstadoTurno.ATENDIDO
+            turno.atencion_id = atencion_id
+    db.refresh(turno)
+    return TurnoAtendidoOut(
+        **_turno_out(turno).model_dump(),
+        gasto_registrado=gasto_registrado,
     )
 
 
