@@ -9,6 +9,8 @@ import logging
 import sqlite3
 from collections.abc import Callable
 from datetime import date, datetime, timezone
+from enum import Enum
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -264,6 +266,8 @@ def crear_cargo(
     persona_id: int,
     concepto: str,
     total_centavos: int,
+    tipo_servicio: models.TipoServicio = models.TipoServicio.OTRO,
+    origen: models.OrigenCargo = models.OrigenCargo.NORMAL,
     paciente_id: int | None = None,
     referencia_tipo: str | None = None,
     referencia_id: int | None = None,
@@ -287,7 +291,8 @@ def crear_cargo(
         paciente_id=paciente_id,
         concepto=concepto,
         total_inicial=int(total_centavos),
-        origen=models.OrigenCargo.NORMAL,
+        tipo_servicio=tipo_servicio,
+        origen=origen,
         referencia_tipo=referencia_tipo,
         referencia_id=referencia_id,
         creado_por=usuario_id,
@@ -387,6 +392,7 @@ def obtener_cargo_detalle(db: Session, cargo_id: int) -> schemas.CargoDetalleOut
         paciente_id=cargo.paciente_id,
         concepto=cargo.concepto,
         total_inicial=cargo.total_inicial,
+        tipo_servicio=cargo.tipo_servicio.value,
         origen=cargo.origen.value,
         referencia_tipo=cargo.referencia_tipo,
         referencia_id=cargo.referencia_id,
@@ -464,6 +470,12 @@ def listar_ajustes(db: Session, cargo_id: int) -> list[models.AjustePrecio]:
 
 def listar_medios_pago(db: Session) -> list[models.MedioPago]:
     return repository.listar_medios_pago_activos(db)
+
+
+def medio_pago_id_por_codigo(db: Session, codigo: str) -> int | None:
+    """Resuelve el código de medio a su id sin exponer la tabla a otros módulos."""
+    medio = repository.obtener_medio_pago_por_codigo(db, codigo)
+    return medio.id if medio is not None else None
 
 
 def registrar_pago(
@@ -832,3 +844,137 @@ def total_gastos_externos(
         empleado_id=empleado_id,
         cargo_id=cargo_id,
     )
+
+
+# --- Consultas agregadas para el panel financiero (T-38 / T-46) -------------
+
+
+AGRUPACIONES_INGRESOS: frozenset[str] = frozenset(
+    {"dia", "mes", "medio", "tipo_servicio"}
+)
+
+
+def _validar_tipo_servicio(tipo_servicio: str | None) -> str | None:
+    if tipo_servicio is None:
+        return None
+    normalizado = tipo_servicio.upper()
+    if normalizado not in {tipo.value for tipo in models.TipoServicio}:
+        raise CobrosError("Tipo de servicio inválido")
+    return normalizado
+
+
+def _clave_texto(clave: Any) -> str:
+    if isinstance(clave, date):
+        return clave.isoformat()
+    if isinstance(clave, Enum):
+        return str(clave.value)
+    return str(clave)
+
+
+def total_ingresos(
+    db: Session,
+    *,
+    desde: date,
+    hasta: date,
+    tipo_servicio: str | None = None,
+    medio: str | None = None,
+    incluir_migracion: bool = False,
+) -> int:
+    """Ingresos por criterio de caja: pagos menos reversos por fecha de pago."""
+    return repository.total_ingresos(
+        db,
+        desde=desde,
+        hasta=hasta,
+        tipo_servicio=_validar_tipo_servicio(tipo_servicio),
+        medio=medio,
+        incluir_migracion=incluir_migracion,
+    )
+
+
+def ingresos_agregados(
+    db: Session,
+    *,
+    desde: date,
+    hasta: date,
+    agrupar: str,
+    tipo_servicio: str | None = None,
+    medio: str | None = None,
+    incluir_migracion: bool = False,
+) -> list[schemas.AgregadoOut]:
+    if agrupar not in AGRUPACIONES_INGRESOS:
+        raise CobrosError("Agrupación inválida")
+    filas = repository.ingresos_agregados(
+        db,
+        desde=desde,
+        hasta=hasta,
+        agrupar=agrupar,
+        tipo_servicio=_validar_tipo_servicio(tipo_servicio),
+        medio=medio,
+        incluir_migracion=incluir_migracion,
+    )
+    return [
+        schemas.AgregadoOut(
+            clave=_clave_texto(fila.clave), monto_centavos=int(fila.monto_centavos)
+        )
+        for fila in filas
+    ]
+
+
+def calidad_datos_cargos(
+    db: Session, *, desde: date, hasta: date
+) -> schemas.CalidadDatosCargos:
+    fila = repository.calidad_datos_cargos(db, desde=desde, hasta=hasta)
+    return schemas.CalidadDatosCargos(
+        otros=int(fila.otros),
+        migrados=int(fila.migrados),
+        total=int(fila.total),
+    )
+
+
+def gastos_externos_por_tipo_servicio(
+    db: Session, *, desde: date, hasta: date
+) -> list[schemas.AgregadoOut]:
+    filas = repository.gastos_externos_por_tipo_servicio(db, desde=desde, hasta=hasta)
+    return [
+        schemas.AgregadoOut(
+            clave=_clave_texto(fila.clave), monto_centavos=int(fila.monto_centavos)
+        )
+        for fila in filas
+    ]
+
+
+def total_gastos_externos_por_tipo(
+    db: Session, *, desde: date, hasta: date, tipo_servicio: str
+) -> int:
+    tipo = _validar_tipo_servicio(tipo_servicio)
+    assert tipo is not None
+    return repository.total_gastos_externos_por_tipo(
+        db, desde=desde, hasta=hasta, tipo_servicio=tipo
+    )
+
+
+def resumen_deudas_global(db: Session) -> schemas.ResumenDeudasGlobal:
+    fila = repository.resumen_deudas_global(db)
+    return schemas.ResumenDeudasGlobal(
+        total_centavos=int(fila.total_centavos),
+        cantidad_clientes=int(fila.cantidad_clientes),
+        migracion_centavos=int(fila.migracion_centavos),
+    )
+
+
+def servicios_de_persona(
+    db: Session, persona_id: int
+) -> list[schemas.ServicioDeClienteOut]:
+    filas = repository.servicios_de_persona(db, persona_id)
+    return [
+        schemas.ServicioDeClienteOut(
+            cargo_id=int(fila.cargo_id),
+            tipo_servicio=_clave_texto(fila.tipo_servicio),
+            concepto=str(fila.concepto),
+            total_vigente_centavos=int(fila.total_vigente_centavos),
+            pagado_centavos=int(fila.pagado_centavos),
+            saldo_centavos=int(fila.saldo_centavos),
+            ajustes=int(fila.ajustes),
+        )
+        for fila in filas
+    ]

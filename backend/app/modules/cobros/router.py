@@ -100,6 +100,7 @@ def crear_cargo(
             persona_id=datos.persona_id,
             concepto=datos.concepto,
             total_centavos=datos.total_centavos,
+            tipo_servicio=datos.tipo_servicio,
             paciente_id=datos.paciente_id,
             referencia_tipo=datos.referencia_tipo,
             referencia_id=datos.referencia_id,

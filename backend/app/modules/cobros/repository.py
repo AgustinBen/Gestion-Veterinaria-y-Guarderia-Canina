@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import case, func, select
@@ -353,3 +353,253 @@ def total_gastos_externos(
         ),
     )
     return int(db.execute(stmt).scalar_one())
+
+
+# --- Agregados para el panel financiero (T-38 / T-46) -----------------------
+
+
+def _neto_pago() -> Any:
+    """Criterio de caja: los pagos suman y los reversos restan."""
+    return case(
+        (models.Pago.tipo == models.TipoPago.PAGO, models.Pago.monto),
+        else_=-models.Pago.monto,
+    )
+
+
+def _filtros_ingresos(
+    *,
+    desde: date,
+    hasta: date,
+    tipo_servicio: str | None,
+    medio: str | None,
+    incluir_migracion: bool,
+) -> list[Any]:
+    filtros: list[Any] = [
+        models.Pago.fecha >= desde,
+        models.Pago.fecha <= hasta,
+    ]
+    if tipo_servicio is not None:
+        filtros.append(models.Cargo.tipo_servicio == tipo_servicio)
+    if medio is not None:
+        filtros.append(models.MedioPago.codigo == medio.upper())
+    if not incluir_migracion:
+        filtros.append(models.Cargo.tipo_servicio != models.TipoServicio.MIGRACION)
+        filtros.append(models.Cargo.origen != models.OrigenCargo.MIGRACION)
+    return filtros
+
+
+def _consulta_ingresos(
+    *,
+    desde: date,
+    hasta: date,
+    tipo_servicio: str | None,
+    medio: str | None,
+    incluir_migracion: bool,
+) -> Any:
+    return (
+        select(func.coalesce(func.sum(_neto_pago()), 0).label("monto_centavos"))
+        .join(models.Cargo, models.Cargo.id == models.Pago.cargo_id)
+        .join(models.MedioPago, models.MedioPago.id == models.Pago.medio_pago_id)
+        .where(
+            *_filtros_ingresos(
+                desde=desde,
+                hasta=hasta,
+                tipo_servicio=tipo_servicio,
+                medio=medio,
+                incluir_migracion=incluir_migracion,
+            )
+        )
+    )
+
+
+def total_ingresos(
+    db: Session,
+    *,
+    desde: date,
+    hasta: date,
+    tipo_servicio: str | None,
+    medio: str | None,
+    incluir_migracion: bool,
+) -> int:
+    stmt = _consulta_ingresos(
+        desde=desde,
+        hasta=hasta,
+        tipo_servicio=tipo_servicio,
+        medio=medio,
+        incluir_migracion=incluir_migracion,
+    )
+    return int(db.execute(stmt).scalar_one())
+
+
+def ingresos_agregados(
+    db: Session,
+    *,
+    desde: date,
+    hasta: date,
+    agrupar: str,
+    tipo_servicio: str | None,
+    medio: str | None,
+    incluir_migracion: bool,
+) -> list[Any]:
+    """Ingresos netos agrupados por día, mes, medio o tipo de servicio."""
+    clave: Any
+    grupo: Any
+    if agrupar == "dia":
+        clave = models.Pago.fecha.label("clave")
+        grupo = models.Pago.fecha
+    elif agrupar == "mes":
+        clave = func.strftime("%Y-%m", models.Pago.fecha).label("clave")
+        grupo = func.strftime("%Y-%m", models.Pago.fecha)
+    elif agrupar == "medio":
+        clave = models.MedioPago.codigo.label("clave")
+        grupo = models.MedioPago.codigo
+    elif agrupar == "tipo_servicio":
+        clave = models.Cargo.tipo_servicio.label("clave")
+        grupo = models.Cargo.tipo_servicio
+    else:  # pragma: no cover - el servicio valida antes
+        raise ValueError(f"Agrupación inválida: {agrupar}")
+
+    stmt = (
+        select(clave, func.coalesce(func.sum(_neto_pago()), 0).label("monto_centavos"))
+        .join(models.Cargo, models.Cargo.id == models.Pago.cargo_id)
+        .join(models.MedioPago, models.MedioPago.id == models.Pago.medio_pago_id)
+        .where(
+            *_filtros_ingresos(
+                desde=desde,
+                hasta=hasta,
+                tipo_servicio=tipo_servicio,
+                medio=medio,
+                incluir_migracion=incluir_migracion,
+            )
+        )
+        .group_by(grupo)
+        .order_by(grupo)
+    )
+    return list(db.execute(stmt).all())
+
+
+def calidad_datos_cargos(db: Session, *, desde: date, hasta: date) -> Any:
+    """Cuenta los cargos del período que quedaron sin clasificar."""
+    desde_dt = datetime.combine(desde, time.min)
+    hasta_dt = datetime.combine(hasta + timedelta(days=1), time.min)
+    stmt = select(
+        func.coalesce(
+            func.sum(case((models.Cargo.tipo_servicio == models.TipoServicio.OTRO, 1), else_=0)),
+            0,
+        ).label("otros"),
+        func.coalesce(
+            func.sum(
+                case((models.Cargo.tipo_servicio == models.TipoServicio.MIGRACION, 1), else_=0)
+            ),
+            0,
+        ).label("migrados"),
+        func.count(models.Cargo.id).label("total"),
+    ).where(
+        models.Cargo.created_at >= desde_dt,
+        models.Cargo.created_at < hasta_dt,
+    )
+    return db.execute(stmt).one()
+
+
+def gastos_externos_por_tipo_servicio(
+    db: Session, *, desde: date, hasta: date
+) -> list[Any]:
+    stmt = (
+        select(
+            models.Cargo.tipo_servicio.label("clave"),
+            func.coalesce(func.sum(models.GastoExterno.monto), 0).label("monto_centavos"),
+        )
+        .join(models.Cargo, models.Cargo.id == models.GastoExterno.cargo_id)
+        .where(
+            models.GastoExterno.anulado_en.is_(None),
+            models.GastoExterno.fecha >= desde,
+            models.GastoExterno.fecha <= hasta,
+        )
+        .group_by(models.Cargo.tipo_servicio)
+        .order_by(models.Cargo.tipo_servicio)
+    )
+    return list(db.execute(stmt).all())
+
+
+def total_gastos_externos_por_tipo(
+    db: Session, *, desde: date, hasta: date, tipo_servicio: str
+) -> int:
+    stmt = (
+        select(func.coalesce(func.sum(models.GastoExterno.monto), 0))
+        .join(models.Cargo, models.Cargo.id == models.GastoExterno.cargo_id)
+        .where(
+            models.GastoExterno.anulado_en.is_(None),
+            models.GastoExterno.fecha >= desde,
+            models.GastoExterno.fecha <= hasta,
+            models.Cargo.tipo_servicio == tipo_servicio,
+        )
+    )
+    return int(db.execute(stmt).scalar_one())
+
+
+def resumen_deudas_global(db: Session) -> Any:
+    cargos = _cargos_con_saldo()
+    pendientes = select(cargos).where(cargos.c.saldo > 0).subquery()
+    stmt = select(
+        func.coalesce(func.sum(pendientes.c.saldo), 0).label("total_centavos"),
+        func.count(func.distinct(pendientes.c.persona_id)).label("cantidad_clientes"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (
+                        pendientes.c.origen == models.OrigenCargo.MIGRACION,
+                        pendientes.c.saldo,
+                    ),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("migracion_centavos"),
+    )
+    return db.execute(stmt).one()
+
+
+def servicios_de_persona(db: Session, persona_id: int) -> list[Any]:
+    ultimo_ajuste = (
+        select(models.AjustePrecio.precio_nuevo)
+        .where(models.AjustePrecio.cargo_id == models.Cargo.id)
+        .order_by(models.AjustePrecio.created_at.desc(), models.AjustePrecio.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+    total_vigente_expr = func.coalesce(ultimo_ajuste, models.Cargo.total_inicial)
+    pagado_expr = (
+        select(
+            func.coalesce(
+                func.sum(
+                    case(
+                        (models.Pago.tipo == models.TipoPago.PAGO, models.Pago.monto),
+                        else_=-models.Pago.monto,
+                    )
+                ),
+                0,
+            )
+        )
+        .where(models.Pago.cargo_id == models.Cargo.id)
+        .scalar_subquery()
+    )
+    ajustes_expr = (
+        select(func.count(models.AjustePrecio.id))
+        .where(models.AjustePrecio.cargo_id == models.Cargo.id)
+        .scalar_subquery()
+    )
+    stmt = (
+        select(
+            models.Cargo.id.label("cargo_id"),
+            models.Cargo.tipo_servicio.label("tipo_servicio"),
+            models.Cargo.concepto.label("concepto"),
+            total_vigente_expr.label("total_vigente_centavos"),
+            pagado_expr.label("pagado_centavos"),
+            (total_vigente_expr - pagado_expr).label("saldo_centavos"),
+            ajustes_expr.label("ajustes"),
+        )
+        .where(models.Cargo.persona_id == persona_id)
+        .order_by(models.Cargo.id)
+    )
+    return list(db.execute(stmt).all())
+

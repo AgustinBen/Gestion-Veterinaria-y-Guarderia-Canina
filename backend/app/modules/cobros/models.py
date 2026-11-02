@@ -37,6 +37,18 @@ class TipoPago(str, Enum):
     REVERSO = "REVERSO"
 
 
+class TipoServicio(str, Enum):
+    """Clasificación del cargo para los filtros del panel (T-44)."""
+
+    GUARDERIA = "GUARDERIA"
+    CONSULTA = "CONSULTA"
+    VACUNA = "VACUNA"
+    CIRUGIA = "CIRUGIA"
+    ESTUDIO = "ESTUDIO"
+    OTRO = "OTRO"
+    MIGRACION = "MIGRACION"
+
+
 class MedioPago(Base):
     __tablename__ = "medio_pago"
 
@@ -61,6 +73,19 @@ class Cargo(Base):
     paciente_id: Mapped[int | None] = mapped_column(ForeignKey("paciente.id"), nullable=True)
     concepto: Mapped[str] = mapped_column(String(255), nullable=False)
     total_inicial: Mapped[int] = mapped_column(Integer, nullable=False)
+    tipo_servicio: Mapped[TipoServicio] = mapped_column(
+        SAEnum(
+            TipoServicio,
+            name="tipo_servicio",
+            native_enum=False,
+            length=20,
+            create_constraint=False,
+            validate_strings=True,
+        ),
+        nullable=False,
+        default=TipoServicio.OTRO,
+        server_default="OTRO",
+    )
     origen: Mapped[OrigenCargo] = mapped_column(
         SAEnum(OrigenCargo, name="origen_cargo", native_enum=False, length=20, create_constraint=False, validate_strings=True),
         nullable=False,
@@ -180,6 +205,7 @@ class GastoExterno(Base):
 Index("uq_pago_clave_idempotencia", Pago.clave_idempotencia, unique=True, sqlite_where=Pago.clave_idempotencia.isnot(None))
 Index("ix_cargo_persona_id", Cargo.persona_id)
 Index("ix_cargo_paciente_id", Cargo.paciente_id)
+Index("ix_cargo_tipo_servicio", Cargo.tipo_servicio)
 Index("ix_servicio_prestado_cargo_id", ServicioPrestado.cargo_id)
 Index("ix_gasto_externo_cargo_id", GastoExterno.cargo_id)
 Index("ix_gasto_externo_pago_id", GastoExterno.pago_id)
