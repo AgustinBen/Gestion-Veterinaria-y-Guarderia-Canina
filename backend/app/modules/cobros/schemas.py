@@ -6,6 +6,36 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.modules.cobros.models import OrigenCargo, TipoServicio
+
+__all__ = [
+    "OrigenCargo",
+    "TipoServicio",
+    "MedioPagoOut",
+    "CargoCrear",
+    "CargoOut",
+    "CargoDetalleOut",
+    "AjustePrecioCrear",
+    "AjustePrecioOut",
+    "PagoCrear",
+    "PagoRevertir",
+    "PagoOut",
+    "CargoCuentaOut",
+    "CuentaClienteOut",
+    "CuentaPacienteOut",
+    "PersonaDeudorOut",
+    "DeudorOut",
+    "ResumenDeuda",
+    "GastoExternoCrear",
+    "GastoAnular",
+    "GastoOut",
+    "ListaGastosOut",
+    "AgregadoOut",
+    "ResumenDeudasGlobal",
+    "CalidadDatosCargos",
+    "ServicioDeClienteOut",
+]
+
 
 class MedioPagoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -22,6 +52,7 @@ class CargoCrear(BaseModel):
     persona_id: int
     concepto: str
     total_centavos: int
+    tipo_servicio: TipoServicio = TipoServicio.OTRO
     paciente_id: int | None = None
     referencia_tipo: str | None = None
     referencia_id: int | None = None
@@ -35,6 +66,7 @@ class CargoOut(BaseModel):
     paciente_id: int | None
     concepto: str
     total_inicial: int
+    tipo_servicio: str
     origen: str
     referencia_tipo: str | None
     referencia_id: int | None
@@ -48,6 +80,7 @@ class CargoDetalleOut(BaseModel):
     paciente_id: int | None
     concepto: str
     total_inicial: int
+    tipo_servicio: str
     origen: str
     referencia_tipo: str | None
     referencia_id: int | None
@@ -186,3 +219,31 @@ class GastoOut(BaseModel):
 class ListaGastosOut(BaseModel):
     items: list[GastoOut]
     total_centavos: int
+
+
+class AgregadoOut(BaseModel):
+    clave: str
+    monto_centavos: int
+
+
+class ResumenDeudasGlobal(BaseModel):
+    total_centavos: int
+    cantidad_clientes: int
+    migracion_centavos: int
+
+
+class CalidadDatosCargos(BaseModel):
+    otros: int
+    migrados: int
+    total: int
+
+
+class ServicioDeClienteOut(BaseModel):
+    cargo_id: int
+    tipo_servicio: str
+    concepto: str
+    total_vigente_centavos: int
+    pagado_centavos: int
+    saldo_centavos: int
+    ajustes: int
+
