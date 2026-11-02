@@ -2,12 +2,181 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, time
 from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from app.modules.clinica.models import OrigenAtencion, TipoAtencion, TipoEstudio
+from app.modules.clinica.models import (
+    EstadoTurno,
+    FranjaTurnoPersonal,
+    OrigenAtencion,
+    TipoAtencion,
+    TipoEstudio,
+    TipoTurnoMedico,
+)
+
+
+class HorarioAtencionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    dia_semana: int = Field(ge=0, le=6)
+    hora_desde: time
+    hora_hasta: time
+
+    @model_validator(mode="after")
+    def validar_rango_local(self) -> HorarioAtencionIn:
+        if self.hora_desde.tzinfo is not None or self.hora_hasta.tzinfo is not None:
+            raise ValueError("El horario debe usar la hora local sin zona horaria")
+        if self.hora_desde >= self.hora_hasta:
+            raise ValueError("La hora desde debe ser menor que la hora hasta")
+        return self
+
+
+class HorarioAtencionOut(HorarioAtencionIn):
+    id: int
+
+
+class TurnoPersonalDefIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    turno: FranjaTurnoPersonal
+    hora_desde: time
+    hora_hasta: time
+
+    @model_validator(mode="after")
+    def validar_horas_locales(self) -> TurnoPersonalDefIn:
+        if self.hora_desde.tzinfo is not None or self.hora_hasta.tzinfo is not None:
+            raise ValueError("La definición debe usar la hora local sin zona horaria")
+        if self.hora_desde == self.hora_hasta:
+            raise ValueError("El inicio y el fin del turno deben ser distintos")
+        return self
+
+
+class TurnosPersonalDefinicionIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    turnos: list[TurnoPersonalDefIn]
+
+    @model_validator(mode="after")
+    def validar_unicidad(self) -> TurnosPersonalDefinicionIn:
+        nombres = [turno.turno for turno in self.turnos]
+        if len(nombres) != len(set(nombres)):
+            raise ValueError("No se puede repetir la definición de un turno")
+        if any(turno.hora_desde == turno.hora_hasta for turno in self.turnos):
+            raise ValueError("El inicio y el fin del turno deben ser distintos")
+        return self
+
+
+class TurnoPersonalDefOut(TurnoPersonalDefIn):
+    id: int
+
+
+class TurnosPersonalDefinicionOut(BaseModel):
+    turnos: list[TurnoPersonalDefOut]
+
+
+class TurnoPersonalIn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    empleado_id: int = Field(gt=0)
+    fecha: date
+    turno: FranjaTurnoPersonal
+
+
+class TurnoPersonalOut(TurnoPersonalIn):
+    empleado_nombre: str
+
+
+class TurnoCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    paciente_id: int = Field(gt=0)
+    tipo: TipoTurnoMedico
+    veterinario_empleado_id: int = Field(gt=0)
+    inicio: datetime
+    fin: datetime
+    motivo: str | None = None
+
+    @model_validator(mode="after")
+    def validar_horas_locales(self) -> TurnoCrear:
+        if self.inicio.tzinfo is not None or self.fin.tzinfo is not None:
+            raise ValueError("Los turnos deben usar la hora local sin zona horaria")
+        if self.inicio >= self.fin:
+            raise ValueError("El fin debe ser posterior al inicio")
+        return self
+
+
+class TurnoReprogramar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    inicio: datetime | None = None
+    fin: datetime | None = None
+    veterinario_empleado_id: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def validar_reprogramacion(self) -> TurnoReprogramar:
+        if not self.model_fields_set or all(
+            getattr(self, campo) is None for campo in self.model_fields_set
+        ):
+            raise ValueError("Debe indicar al menos un campo para reprogramar")
+        if any(getattr(self, campo) is None for campo in self.model_fields_set):
+            raise ValueError("Los campos enviados para reprogramar no pueden ser nulos")
+        if self.inicio is not None and self.inicio.tzinfo is not None:
+            raise ValueError("Los turnos deben usar la hora local sin zona horaria")
+        if self.fin is not None and self.fin.tzinfo is not None:
+            raise ValueError("Los turnos deben usar la hora local sin zona horaria")
+        if self.inicio is not None and self.fin is not None and self.inicio >= self.fin:
+            raise ValueError("El fin debe ser posterior al inicio")
+        return self
+
+
+class TurnoCancelar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: str = Field(min_length=1)
+
+
+class TurnoAtendido(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    atencion_id: int | None = Field(default=None, gt=0)
+
+
+class TurnoOut(BaseModel):
+    id: int
+    paciente_id: int
+    tipo: TipoTurnoMedico
+    veterinario_empleado_id: int
+    inicio: datetime
+    fin: datetime
+    estado: EstadoTurno
+    motivo: str | None
+    atencion_id: int | None
+    created_by: int
+    created_at: datetime
+
+
+class EmpleadoTraspaso(BaseModel):
+    empleado_id: int
+    nombre: str
+
+
+class VentanaTraspasoOut(BaseModel):
+    inicio: datetime
+    fin: datetime
+    turno_sale: FranjaTurnoPersonal
+    turno_entra: FranjaTurnoPersonal
+    empleados_salen: list[EmpleadoTraspaso]
+    empleados_entran: list[EmpleadoTraspaso]
+
+
+class AgendaDiaOut(BaseModel):
+    fecha: date
+    horarios_atencion: list[HorarioAtencionOut]
+    turnos: list[TurnoOut]
+    turnos_personal: list[TurnoPersonalOut]
+    ventanas_traspaso: list[VentanaTraspasoOut]
 
 
 class VacunaNueva(BaseModel):
