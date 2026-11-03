@@ -37,11 +37,6 @@ export type ResumenPanel = {
   calidad_datos: CalidadDatos;
 };
 
-export type IngresoPorMedio = {
-  medio: string;
-  ingresos_centavos: number;
-};
-
 export type MayorDeudor = {
   persona_id: number;
   nombre: string;

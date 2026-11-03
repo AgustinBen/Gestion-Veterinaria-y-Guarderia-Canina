@@ -3,11 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../../core/api/client';
-import {
-  listarIngresosPorMedio,
-  listarResumen,
-  obtenerDeudas,
-} from '../api';
+import { listarResumen, obtenerDeudas } from '../api';
 import { fechaIsoLocal } from '../components/filtrosPanel';
 import { Tablero } from '../pages/Tablero';
 import type { DeudasPanel, ResumenPanel } from '../tipos';
@@ -17,7 +13,6 @@ vi.mock('../api', async (importOriginal) => {
 
   return {
     ...actual,
-    listarIngresosPorMedio: vi.fn(),
     listarResumen: vi.fn(),
     obtenerDeudas: vi.fn(),
   };
@@ -54,9 +49,6 @@ function renderizar(ruta = '/panel') {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(listarResumen).mockResolvedValue(RESUMEN);
-  vi.mocked(listarIngresosPorMedio).mockResolvedValue([
-    { medio: 'EFECTIVO', ingresos_centavos: 150_000 },
-  ]);
   vi.mocked(obtenerDeudas).mockResolvedValue(DEUDAS);
 });
 
@@ -108,24 +100,18 @@ describe('Tablero del panel', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('muestra solo el gráfico de dona de ingresos por medio de pago', async () => {
+  it('no muestra el gráfico de ingresos por medio de pago', async () => {
     renderizar();
 
-    await screen.findByRole('region', {
-      name: 'Gráfico de ingresos por medio de pago',
-    });
+    await screen.findByRole('region', { name: 'Ingresos' });
 
     expect(
-      screen.getByRole('img', { name: /^Ingresos por medio de pago/ }),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole('img', { name: 'Ingresos por servicio' }),
+      screen.queryByRole('region', {
+        name: 'Gráfico de ingresos por medio de pago',
+      }),
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole('img', { name: 'Ingresos contra egresos' }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByText('Ingresos por servicio'),
+      screen.queryByRole('img', { name: /Ingresos por medio de pago/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -158,17 +144,6 @@ describe('Tablero del panel', () => {
     expect(
       await screen.findByText('No hay deudas pendientes.'),
     ).toBeInTheDocument();
-  });
-
-  it('avisa cuando no hay datos para el gráfico', async () => {
-    vi.mocked(listarIngresosPorMedio).mockResolvedValue([]);
-    renderizar();
-
-    await screen.findByRole('region', {
-      name: 'Gráfico de ingresos por medio de pago',
-    });
-
-    expect(screen.getAllByText('Sin datos para el período.')).toHaveLength(2);
   });
 
   it('muestra el error y permite reintentar', async () => {

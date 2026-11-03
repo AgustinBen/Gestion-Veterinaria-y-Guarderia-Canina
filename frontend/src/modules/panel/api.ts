@@ -9,7 +9,6 @@ import type {
   FiltrosPanel,
   GastoExterno,
   GastoExternoNuevo,
-  IngresoPorMedio,
   ListaGastos,
   OpcionesIdempotentes,
   ResumenPanel,
@@ -64,16 +63,6 @@ export function listarResumen(
   return api.get<ResumenPanel>(`/panel/resumen${query(filtrosQuery(filtros))}`, {
     signal: opciones.signal,
   });
-}
-
-export function listarIngresosPorMedio(
-  filtros: FiltrosPanel,
-  opciones: OpcionesLectura = {},
-): Promise<IngresoPorMedio[]> {
-  return api.get<IngresoPorMedio[]>(
-    `/panel/ingresos-por-medio${query(filtrosQuery(filtros))}`,
-    { signal: opciones.signal },
-  );
 }
 
 export function obtenerDeudas(

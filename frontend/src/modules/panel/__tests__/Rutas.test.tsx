@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type ValorAuth } from '../../../core/auth/contexto';
 import type { Rol } from '../../../core/auth/permisos';
 import {
-  listarIngresosPorMedio,
   listarResumen,
   obtenerDeudas,
   obtenerDetalleCliente,
@@ -22,7 +21,6 @@ vi.mock('../api', async (importOriginal) => {
     listarGastosExternos: vi
       .fn()
       .mockResolvedValue({ items: [], total_centavos: 0 }),
-    listarIngresosPorMedio: vi.fn(),
     listarResumen: vi.fn(),
     obtenerDeudas: vi.fn(),
     obtenerDetalleCliente: vi.fn(),
@@ -68,7 +66,6 @@ beforeEach(() => {
     rentabilidad_neta_motivo: null,
     calidad_datos: { cargos_otro: 0, cargos_migrados: 0, total_cargos: 0 },
   });
-  vi.mocked(listarIngresosPorMedio).mockResolvedValue([]);
   vi.mocked(obtenerDeudas).mockResolvedValue({
     total_adeudado_centavos: 0,
     cantidad_clientes: 0,

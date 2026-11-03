@@ -5,7 +5,6 @@ import { Alerta } from '../../../core/components/ui/Alerta';
 import { Boton } from '../../../core/components/ui/Boton';
 import { formatearDinero } from '../../../core/formatos/dinero';
 import {
-  listarIngresosPorMedio,
   listarResumen,
   mensajeDeError,
   obtenerDeudas,
@@ -16,14 +15,12 @@ import { TarjetaMetrica } from '../components/TarjetaMetrica';
 import type {
   DeudasPanel,
   FiltrosPanel,
-  IngresoPorMedio,
   ResumenPanel,
 } from '../tipos';
 import estilos from '../panel.module.css';
 
 type DatosPanel = {
   resumen: ResumenPanel;
-  porMedio: IngresoPorMedio[];
   deudas: DeudasPanel;
 };
 
@@ -44,17 +41,16 @@ export function Tablero() {
 
     Promise.all([
       listarResumen(filtros, { signal: control.signal }),
-      listarIngresosPorMedio(filtros, { signal: control.signal }),
       obtenerDeudas({ signal: control.signal }),
     ])
-      .then(([resumen, porMedio, deudas]) => {
+      .then(([resumen, deudas]) => {
         if (control.signal.aborted) {
           return;
         }
 
         setCarga({
           estado: 'listo',
-          datos: { resumen, porMedio, deudas },
+          datos: { resumen, deudas },
         });
       })
       .catch((fallo) => {
