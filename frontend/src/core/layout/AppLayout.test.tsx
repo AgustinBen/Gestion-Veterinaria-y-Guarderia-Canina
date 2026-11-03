@@ -105,7 +105,7 @@ describe('AppLayout', () => {
     expect(screen.queryByText(/huellitas en casa/)).not.toBeInTheDocument();
   });
 
-  it('DUENIO ve las secciones sin un enlace separado para nueva reserva', () => {
+  it('DUENIO ve las secciones sin enlaces separados para configuración o nueva reserva', () => {
     renderizar('DUENIO');
 
     expect(enlacesLateral()).toEqual([
@@ -115,9 +115,11 @@ describe('AppLayout', () => {
       'Historia clínica',
       'Cobros',
       'Deudores',
-      'Configuración',
       'Administración',
     ]);
+    expect(
+      within(navegaciones().lateral).queryByRole('link', { name: 'Configuración' }),
+    ).not.toBeInTheDocument();
   });
 
   it('DUENIO ve la cantidad de deudores en el menú', async () => {

@@ -130,6 +130,20 @@ describe('Calendario de guardería', () => {
     );
   });
 
+  it('muestra el acceso a configuración del cupo solo al Dueño', () => {
+    const { unmount } = renderizarCalendario('DUENIO');
+
+    expect(
+      screen.getByRole('link', { name: 'Configurar cupo' }),
+    ).toHaveAttribute('href', '/guarderia/configuracion');
+
+    unmount();
+    renderizarCalendario('PERSONAL');
+    expect(
+      screen.queryByRole('link', { name: 'Configurar cupo' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('mantiene la vista de solo lectura para veterinaria', () => {
     renderizarCalendario('VETERINARIO');
 
@@ -137,6 +151,9 @@ describe('Calendario de guardería', () => {
     expect(screen.queryByRole('link', { name: 'Nueva reserva' })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Habilitar plaza de emergencia' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'Configurar cupo' }),
     ).not.toBeInTheDocument();
   });
 

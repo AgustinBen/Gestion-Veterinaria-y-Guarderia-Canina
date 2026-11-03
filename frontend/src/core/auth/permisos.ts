@@ -134,6 +134,7 @@ const PERMISOS_POR_ROL: Readonly<Record<Rol, Readonly<Record<SeccionId, NivelAcc
  * no otorga permisos, esos viven en PERMISOS_POR_ROL.
  *
  * Fuera del menú pero accesibles por URL (los permisos siguen vigentes):
+ * - Configuración de cupo: se accede desde Calendario y solo la usa DUENIO.
  * - Migración: tarea administrativa de una sola vez, solo DUENIO.
  * - Turnos para DUENIO: la agenda la operan recepción y veterinaria.
  * - Nueva reserva: disponible desde el botón de Calendario, no como enlace independiente.
@@ -150,7 +151,6 @@ const MENU_POR_ROL: Readonly<Record<Rol, readonly SeccionId[]>> = {
     'historia-clinica',
     'cobros',
     'deudores',
-    'configuracion',
     'crear-cuenta',
   ],
   PERSONAL: ['padron', 'calendario', 'cobros', 'turnos'],
