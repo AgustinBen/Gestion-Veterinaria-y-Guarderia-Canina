@@ -447,14 +447,6 @@ export function Calendario() {
               ›
             </button>
           </div>
-          {esDuenio ? (
-            <Link
-              className={estilos.botonConfiguracionCupo}
-              to="/guarderia/configuracion"
-            >
-              Configurar cupo
-            </Link>
-          ) : null}
           <div className={estilos.diasSemana} aria-hidden="true">
             {DIAS_SEMANA.map((dia) => (
               <span key={dia}>{dia}</span>
@@ -780,6 +772,14 @@ export function Calendario() {
           ) : null}
         </aside>
       </div>
+      {esDuenio ? (
+        <Link
+          className={estilos.botonConfiguracionCupo}
+          to={`/guarderia/configuracion?fecha=${fechaSeleccionadaISO}`}
+        >
+          Configurar cupo
+        </Link>
+      ) : null}
     </section>
   );
 }

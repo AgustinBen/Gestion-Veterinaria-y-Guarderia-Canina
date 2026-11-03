@@ -135,7 +135,10 @@ describe('Calendario de guardería', () => {
 
     expect(
       screen.getByRole('link', { name: 'Configurar cupo' }),
-    ).toHaveAttribute('href', '/guarderia/configuracion');
+    ).toHaveAttribute(
+      'href',
+      `/guarderia/configuracion?fecha=${fechaLocal(new Date())}`,
+    );
 
     unmount();
     renderizarCalendario('PERSONAL');

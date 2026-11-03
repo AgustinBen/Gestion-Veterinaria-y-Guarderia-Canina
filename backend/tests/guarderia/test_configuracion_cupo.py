@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.parametros import get_param
+from app.modules.guarderia import service
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import Ocupacion
 from app.modules.identidad.permisos import Rol
@@ -171,3 +172,79 @@ def test_bajar_cupo_muestra_cero_y_exceso_sin_cancelar_reservas(
     assert disponibilidad.json()["exceso_ocupacion"] == (
         minimo + 1 - (minimo - plazas_emergencia)
     )
+
+
+def test_excepcion_por_fecha_persiste_y_se_usa_en_disponibilidad_y_reservas(
+    client: TestClient,
+    db_session: Session,
+    sembrar_cupo,
+    crear_usuario,
+    token_guarderia,
+    crear_pacientes,
+    crear_ocupaciones,
+) -> None:
+    usuario = crear_usuario(Rol.DUENIO)
+    headers = token_guarderia(usuario)
+    minimo = get_param(db_session, "guarderia.cupo_minimo")
+    maximo_permitido = get_param(db_session, "guarderia.cupo_maximo_permitido")
+    plazas_emergencia = get_param(db_session, "guarderia.plazas_emergencia")
+    fecha = date.today() + timedelta(days=1)
+    fecha_sin_excepcion = fecha + timedelta(days=1)
+
+    excepcion = client.put(
+        RUTA_CONFIGURACION,
+        json={"cupo_maximo": minimo, "fecha": fecha.isoformat()},
+        headers=headers,
+    )
+    assert excepcion.status_code == 200
+    assert excepcion.json()["cupo_fecha"] == minimo
+    assert excepcion.json()["fecha_es_excepcion"] is True
+
+    global_actualizado = client.put(
+        RUTA_CONFIGURACION,
+        json={"cupo_maximo": maximo_permitido},
+        headers=headers,
+    )
+    assert global_actualizado.status_code == 200
+
+    configuracion_fecha = client.get(
+        RUTA_CONFIGURACION,
+        params={"fecha": fecha.isoformat()},
+        headers=headers,
+    )
+    assert configuracion_fecha.status_code == 200
+    assert configuracion_fecha.json()["cupo_maximo"] == maximo_permitido
+    assert configuracion_fecha.json()["cupo_fecha"] == minimo
+    assert configuracion_fecha.json()["fecha_es_excepcion"] is True
+
+    filas = client.get(
+        "/api/guarderia/calendario",
+        params={"desde": fecha.isoformat(), "hasta": fecha_sin_excepcion.isoformat()},
+        headers=headers,
+    )
+    assert filas.status_code == 200
+    assert {
+        fila["cupo_maximo"]
+        for fila in filas.json()
+        if fila["fecha"] == fecha.isoformat()
+    } == {minimo}
+    assert {
+        fila["cupo_maximo"]
+        for fila in filas.json()
+        if fila["fecha"] == fecha_sin_excepcion.isoformat()
+    } == {maximo_permitido}
+
+    cupo_publico = minimo - plazas_emergencia
+    ocupados = crear_pacientes([("Perro", None)] * cupo_publico)
+    nuevo = crear_pacientes([("Perro", None)])
+    if ocupados:
+        crear_ocupaciones(ocupados, fecha, Franja.DIA, usuario.id)
+
+    resultado = service.verificar_cupo(
+        db_session,
+        nuevo,
+        (fecha, Franja.DIA),
+        (fecha, Franja.DIA),
+    )
+    assert resultado.aprobado is False
+    assert resultado.codigo == "SIN_CUPO"

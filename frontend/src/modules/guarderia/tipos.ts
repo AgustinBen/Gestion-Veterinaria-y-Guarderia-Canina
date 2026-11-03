@@ -32,6 +32,9 @@ export type ConfiguracionCupo = {
   cupo_maximo: number;
   cupo_minimo: number;
   cupo_maximo_permitido: number;
+  fecha_consultada: string | null;
+  cupo_fecha: number | null;
+  fecha_es_excepcion: boolean;
   sobreocupaciones: SobreocupacionCupo[];
 };
 

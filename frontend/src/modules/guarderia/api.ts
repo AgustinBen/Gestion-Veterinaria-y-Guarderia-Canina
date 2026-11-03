@@ -98,19 +98,28 @@ export function listarCalendario(
 
 export function obtenerConfiguracionCupo(
   opciones: OpcionesLectura = {},
+  fecha?: string,
 ): Promise<ConfiguracionCupo> {
-  return api.get<ConfiguracionCupo>('/guarderia/configuracion/cupo', {
+  const params = new URLSearchParams();
+  if (fecha) {
+    params.set('fecha', fecha);
+  }
+  const queryString = params.toString();
+  const query = queryString ? `?${queryString}` : '';
+
+  return api.get<ConfiguracionCupo>(`/guarderia/configuracion/cupo${query}`, {
     signal: opciones.signal,
   });
 }
 
 export function actualizarConfiguracionCupo(
   cupoMaximo: number,
+  fecha?: string,
   opciones: OpcionesLectura = {},
 ): Promise<ConfiguracionCupo> {
   return api.put<ConfiguracionCupo>(
     '/guarderia/configuracion/cupo',
-    { cupo_maximo: cupoMaximo },
+    { cupo_maximo: cupoMaximo, ...(fecha ? { fecha } : {}) },
     { signal: opciones.signal },
   );
 }

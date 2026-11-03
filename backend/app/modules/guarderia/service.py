@@ -154,7 +154,7 @@ def _armar_disponibilidad(
     )
 
 
-def _ocupaciones_sobre_cupo(db: Session, cupo_maximo: int) -> list[SobreocupacionCupo]:
+def _ocupaciones_sobre_cupo(db: Session) -> list[SobreocupacionCupo]:
     hoy = date.today()
     max_meses = get_param(db, "guarderia.reserva_max_meses")
     if type(max_meses) is not int or max_meses < 0:
@@ -170,12 +170,21 @@ def _ocupaciones_sobre_cupo(db: Session, cupo_maximo: int) -> list[Sobreocupacio
             + cupo.plazas_por_animal(pacientes[ocupacion.paciente_id])
         )
 
-    _, plazas_emergencia = _configuracion_cupo(db)
+    cupo_maximo_global, plazas_emergencia = _configuracion_cupo(db)
+    cupos_por_fecha = repository.listar_configuraciones_cupo_fecha(
+        db, hoy, _sumar_meses(hoy, max_meses)
+    )
     habilitaciones = repository.contar_habilitaciones_por_franja(db, hoy, _sumar_meses(hoy, max_meses))
     sobreocupaciones: list[SobreocupacionCupo] = []
     for (fecha, franja), ocupado in sorted(
         ocupacion_por_franja.items(), key=lambda item: (item[0][0], item[0][1].value)
     ):
+        configuracion_fecha = cupos_por_fecha.get(fecha)
+        cupo_maximo = (
+            configuracion_fecha.cupo_maximo
+            if configuracion_fecha
+            else cupo_maximo_global
+        )
         habilitadas = min(habilitaciones.get((fecha, franja), 0), plazas_emergencia)
         publico = cupo_maximo - plazas_emergencia + habilitadas
         if ocupado > publico:
@@ -191,22 +200,44 @@ def _ocupaciones_sobre_cupo(db: Session, cupo_maximo: int) -> list[Sobreocupacio
     return sobreocupaciones
 
 
-def _configuracion_cupo_out(db: Session) -> ConfiguracionCupoOut:
+def _configuracion_cupo_out(
+    db: Session,
+    fecha: date | None = None,
+) -> ConfiguracionCupoOut:
     cupo_maximo, _ = _configuracion_cupo(db)
     cupo_minimo = get_param(db, "guarderia.cupo_minimo")
     cupo_maximo_permitido = get_param(db, "guarderia.cupo_maximo_permitido")
     if type(cupo_minimo) is not int or type(cupo_maximo_permitido) is not int:
         raise ValueError("Los límites de cupo deben ser enteros")
+    configuracion_fecha = (
+        repository.obtener_configuracion_cupo_fecha(db, fecha)
+        if fecha is not None
+        else None
+    )
     return ConfiguracionCupoOut(
         cupo_maximo=cupo_maximo,
         cupo_minimo=cupo_minimo,
         cupo_maximo_permitido=cupo_maximo_permitido,
-        sobreocupaciones=_ocupaciones_sobre_cupo(db, cupo_maximo),
+        fecha_consultada=fecha,
+        cupo_fecha=(
+            (
+                configuracion_fecha.cupo_maximo
+                if configuracion_fecha
+                else cupo_maximo
+            )
+            if fecha is not None
+            else None
+        ),
+        fecha_es_excepcion=configuracion_fecha is not None,
+        sobreocupaciones=_ocupaciones_sobre_cupo(db),
     )
 
 
-def obtener_configuracion_cupo(db: Session) -> ConfiguracionCupoOut:
-    return _configuracion_cupo_out(db)
+def obtener_configuracion_cupo(
+    db: Session,
+    fecha: date | None = None,
+) -> ConfiguracionCupoOut:
+    return _configuracion_cupo_out(db, fecha)
 
 
 def actualizar_configuracion_cupo(
@@ -215,7 +246,34 @@ def actualizar_configuracion_cupo(
     clave: str,
     valor: int,
     usuario: str,
+    fecha: date | None = None,
 ) -> ConfiguracionCupoOut:
+    if fecha is not None:
+        if clave != "guarderia.cupo_maximo":
+            raise ConfiguracionCupoInvalida(
+                "Solo se puede establecer el cupo máximo para una fecha"
+            )
+        _configuracion_cupo(db)
+        cupo_minimo = get_param(db, "guarderia.cupo_minimo")
+        cupo_maximo_permitido = get_param(db, "guarderia.cupo_maximo_permitido")
+        if (
+            type(valor) is not int
+            or type(cupo_minimo) is not int
+            or type(cupo_maximo_permitido) is not int
+            or cupo_minimo > cupo_maximo_permitido
+            or not cupo_minimo <= valor <= cupo_maximo_permitido
+        ):
+            raise ConfiguracionCupoInvalida(
+                "El cupo por fecha debe estar dentro de los límites configurados"
+            )
+        repository.guardar_configuracion_cupo_fecha(
+            db,
+            fecha=fecha,
+            cupo_maximo=valor,
+            actualizado_por=usuario,
+        )
+        return _configuracion_cupo_out(db, fecha)
+
     claves_cupo = {
         "guarderia.cupo_maximo",
         "guarderia.cupo_minimo",
@@ -269,6 +327,9 @@ def calcular_disponibilidad(
     franja: Franja,
 ) -> Disponibilidad:
     cupo_maximo, plazas_emergencia = _configuracion_cupo(db)
+    configuracion_fecha = repository.obtener_configuracion_cupo_fecha(db, fecha)
+    if configuracion_fecha is not None:
+        cupo_maximo = configuracion_fecha.cupo_maximo
     ocupaciones = repository.listar_ocupaciones(db, fecha, fecha)
     ocupaciones = [
         ocupacion for ocupacion in ocupaciones if ocupacion.franja == franja
@@ -300,6 +361,9 @@ def calendario(db: Session, desde: date, hasta: date) -> list[Disponibilidad]:
         )
 
     cupo_maximo, plazas_emergencia = _configuracion_cupo(db)
+    cupos_por_fecha = repository.listar_configuraciones_cupo_fecha(
+        db, desde, hasta
+    )
     ocupaciones = repository.listar_ocupaciones(db, desde, hasta)
     pacientes = _completar_pacientes_de_ocupaciones(db, ocupaciones)
     ocupacion_por_franja: dict[tuple[date, Franja], int] = {}
@@ -316,11 +380,14 @@ def calendario(db: Session, desde: date, hasta: date) -> list[Disponibilidad]:
     while fecha <= hasta:
         for franja in Franja:
             clave = (fecha, franja)
+            configuracion_fecha = cupos_por_fecha.get(fecha)
             filas.append(
                 _armar_disponibilidad(
                     fecha,
                     franja,
-                    cupo_maximo,
+                    configuracion_fecha.cupo_maximo
+                    if configuracion_fecha is not None
+                    else cupo_maximo,
                     plazas_emergencia,
                     habilitaciones.get(clave, 0),
                     ocupacion_por_franja.get(clave, 0),
@@ -415,6 +482,9 @@ def verificar_cupo(
         )
 
     cupo_maximo, plazas_emergencia = _configuracion_cupo(db)
+    cupos_por_fecha = repository.listar_configuraciones_cupo_fecha(
+        db, desde[0], hasta[0]
+    )
     habilitaciones = repository.contar_habilitaciones_por_franja(
         db, desde[0], hasta[0]
     )
@@ -434,10 +504,13 @@ def verificar_cupo(
     ]
     franjas_sin_lugar: list[FranjaSinLugar] = []
     for fecha, franja in tramos:
+        configuracion_fecha = cupos_por_fecha.get(fecha)
         fila = _armar_disponibilidad(
             fecha,
             franja,
-            cupo_maximo,
+            configuracion_fecha.cupo_maximo
+            if configuracion_fecha is not None
+            else cupo_maximo,
             plazas_emergencia,
             habilitaciones.get((fecha, franja), 0),
             ocupacion_por_franja.get((fecha, franja), 0),

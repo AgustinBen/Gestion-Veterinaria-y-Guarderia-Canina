@@ -44,6 +44,9 @@ class ConfiguracionCupoOut(BaseModel):
     cupo_maximo: int
     cupo_minimo: int
     cupo_maximo_permitido: int
+    fecha_consultada: date | None = None
+    cupo_fecha: int | None = None
+    fecha_es_excepcion: bool = False
     sobreocupaciones: list[SobreocupacionCupo]
 
 
@@ -51,6 +54,7 @@ class ConfiguracionCupoActualizar(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     cupo_maximo: StrictInt
+    fecha: date | None = None
 
 
 class HabilitacionEmergenciaCrear(BaseModel):

@@ -80,6 +80,21 @@ describe('API de guardería', () => {
     );
   });
 
+  it('lee y actualiza la excepción del cupo para una fecha', () => {
+    obtenerConfiguracionCupo({}, '2026-12-14');
+    expect(api.get).toHaveBeenCalledWith(
+      '/guarderia/configuracion/cupo?fecha=2026-12-14',
+      { signal: undefined },
+    );
+
+    actualizarConfiguracionCupo(3, '2026-12-14');
+    expect(api.put).toHaveBeenLastCalledWith(
+      '/guarderia/configuracion/cupo',
+      { cupo_maximo: 3, fecha: '2026-12-14' },
+      { signal: undefined },
+    );
+  });
+
   it('consulta las reservas que se superponen con el rango', () => {
     listarReservas('2026-12-14', '2026-12-20');
 

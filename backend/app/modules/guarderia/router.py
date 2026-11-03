@@ -30,12 +30,13 @@ router = APIRouter(prefix="/api/guarderia", tags=["guarderia"])
 
 @router.get("/configuracion/cupo", response_model=ConfiguracionCupoOut)
 def obtener_configuracion_cupo(
+    fecha: date | None = Query(default=None),
     db: Session = Depends(get_db),
     _usuario: UsuarioActual = Depends(
         require_acceso(Recurso.USUARIOS_CONFIG, Nivel.LECTURA)
     ),
 ) -> ConfiguracionCupoOut:
-    return service.obtener_configuracion_cupo(db)
+    return service.obtener_configuracion_cupo(db, fecha)
 
 
 @router.put("/configuracion/cupo", response_model=ConfiguracionCupoOut)
@@ -52,6 +53,7 @@ def actualizar_configuracion_cupo(
             clave="guarderia.cupo_maximo",
             valor=solicitud.cupo_maximo,
             usuario=usuario.username,
+            fecha=solicitud.fecha,
         )
     except service.ConfiguracionCupoInvalida as exc:
         raise HTTPException(

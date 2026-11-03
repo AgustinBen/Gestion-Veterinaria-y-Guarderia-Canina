@@ -17,6 +17,9 @@ vi.mock('../api', async (importOriginal) => {
       cupo_maximo: 4,
       cupo_minimo: 2,
       cupo_maximo_permitido: 4,
+      fecha_consultada: null,
+      cupo_fecha: null,
+      fecha_es_excepcion: false,
       sobreocupaciones: [],
     }),
   };
