@@ -20,10 +20,15 @@ from app.modules.identidad.schemas import UsuarioActual
 from app.modules.panel import schemas, service
 
 router = APIRouter(prefix="/api/panel", tags=["panel"])
+egresos_router = APIRouter(prefix="/api", tags=["panel"])
 
 
 def _leer_finanzas() -> Callable[..., UsuarioActual]:
     return require_acceso(Recurso.FINANZAS, Nivel.LECTURA)
+
+
+def _escribir_finanzas() -> Callable[..., UsuarioActual]:
+    return require_acceso(Recurso.FINANZAS, Nivel.ESCRITURA)
 
 
 def _periodo_invalido(exc: Exception) -> HTTPException:
@@ -156,4 +161,116 @@ def detalle_cliente(
     except service.PersonaNoEncontrada as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+
+@egresos_router.get(
+    "/categorias-egreso", response_model=list[schemas.CategoriaEgresoOut]
+)
+def listar_categorias_egreso(
+    activa: bool | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_leer_finanzas()),
+) -> list[schemas.CategoriaEgresoOut]:
+    return service.listar_categorias_egreso(db, activa=activa)
+
+
+@egresos_router.post(
+    "/categorias-egreso",
+    response_model=schemas.CategoriaEgresoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_categoria_egreso(
+    datos: schemas.CategoriaEgresoCrear,
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_escribir_finanzas()),
+) -> schemas.CategoriaEgresoOut:
+    try:
+        return service.crear_categoria_egreso(db, datos)
+    except service.CategoriaDuplicada as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    except service.DatosInvalidos as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+
+@egresos_router.patch(
+    "/categorias-egreso/{categoria_id}",
+    response_model=schemas.CategoriaEgresoOut,
+)
+def actualizar_categoria_egreso(
+    categoria_id: int,
+    datos: schemas.CategoriaEgresoActualizar,
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_escribir_finanzas()),
+) -> schemas.CategoriaEgresoOut:
+    try:
+        return service.actualizar_categoria_egreso(db, categoria_id, datos)
+    except service.CategoriaNoEncontrada as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+
+@egresos_router.post(
+    "/egresos",
+    response_model=schemas.EgresoOut,
+    status_code=status.HTTP_201_CREATED,
+)
+def crear_egreso(
+    datos: schemas.EgresoCrear,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(_escribir_finanzas()),
+) -> schemas.EgresoOut:
+    try:
+        return service.crear_egreso(db, datos, usuario_id=usuario.id)
+    except service.DatosInvalidos as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
+        ) from exc
+
+
+@egresos_router.get("/egresos", response_model=list[schemas.EgresoOut])
+def listar_egresos(
+    desde: date | None = Query(default=None),
+    hasta: date | None = Query(default=None),
+    categoria_id: int | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_leer_finanzas()),
+) -> list[schemas.EgresoOut]:
+    try:
+        return service.listar_egresos(
+            db, desde=desde, hasta=hasta, categoria_id=categoria_id
+        )
+    except service.PeriodoInvalido as exc:
+        raise _periodo_invalido(exc) from exc
+
+
+@egresos_router.post(
+    "/egresos/{egreso_id}/anular", response_model=schemas.EgresoOut
+)
+def anular_egreso(
+    egreso_id: int,
+    datos: schemas.EgresoAnular,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(_escribir_finanzas()),
+) -> schemas.EgresoOut:
+    try:
+        return service.anular_egreso(
+            db, egreso_id, motivo=datos.motivo, usuario_id=usuario.id
+        )
+    except service.EgresoNoEncontrado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+    except service.EgresoYaAnulado as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail=str(exc)
+        ) from exc
+    except service.DatosInvalidos as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=str(exc)
         ) from exc

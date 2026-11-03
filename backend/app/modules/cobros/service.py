@@ -692,8 +692,10 @@ def cuenta_paciente(db: Session, paciente_id: int) -> schemas.CuentaPacienteOut:
 
 
 def _gasto_a_out(db: Session, gasto: models.GastoExterno) -> schemas.GastoOut:
-    empleado = padron_service.obtener_empleado(db, gasto.empleado_id)
-    nombre = f"{empleado.nombre} {empleado.apellido}".strip() if empleado else ""
+    nombre = ""
+    if gasto.empleado_id is not None:
+        empleado = padron_service.obtener_empleado(db, gasto.empleado_id)
+        nombre = f"{empleado.nombre} {empleado.apellido}".strip() if empleado else ""
     return schemas.GastoOut(
         id=gasto.id,
         empleado_id=gasto.empleado_id,
@@ -714,7 +716,7 @@ def _gasto_a_out(db: Session, gasto: models.GastoExterno) -> schemas.GastoOut:
 def registrar_gasto_externo(
     db: Session,
     *,
-    empleado_externo_id: int,
+    empleado_externo_id: int | None = None,
     descripcion: str,
     monto_centavos: int,
     fecha: date,
@@ -732,11 +734,12 @@ def registrar_gasto_externo(
     if fecha > hoy:
         raise CobrosError("La fecha no puede ser futura")
 
-    empleado = padron_service.obtener_empleado(db, empleado_externo_id)
-    if empleado is None:
-        raise EmpleadoNoEncontrado("Empleado no encontrado")
-    if empleado.tipo != "EXTERNO":
-        raise EmpleadoNoEsExterno("El empleado no es externo")
+    if empleado_externo_id is not None:
+        empleado = padron_service.obtener_empleado(db, empleado_externo_id)
+        if empleado is None:
+            raise EmpleadoNoEncontrado("Empleado no encontrado")
+        if empleado.tipo != "EXTERNO":
+            raise EmpleadoNoEsExterno("El empleado no es externo")
 
     if cargo_id is not None:
         _obtener_cargo_o_error(db, cargo_id)

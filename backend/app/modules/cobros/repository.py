@@ -263,7 +263,7 @@ def cargos_de_paciente(db: Session, paciente_id: int) -> list[models.Cargo]:
 def crear_gasto_externo(
     db: Session,
     *,
-    empleado_id: int,
+    empleado_id: int | None,
     descripcion: str,
     monto: int,
     fecha: date,
