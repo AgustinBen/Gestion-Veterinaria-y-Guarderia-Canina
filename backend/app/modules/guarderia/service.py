@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.db import transaccion_inmediata
-from app.core.parametros import get_param
+from app.core.parametros import get_param, set_param
 from app.modules.cobros import service as cobros_service
 from app.modules.guarderia import cupo, repository
 from app.modules.guarderia.franjas import Franja
@@ -24,6 +24,7 @@ from app.modules.guarderia.models import (
     ReservaPaciente,
 )
 from app.modules.guarderia.schemas import (
+    ConfiguracionCupoOut,
     Disponibilidad,
     FranjaSinLugar,
     HabilitacionEmergenciaCrear,
@@ -33,6 +34,7 @@ from app.modules.guarderia.schemas import (
     ReservaPacienteOut,
     ReservaSenaCrear,
     ResultadoCupo,
+    SobreocupacionCupo,
 )
 from app.modules.guarderia.tramos import TramoInvalido, franjas_del_tramo
 from app.modules.padron import service as padron_service
@@ -83,6 +85,10 @@ class CupoEmergenciaAgotado(ValueError):
 
 class IdempotenciaCancelacionConflicto(ValueError):
     """Una clave de cancelación se reutilizó para otra reserva."""
+
+
+class ConfiguracionCupoInvalida(ValueError):
+    """El cupo no respeta los límites configurados."""
 
 
 def _configuracion_cupo(db: Session) -> tuple[int, int]:
@@ -143,8 +149,118 @@ def _armar_disponibilidad(
         habilitadas=habilitadas,
         publico=publico,
         ocupado=ocupado,
-        disponible=publico - ocupado,
+        disponible=max(publico - ocupado, 0),
+        exceso_ocupacion=max(ocupado - publico, 0),
     )
+
+
+def _ocupaciones_sobre_cupo(db: Session, cupo_maximo: int) -> list[SobreocupacionCupo]:
+    hoy = date.today()
+    max_meses = get_param(db, "guarderia.reserva_max_meses")
+    if type(max_meses) is not int or max_meses < 0:
+        raise ValueError("La anticipación de reservas debe ser un entero no negativo")
+
+    ocupaciones = repository.listar_ocupaciones(db, hoy, _sumar_meses(hoy, max_meses))
+    pacientes = _completar_pacientes_de_ocupaciones(db, ocupaciones)
+    ocupacion_por_franja: dict[tuple[date, Franja], int] = {}
+    for ocupacion in ocupaciones:
+        clave = (ocupacion.fecha, ocupacion.franja)
+        ocupacion_por_franja[clave] = (
+            ocupacion_por_franja.get(clave, 0)
+            + cupo.plazas_por_animal(pacientes[ocupacion.paciente_id])
+        )
+
+    _, plazas_emergencia = _configuracion_cupo(db)
+    habilitaciones = repository.contar_habilitaciones_por_franja(db, hoy, _sumar_meses(hoy, max_meses))
+    sobreocupaciones: list[SobreocupacionCupo] = []
+    for (fecha, franja), ocupado in sorted(
+        ocupacion_por_franja.items(), key=lambda item: (item[0][0], item[0][1].value)
+    ):
+        habilitadas = min(habilitaciones.get((fecha, franja), 0), plazas_emergencia)
+        publico = cupo_maximo - plazas_emergencia + habilitadas
+        if ocupado > publico:
+            sobreocupaciones.append(
+                SobreocupacionCupo(
+                    fecha=fecha,
+                    franja=franja,
+                    publico=publico,
+                    ocupado=ocupado,
+                    exceso=ocupado - publico,
+                )
+            )
+    return sobreocupaciones
+
+
+def _configuracion_cupo_out(db: Session) -> ConfiguracionCupoOut:
+    cupo_maximo, _ = _configuracion_cupo(db)
+    cupo_minimo = get_param(db, "guarderia.cupo_minimo")
+    cupo_maximo_permitido = get_param(db, "guarderia.cupo_maximo_permitido")
+    if type(cupo_minimo) is not int or type(cupo_maximo_permitido) is not int:
+        raise ValueError("Los límites de cupo deben ser enteros")
+    return ConfiguracionCupoOut(
+        cupo_maximo=cupo_maximo,
+        cupo_minimo=cupo_minimo,
+        cupo_maximo_permitido=cupo_maximo_permitido,
+        sobreocupaciones=_ocupaciones_sobre_cupo(db, cupo_maximo),
+    )
+
+
+def obtener_configuracion_cupo(db: Session) -> ConfiguracionCupoOut:
+    return _configuracion_cupo_out(db)
+
+
+def actualizar_configuracion_cupo(
+    db: Session,
+    *,
+    clave: str,
+    valor: int,
+    usuario: str,
+) -> ConfiguracionCupoOut:
+    claves_cupo = {
+        "guarderia.cupo_maximo",
+        "guarderia.cupo_minimo",
+        "guarderia.cupo_maximo_permitido",
+    }
+    if clave not in claves_cupo:
+        raise ConfiguracionCupoInvalida("Parámetro de cupo desconocido")
+    if type(valor) is not int or valor <= 0:
+        raise ConfiguracionCupoInvalida("El cupo y sus límites deben ser enteros positivos")
+
+    cupo_maximo, _ = _configuracion_cupo(db)
+    cupo_minimo = get_param(db, "guarderia.cupo_minimo")
+    cupo_maximo_permitido = get_param(db, "guarderia.cupo_maximo_permitido")
+    if (
+        type(cupo_minimo) is not int
+        or type(cupo_maximo_permitido) is not int
+        or cupo_minimo > cupo_maximo_permitido
+    ):
+        raise ConfiguracionCupoInvalida("Los límites configurados para el cupo son inválidos")
+
+    nuevo_minimo = valor if clave == "guarderia.cupo_minimo" else cupo_minimo
+    nuevo_limite = (
+        valor
+        if clave == "guarderia.cupo_maximo_permitido"
+        else cupo_maximo_permitido
+    )
+    nuevo_cupo = valor if clave == "guarderia.cupo_maximo" else cupo_maximo
+    if nuevo_minimo > nuevo_limite:
+        raise ConfiguracionCupoInvalida(
+            "El límite mínimo no puede superar el límite máximo permitido"
+        )
+    if not nuevo_minimo <= nuevo_cupo <= nuevo_limite:
+        raise ConfiguracionCupoInvalida(
+            "El cupo máximo debe estar dentro de los límites configurados"
+        )
+
+    set_param(
+        db,
+        clave,
+        valor,
+        "int",
+        modulo="guarderia",
+        updated_by=usuario,
+    )
+    return _configuracion_cupo_out(db)
 
 
 def calcular_disponibilidad(

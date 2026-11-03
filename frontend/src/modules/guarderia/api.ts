@@ -1,6 +1,7 @@
 import { api, ApiError } from '../../core/api/client';
 
 import type {
+  ConfiguracionCupo,
   Disponibilidad,
   ErrorReserva,
   Franja,
@@ -93,6 +94,25 @@ export function listarCalendario(
   return api.get<Disponibilidad[]>(`/guarderia/calendario?${params.toString()}`, {
     signal: opciones.signal,
   });
+}
+
+export function obtenerConfiguracionCupo(
+  opciones: OpcionesLectura = {},
+): Promise<ConfiguracionCupo> {
+  return api.get<ConfiguracionCupo>('/guarderia/configuracion/cupo', {
+    signal: opciones.signal,
+  });
+}
+
+export function actualizarConfiguracionCupo(
+  cupoMaximo: number,
+  opciones: OpcionesLectura = {},
+): Promise<ConfiguracionCupo> {
+  return api.put<ConfiguracionCupo>(
+    '/guarderia/configuracion/cupo',
+    { cupo_maximo: cupoMaximo },
+    { signal: opciones.signal },
+  );
 }
 
 export function listarReservas(

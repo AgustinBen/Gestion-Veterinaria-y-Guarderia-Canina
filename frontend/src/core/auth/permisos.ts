@@ -12,6 +12,7 @@ export type SeccionId =
   | 'cobros'
   | 'deudores'
   | 'migracion'
+  | 'configuracion'
   | 'crear-cuenta';
 
 export type NivelAcceso = 'lectura' | 'escritura';
@@ -64,6 +65,12 @@ export const SECCIONES: readonly Seccion[] = [
     ruta: '/migracion',
   },
   {
+    id: 'configuracion',
+    etiqueta: 'Configuración',
+    etiquetaCorta: 'Configuración',
+    ruta: '/guarderia/configuracion',
+  },
+  {
     id: 'crear-cuenta',
     etiqueta: 'Administración',
     etiquetaCorta: 'Administración',
@@ -87,6 +94,7 @@ const PERMISOS_POR_ROL: Readonly<Record<Rol, Readonly<Record<SeccionId, NivelAcc
     cobros: 'escritura',
     deudores: 'escritura',
     migracion: 'escritura',
+    configuracion: 'escritura',
     'crear-cuenta': 'escritura',
   },
   PERSONAL: {
@@ -103,6 +111,7 @@ const PERMISOS_POR_ROL: Readonly<Record<Rol, Readonly<Record<SeccionId, NivelAcc
     // Personal sigue viendo la deuda del cliente dentro de su cuenta.
     deudores: null,
     migracion: null,
+    configuracion: null,
     'crear-cuenta': null,
   },
   VETERINARIO: {
@@ -115,6 +124,7 @@ const PERMISOS_POR_ROL: Readonly<Record<Rol, Readonly<Record<SeccionId, NivelAcc
     cobros: null,
     deudores: null,
     migracion: null,
+    configuracion: null,
     'crear-cuenta': null,
   },
 };
@@ -140,6 +150,7 @@ const MENU_POR_ROL: Readonly<Record<Rol, readonly SeccionId[]>> = {
     'historia-clinica',
     'cobros',
     'deudores',
+    'configuracion',
     'crear-cuenta',
   ],
   PERSONAL: ['padron', 'calendario', 'cobros', 'turnos'],

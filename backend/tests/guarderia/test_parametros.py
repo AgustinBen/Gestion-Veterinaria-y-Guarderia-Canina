@@ -11,6 +11,8 @@ from app.core.models import Configuracion
 from app.core.parametros import ParametroNoDefinido, get_param, set_param
 from app.modules.guarderia.seed import (
     CUPO_MAXIMO_INICIAL,
+    CUPO_MAXIMO_PERMITIDO_INICIAL,
+    CUPO_MINIMO_INICIAL,
     DESCUENTO_MULTIMASCOTA_PCT_INICIAL,
     PLAZAS_EMERGENCIA_INICIAL,
     RESERVA_MAX_MESES_INICIAL,
@@ -29,12 +31,16 @@ def test_sembrar_parametros_crea_valores_con_tipos_correctos(db_session) -> None
     sembrar_parametros(db_session)
 
     cupo = get_param(db_session, "guarderia.cupo_maximo")
+    cupo_minimo = get_param(db_session, "guarderia.cupo_minimo")
+    cupo_maximo_permitido = get_param(db_session, "guarderia.cupo_maximo_permitido")
     plazas_emergencia = get_param(db_session, "guarderia.plazas_emergencia")
     reserva_max_meses = get_param(db_session, "guarderia.reserva_max_meses")
     descuento = get_param(db_session, "guarderia.descuento_multimascota_pct")
 
     assert cupo == CUPO_MAXIMO_INICIAL
     assert isinstance(cupo, int)
+    assert cupo_minimo == CUPO_MINIMO_INICIAL
+    assert cupo_maximo_permitido == CUPO_MAXIMO_PERMITIDO_INICIAL
     assert plazas_emergencia == PLAZAS_EMERGENCIA_INICIAL
     assert isinstance(plazas_emergencia, int)
     assert reserva_max_meses == RESERVA_MAX_MESES_INICIAL

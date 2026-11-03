@@ -77,6 +77,7 @@ beforeEach(() => {
     publico: 3,
     ocupado: 0,
     disponible: 3,
+    exceso_ocupacion: 0,
   });
 });
 
@@ -152,6 +153,7 @@ describe('Calendario de guardería', () => {
         publico: 2,
         ocupado: 1,
         disponible: 1,
+        exceso_ocupacion: 0,
       },
       {
         fecha: hoy,
@@ -162,6 +164,7 @@ describe('Calendario de guardería', () => {
         publico: 2,
         ocupado: cupoConfigurado,
         disponible: 0,
+        exceso_ocupacion: 0,
       },
     ]);
     vi.mocked(listarReservas).mockResolvedValue([
@@ -196,6 +199,31 @@ describe('Calendario de guardería', () => {
     );
     expect(screen.queryByRole('link', { name: 'Reserva #72' })).not.toBeInTheDocument();
     expect(screen.getByText(/Día · Noche/)).toBeInTheDocument();
+  });
+
+  it('informa el exceso de ocupación y disponibilidad cero en el calendario', async () => {
+    const hoy = fechaLocal(new Date());
+    vi.mocked(listarCalendario).mockResolvedValue([
+      {
+        fecha: hoy,
+        franja: 'DIA',
+        cupo_maximo: 2,
+        plazas_emergencia: 1,
+        habilitadas: 0,
+        publico: 1,
+        ocupado: 3,
+        disponible: 0,
+        exceso_ocupacion: 2,
+      },
+    ]);
+
+    renderizarCalendario('DUENIO');
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Día: 3 ocupadas de 1, Sobreocupado por 2',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('permite al Dueño habilitar una plaza de emergencia para el día seleccionado', async () => {

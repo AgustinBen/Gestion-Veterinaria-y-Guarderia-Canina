@@ -6,6 +6,7 @@ import { puedeAcceder } from '../../../core/auth/permisos';
 import { Boton } from '../../../core/components/ui/Boton';
 import { Campo } from '../../../core/components/ui/Campo';
 import { obtenerPaciente } from '../../padron/api';
+import { ChipFranja } from '../components/ChipFranja';
 import {
   generarIdempotencyKey,
   habilitarPlazaEmergencia,
@@ -154,6 +155,7 @@ function nombreFranja(franja: Franja): string {
 
 export function Calendario() {
   const [fechaSeleccionada, setFechaSeleccionada] = useState(() => new Date());
+  const [franjaSeleccionada, setFranjaSeleccionada] = useState<Franja>('DIA');
   const [reintento, setReintento] = useState(0);
   const [carga, setCarga] = useState<CargaAgenda>({
     periodo: '',
@@ -232,6 +234,12 @@ export function Calendario() {
             item.franja === franjaEmergencia,
         )
       : undefined;
+  const disponibilidadDelDia =
+    cargaDelMes.estado === 'lista'
+      ? cargaDelMes.disponibilidad.filter(
+          (item) => item.fecha === fechaSeleccionadaISO,
+        )
+      : [];
   const emergenciaAgotada =
     disponibilidadEmergencia !== undefined &&
     disponibilidadEmergencia.habilitadas >=
@@ -544,6 +552,34 @@ export function Calendario() {
         <aside className={estilos.panelDia} aria-labelledby="titulo-agenda-dia">
           <p className={estilos.antetituloPanel}>Agenda del día</p>
           <h2 id="titulo-agenda-dia">{fechaLarga}</h2>
+
+          <section
+            className={estilos.seccionAgenda}
+            aria-labelledby="titulo-disponibilidad"
+          >
+            <div className={estilos.encabezadoAgenda}>
+              <IconoAgenda tipo="guarderia" />
+              <h3 id="titulo-disponibilidad">Disponibilidad de guardería</h3>
+            </div>
+            {cargaDelMes.estado === 'cargando' ? (
+              <p className={estilos.vacioAgenda} role="status">
+                Cargando disponibilidad…
+              </p>
+            ) : (
+              (['DIA', 'NOCHE'] as const).map((franja) => (
+                <ChipFranja
+                  disponibilidad={
+                    disponibilidadDelDia.find((item) => item.franja === franja) ??
+                    null
+                  }
+                  franja={franja}
+                  key={franja}
+                  onSeleccionar={() => setFranjaSeleccionada(franja)}
+                  seleccionada={franjaSeleccionada === franja}
+                />
+              ))
+            )}
+          </section>
 
           <section className={estilos.seccionAgenda} aria-labelledby="titulo-reservas">
             <div className={estilos.encabezadoAgenda}>

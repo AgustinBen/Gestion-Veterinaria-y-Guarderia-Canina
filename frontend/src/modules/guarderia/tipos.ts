@@ -17,6 +17,22 @@ export type Disponibilidad = {
   publico: number;
   ocupado: number;
   disponible: number;
+  exceso_ocupacion: number;
+};
+
+export type SobreocupacionCupo = {
+  fecha: string;
+  franja: Franja;
+  publico: number;
+  ocupado: number;
+  exceso: number;
+};
+
+export type ConfiguracionCupo = {
+  cupo_maximo: number;
+  cupo_minimo: number;
+  cupo_maximo_permitido: number;
+  sobreocupaciones: SobreocupacionCupo[];
 };
 
 export type HabilitacionEmergenciaCrear = {

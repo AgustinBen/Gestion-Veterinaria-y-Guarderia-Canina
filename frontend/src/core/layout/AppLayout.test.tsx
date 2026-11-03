@@ -33,6 +33,10 @@ function renderizar(rol: Rol, ruta = '/padron') {
             <Route path="/panel" element={<h1>Panel</h1>} />
             <Route path="/padron" element={<h1>Dueños y mascotas</h1>} />
             <Route path="/guarderia/calendario" element={<h1>Calendario</h1>} />
+            <Route
+              path="/guarderia/configuracion"
+              element={<h1>Configuración</h1>}
+            />
             <Route path="/guarderia/nueva" element={<h1>Nueva reserva</h1>} />
             <Route path="/turnos" element={<h1>Turnos</h1>} />
             <Route path="/historia-clinica" element={<h1>Historia clínica</h1>} />
@@ -111,6 +115,7 @@ describe('AppLayout', () => {
       'Historia clínica',
       'Cobros',
       'Deudores',
+      'Configuración',
       'Administración',
     ]);
   });
@@ -278,6 +283,7 @@ describe('AppLayout', () => {
     ['/guarderia/calendario', 'Calendario'],
     ['/guarderia/nueva', 'Nueva reserva'],
     ['/historia-clinica', 'Historia clínica'],
+    ['/guarderia/configuracion', 'Configuración'],
     ['/identidad/crear-cuenta', 'Administración'],
     ['/turnos', 'Turnos'],
     ['/migracion', 'Migración'],
