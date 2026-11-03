@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.modules.cobros import service as cobros_service
 from app.modules.padron import service as padron_service
+from app.modules.panel import models as panel_models
 from app.modules.panel import repository, schemas
 
 MOTIVO_MEDIO = (
@@ -39,6 +40,26 @@ class PeriodoInvalido(ValueError):
 
 
 class PersonaNoEncontrada(LookupError):
+    pass
+
+
+class DatosInvalidos(ValueError):
+    pass
+
+
+class CategoriaNoEncontrada(LookupError):
+    pass
+
+
+class CategoriaDuplicada(ValueError):
+    pass
+
+
+class EgresoNoEncontrado(LookupError):
+    pass
+
+
+class EgresoYaAnulado(ValueError):
     pass
 
 
@@ -283,6 +304,128 @@ def deudas(db: Session) -> schemas.DeudasPanelOut:
         deuda_migracion_centavos=resumen_deudas.migracion_centavos,
         mayores_deudores=mayores,
     )
+
+
+def _normalizar_nombre(texto: str) -> str:
+    return " ".join(texto.strip().lower().split())
+
+
+def _egreso_out(
+    egreso: panel_models.Egreso, categoria_nombre: str
+) -> schemas.EgresoOut:
+    return schemas.EgresoOut(
+        id=egreso.id,
+        fecha=egreso.fecha,
+        monto_centavos=egreso.monto_centavos,
+        categoria_id=egreso.categoria_id,
+        categoria_nombre=categoria_nombre,
+        descripcion=egreso.descripcion,
+        medio_pago_id=egreso.medio_pago_id,
+        registrado_por=egreso.registrado_por,
+        created_at=egreso.created_at,
+        anulado_en=egreso.anulado_en,
+        anulado_por=egreso.anulado_por,
+        motivo_anulacion=egreso.motivo_anulacion,
+    )
+
+
+def listar_categorias_egreso(
+    db: Session, *, activa: bool | None = None
+) -> list[schemas.CategoriaEgresoOut]:
+    return [
+        schemas.CategoriaEgresoOut.model_validate(categoria)
+        for categoria in repository.listar_categorias(db, activa=activa)
+    ]
+
+
+def crear_categoria_egreso(
+    db: Session, datos: schemas.CategoriaEgresoCrear
+) -> schemas.CategoriaEgresoOut:
+    nombre = datos.nombre.strip()
+    if not nombre:
+        raise DatosInvalidos("El nombre de la categoría no puede estar vacío.")
+    normalizado = _normalizar_nombre(nombre)
+    if repository.categoria_por_normalizado(db, normalizado) is not None:
+        raise CategoriaDuplicada("Ya existe una categoría con ese nombre.")
+    categoria = repository.crear_categoria(
+        db, nombre=nombre, nombre_normalizado=normalizado
+    )
+    return schemas.CategoriaEgresoOut.model_validate(categoria)
+
+
+def actualizar_categoria_egreso(
+    db: Session, categoria_id: int, datos: schemas.CategoriaEgresoActualizar
+) -> schemas.CategoriaEgresoOut:
+    categoria = repository.obtener_categoria(db, categoria_id)
+    if categoria is None:
+        raise CategoriaNoEncontrada("Categoría no encontrada")
+    categoria.activa = datos.activa
+    return schemas.CategoriaEgresoOut.model_validate(
+        repository.guardar_categoria(db, categoria)
+    )
+
+
+def crear_egreso(
+    db: Session, datos: schemas.EgresoCrear, *, usuario_id: int
+) -> schemas.EgresoOut:
+    if repository.listar_categorias(db) == []:
+        raise DatosInvalidos("Cree una categoría primero.")
+    categoria = repository.obtener_categoria(db, datos.categoria_id)
+    if categoria is None:
+        raise DatosInvalidos("La categoría no existe.")
+    if not categoria.activa:
+        raise DatosInvalidos("La categoría está desactivada.")
+    descripcion = datos.descripcion.strip()
+    if not descripcion:
+        raise DatosInvalidos("La descripción no puede estar vacía.")
+    if datos.fecha > _hoy_negocio():
+        raise DatosInvalidos("La fecha no puede ser futura.")
+    egreso = repository.crear_egreso(
+        db,
+        fecha=datos.fecha,
+        monto_centavos=datos.monto_centavos,
+        categoria_id=datos.categoria_id,
+        descripcion=descripcion,
+        medio_pago_id=datos.medio_pago_id,
+        registrado_por=usuario_id,
+    )
+    return _egreso_out(egreso, categoria.nombre)
+
+
+def listar_egresos(
+    db: Session,
+    *,
+    desde: date | None = None,
+    hasta: date | None = None,
+    categoria_id: int | None = None,
+) -> list[schemas.EgresoOut]:
+    inicio, fin = resolver_periodo(desde, hasta)
+    filas = repository.listar_egresos(
+        db, desde=inicio, hasta=fin, categoria_id=categoria_id
+    )
+    return [
+        _egreso_out(fila[0], fila[1])
+        for fila in filas
+    ]
+
+
+def anular_egreso(
+    db: Session, egreso_id: int, *, motivo: str, usuario_id: int
+) -> schemas.EgresoOut:
+    egreso = repository.obtener_egreso(db, egreso_id)
+    if egreso is None:
+        raise EgresoNoEncontrado("Egreso no encontrado")
+    if egreso.anulado_en is not None:
+        raise EgresoYaAnulado("El egreso ya está anulado.")
+    motivo_limpio = motivo.strip()
+    if not motivo_limpio:
+        raise DatosInvalidos("El motivo de anulación es obligatorio.")
+    egreso.anulado_en = datetime.now(timezone.utc)
+    egreso.anulado_por = usuario_id
+    egreso.motivo_anulacion = motivo_limpio
+    repository.guardar_egreso(db, egreso)
+    categoria = repository.obtener_categoria(db, egreso.categoria_id)
+    return _egreso_out(egreso, categoria.nombre if categoria else "")
 
 
 def detalle_cliente(db: Session, persona_id: int) -> schemas.DetalleClienteOut:
