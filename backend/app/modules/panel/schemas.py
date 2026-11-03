@@ -6,9 +6,9 @@ rentabilidad (RN-40).
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CalidadDatosOut(BaseModel):
@@ -86,3 +86,54 @@ class DetalleClienteOut(BaseModel):
     nombre: str
     apellido: str
     servicios: list[ServicioClienteOut]
+
+
+class CategoriaEgresoOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    nombre: str
+    activa: bool
+
+
+class CategoriaEgresoCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    nombre: str = Field(min_length=1, max_length=80)
+
+
+class CategoriaEgresoActualizar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    activa: bool
+
+
+class EgresoCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    fecha: date
+    monto_centavos: int = Field(gt=0, strict=True)
+    categoria_id: int
+    descripcion: str = Field(min_length=1, max_length=255)
+    medio_pago_id: int | None = None
+
+
+class EgresoAnular(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    motivo: str = Field(min_length=1, max_length=255)
+
+
+class EgresoOut(BaseModel):
+    id: int
+    fecha: date
+    monto_centavos: int
+    categoria_id: int
+    categoria_nombre: str
+    descripcion: str
+    medio_pago_id: int | None
+    registrado_por: int
+    created_at: datetime
+    anulado_en: datetime | None
+    anulado_por: int | None
+    motivo_anulacion: str | None

@@ -182,7 +182,9 @@ class GastoExterno(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    empleado_id: Mapped[int] = mapped_column(ForeignKey("empleado.persona_id"), nullable=False)
+    empleado_id: Mapped[int | None] = mapped_column(
+        ForeignKey("empleado.persona_id"), nullable=True
+    )
     descripcion: Mapped[str] = mapped_column(String(255), nullable=False)
     monto: Mapped[int] = mapped_column(Integer, nullable=False)
     fecha: Mapped[date] = mapped_column(Date, nullable=False)

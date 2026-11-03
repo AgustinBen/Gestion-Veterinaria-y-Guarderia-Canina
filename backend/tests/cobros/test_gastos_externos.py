@@ -240,6 +240,25 @@ def test_gasto_suelto_permitido(
     assert respuesta.json()["pago_id"] is None
 
 
+def test_gasto_sin_externo_permitido(
+    client: TestClient, referencias_cobros
+) -> None:
+    headers = _auth_token(client, "duenio-cobros")
+    respuesta = _crear_gasto(
+        client, headers, referencias_cobros, empleado_id=None
+    )
+
+    assert respuesta.status_code == 201
+    data = respuesta.json()
+    assert data["empleado_id"] is None
+    assert data["empleado_nombre"] == ""
+
+    listado = client.get("/api/gastos-externos", headers=headers)
+    assert listado.status_code == 200
+    assert listado.json()["items"][0]["empleado_id"] is None
+    assert listado.json()["total_centavos"] == 40000
+
+
 def test_filtros_y_total_solo_suma_no_anulados(
     client: TestClient,
     db_session: Session,

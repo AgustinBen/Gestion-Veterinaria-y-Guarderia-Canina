@@ -50,7 +50,8 @@ def _recrear_triggers(update: str) -> None:
 
 
 def upgrade() -> None:
-    # El batch de SQLite recrea la tabla y con ella se pierden sus triggers.
+    # El batch de SQLite agrega la columna con un ALTER nativo: los triggers
+    # de inmutabilidad siguen existiendo y bloquearían los UPDATE de abajo.
     with op.batch_alter_table("cargo") as batch_op:
         batch_op.add_column(
             sa.Column(
@@ -60,6 +61,9 @@ def upgrade() -> None:
                 nullable=False,
             )
         )
+
+    op.execute("DROP TRIGGER IF EXISTS trg_cargo_no_update")
+    op.execute("DROP TRIGGER IF EXISTS trg_cargo_no_delete")
 
     op.execute(
         "UPDATE cargo SET tipo_servicio = 'GUARDERIA' "
