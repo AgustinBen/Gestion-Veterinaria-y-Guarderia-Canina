@@ -186,7 +186,7 @@ class ResumenDeuda(BaseModel):
 class GastoExternoCrear(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    empleado_id: int
+    empleado_id: int | None = None
     descripcion: str = Field(min_length=1)
     monto_centavos: int = Field(gt=0, strict=True)
     fecha: date
@@ -202,7 +202,7 @@ class GastoAnular(BaseModel):
 
 class GastoOut(BaseModel):
     id: int
-    empleado_id: int
+    empleado_id: int | None
     empleado_nombre: str
     descripcion: str
     monto_centavos: int
