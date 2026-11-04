@@ -539,6 +539,14 @@ export function Calendario() {
             <span><i className={estilos.muestraDia} /> Día</span>
             <span><i className={estilos.muestraNoche} /> Noche</span>
           </div>
+          {esDuenio ? (
+            <Link
+              className={estilos.botonConfiguracionCupo}
+              to={`/guarderia/configuracion?fecha=${fechaSeleccionadaISO}`}
+            >
+              Configurar cupo
+            </Link>
+          ) : null}
         </section>
 
         <aside className={estilos.panelDia} aria-labelledby="titulo-agenda-dia">

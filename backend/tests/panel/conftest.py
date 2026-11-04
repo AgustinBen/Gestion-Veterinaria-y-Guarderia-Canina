@@ -28,6 +28,7 @@ from app.modules.padron import service as padron_service
 from app.modules.padron.schemas import EmpleadoNuevo, PacienteNuevo, PersonaNueva
 from app.modules.padron.seed import sembrar_especies_tamanios_tipo_contacto
 from app.modules.panel import models as panel_models
+from app.modules.panel import service as panel_service
 
 PASSWORD = "clave-de-prueba-segura"
 
@@ -88,7 +89,7 @@ def panel_escenario(db_session: Session) -> EscenarioPanel:
         ),
     )
 
-    hoy = date.today()
+    hoy = panel_service._hoy_negocio()
     fecha = hoy - timedelta(days=5)
     desde = hoy - timedelta(days=10)
     hasta = hoy + timedelta(days=10)

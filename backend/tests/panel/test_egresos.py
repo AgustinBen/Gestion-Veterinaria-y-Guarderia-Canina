@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.modules.panel import models as panel_models
+from app.modules.panel import service as panel_service
 from tests.panel.conftest import EscenarioPanel
 
 
@@ -58,7 +59,7 @@ def test_alta_de_egreso_en_centavos_y_listado(
     panel_escenario: EscenarioPanel,
 ) -> None:
     categoria = _categoria(client, tokens["duenio"], "Insumos")
-    hoy = date.today()
+    hoy = panel_service._hoy_negocio()
     alta = client.post(
         "/api/egresos",
         json={
@@ -95,7 +96,7 @@ def test_sin_categorias_no_permite_egresos(
     respuesta = client.post(
         "/api/egresos",
         json={
-            "fecha": date.today().isoformat(),
+            "fecha": panel_service._hoy_negocio().isoformat(),
             "monto_centavos": 1_000,
             "categoria_id": 1,
             "descripcion": "Luz",
@@ -120,7 +121,7 @@ def test_categoria_inactiva_y_fecha_futura_422(
     inactiva = client.post(
         "/api/egresos",
         json={
-            "fecha": date.today().isoformat(),
+            "fecha": panel_service._hoy_negocio().isoformat(),
             "monto_centavos": 1_000,
             "categoria_id": categoria["id"],
             "descripcion": "Luz",
@@ -133,7 +134,7 @@ def test_categoria_inactiva_y_fecha_futura_422(
     futura = client.post(
         "/api/egresos",
         json={
-            "fecha": (date.today() + timedelta(days=1)).isoformat(),
+            "fecha": (panel_service._hoy_negocio() + timedelta(days=1)).isoformat(),
             "monto_centavos": 1_000,
             "categoria_id": otra["id"],
             "descripcion": "Luz",
@@ -153,7 +154,7 @@ def test_montos_invalidos_422(
         respuesta = client.post(
             "/api/egresos",
             json={
-                "fecha": date.today().isoformat(),
+                "fecha": panel_service._hoy_negocio().isoformat(),
                 "monto_centavos": monto,
                 "categoria_id": categoria["id"],
                 "descripcion": "Luz",
@@ -172,13 +173,14 @@ def test_anular_exige_motivo_y_no_se_repite(
     alta = client.post(
         "/api/egresos",
         json={
-            "fecha": date.today().isoformat(),
+            "fecha": panel_service._hoy_negocio().isoformat(),
             "monto_centavos": 5_000,
             "categoria_id": categoria["id"],
             "descripcion": "Luz",
         },
         headers=tokens["duenio"],
     )
+    assert alta.status_code == 201, alta.text
     egreso_id = alta.json()["id"]
 
     sin_motivo = client.post(

@@ -201,6 +201,12 @@
   background: var(--color-danger-soft);
 }
 
+.chipSobrecupo {
+  border: 2px solid var(--color-danger);
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
 .chipSeleccionado {
   outline: 3px solid var(--color-primary);
   outline-offset: 1px;

@@ -13,6 +13,15 @@ vi.mock('../api', async (importOriginal) => {
   return {
     ...actual,
     listarCalendario: vi.fn().mockResolvedValue([]),
+    obtenerConfiguracionCupo: vi.fn().mockResolvedValue({
+      cupo_maximo: 4,
+      cupo_minimo: 2,
+      cupo_maximo_permitido: 4,
+      fecha_consultada: null,
+      cupo_fecha: null,
+      fecha_es_excepcion: false,
+      sobreocupaciones: [],
+    }),
   };
 });
 
@@ -51,6 +60,24 @@ function renderizar(rol: Rol, ruta: string) {
 }
 
 describe('rutas de guardería y permisos', () => {
+  it('solo DUENIO puede abrir la configuración del cupo', async () => {
+    renderizar('DUENIO', '/guarderia/configuracion');
+
+    expect(
+      await screen.findByRole('heading', { name: 'Configuración del cupo' }),
+    ).toBeInTheDocument();
+  });
+
+  it.each(['PERSONAL', 'VETERINARIO'] as const)(
+    '%s no puede abrir la configuración del cupo por URL',
+    async (rol) => {
+      renderizar(rol, '/guarderia/configuracion');
+
+      expect(await screen.findByText('Sin acceso')).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Guardar cupo' })).not.toBeInTheDocument();
+    },
+  );
+
   it('PERSONAL puede abrir calendario y crear reservas', async () => {
     renderizar('PERSONAL', '/guarderia/calendario');
 

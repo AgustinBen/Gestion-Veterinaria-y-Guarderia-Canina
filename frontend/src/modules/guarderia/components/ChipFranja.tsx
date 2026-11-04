@@ -28,8 +28,17 @@ export function ChipFranja({
   }
 
   const completo = disponibilidad.disponible <= 0;
-  const estado = completo ? 'Completo' : 'Con lugar';
-  const claseEstado = completo ? estilos.chipCompleto : estilos.chipConLugar;
+  const sobreocupado = disponibilidad.exceso_ocupacion > 0;
+  const estado = sobreocupado
+    ? `Sobreocupado por ${disponibilidad.exceso_ocupacion}`
+    : completo
+      ? 'Completo'
+      : 'Con lugar';
+  const claseEstado = sobreocupado
+    ? estilos.chipSobrecupo
+    : completo
+      ? estilos.chipCompleto
+      : estilos.chipConLugar;
 
   return (
     <div className={estilos.franja}>
@@ -65,6 +74,12 @@ export function ChipFranja({
             <dt>Habilitadas</dt>
             <dd>{disponibilidad.habilitadas}</dd>
           </div>
+          {sobreocupado ? (
+            <div>
+              <dt>Exceso sobre el cupo</dt>
+              <dd>{disponibilidad.exceso_ocupacion}</dd>
+            </div>
+          ) : null}
         </dl>
       ) : null}
     </div>

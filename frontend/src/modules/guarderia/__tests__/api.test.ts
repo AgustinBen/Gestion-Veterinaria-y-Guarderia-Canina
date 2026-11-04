@@ -3,12 +3,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError, api } from '../../../core/api/client';
 import {
   crearReserva,
+  actualizarConfiguracionCupo,
   cancelarReserva,
   habilitarPlazaEmergencia,
   leerErrorReserva,
   listarCalendario,
   listarReservas,
   obtenerReserva,
+  obtenerConfiguracionCupo,
   registrarSena,
 } from '../api';
 import type { ReservaCrear } from '../tipos';
@@ -21,6 +23,7 @@ vi.mock('../../../core/api/client', async (importOriginal) => {
     api: {
       get: vi.fn(),
       post: vi.fn(),
+      put: vi.fn(),
     },
   };
 });
@@ -46,6 +49,7 @@ const SOLICITUD: ReservaCrear = {
 beforeEach(() => {
   vi.mocked(api.get).mockReset();
   vi.mocked(api.post).mockReset();
+  vi.mocked(api.put).mockReset();
 });
 
 describe('API de guardería', () => {
@@ -54,6 +58,39 @@ describe('API de guardería', () => {
 
     expect(api.get).toHaveBeenCalledWith(
       '/guarderia/calendario?desde=2026-12-14&hasta=2026-12-20',
+      { signal: undefined },
+    );
+  });
+
+  it('lee la configuración del cupo', () => {
+    obtenerConfiguracionCupo({ signal: undefined });
+
+    expect(api.get).toHaveBeenCalledWith('/guarderia/configuracion/cupo', {
+      signal: undefined,
+    });
+  });
+
+  it('actualiza el cupo máximo con el endpoint de guardería', () => {
+    actualizarConfiguracionCupo(3);
+
+    expect(api.put).toHaveBeenCalledWith(
+      '/guarderia/configuracion/cupo',
+      { cupo_maximo: 3 },
+      { signal: undefined },
+    );
+  });
+
+  it('lee y actualiza la excepción del cupo para una fecha', () => {
+    obtenerConfiguracionCupo({}, '2026-12-14');
+    expect(api.get).toHaveBeenCalledWith(
+      '/guarderia/configuracion/cupo?fecha=2026-12-14',
+      { signal: undefined },
+    );
+
+    actualizarConfiguracionCupo(3, '2026-12-14');
+    expect(api.put).toHaveBeenLastCalledWith(
+      '/guarderia/configuracion/cupo',
+      { cupo_maximo: 3, fecha: '2026-12-14' },
       { signal: undefined },
     );
   });

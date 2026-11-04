@@ -2,7 +2,7 @@ from datetime import date
 
 from sqlalchemy import func, select
 
-from app.core.parametros import set_param
+from app.core.parametros import get_param, set_param
 from app.modules.guarderia import cupo, service
 from app.modules.guarderia.cupo import plazas_por_animal
 from app.modules.guarderia.franjas import Franja
@@ -32,6 +32,12 @@ def _perros(cantidad: int) -> list[tuple[str, str | None]]:
     return [("Perro", None) for _ in range(cantidad)]
 
 
+def _cupo_publico(db_session) -> int:
+    return get_param(
+        db_session, "guarderia.cupo_maximo"
+    ) - get_param(db_session, "guarderia.plazas_emergencia")
+
+
 def _habilitar(
     db_session,
     fecha: date,
@@ -57,7 +63,8 @@ def test_lleno_justo_acepta_una_reserva(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
-    ocupados = crear_pacientes(_perros(8))
+    cupo_publico = _cupo_publico(db_session)
+    ocupados = crear_pacientes(_perros(cupo_publico - 1))
     nuevo = crear_pacientes(_perros(1))
     crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
 
@@ -66,8 +73,8 @@ def test_lleno_justo_acepta_una_reserva(
         db_session, nuevo, (FECHA, Franja.DIA), (FECHA, Franja.DIA)
     )
 
-    assert disponibilidad.publico == 9
-    assert disponibilidad.ocupado == 8
+    assert disponibilidad.publico == cupo_publico
+    assert disponibilidad.ocupado == cupo_publico - 1
     assert disponibilidad.disponible == 1
     assert resultado.aprobado is True
     assert resultado.codigo == "DISPONIBLE"
@@ -81,7 +88,7 @@ def test_uno_mas_rechaza_y_detalla_fecha_y_franja(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
-    ocupados = crear_pacientes(_perros(9))
+    ocupados = crear_pacientes(_perros(_cupo_publico(db_session)))
     nuevo = crear_pacientes(_perros(1))
     crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
 
@@ -109,11 +116,14 @@ def test_perros_y_gatos_comparten_cupo_y_tamanio_no_interviene(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
+    cupo_publico = _cupo_publico(db_session)
     perros = crear_pacientes(
         [("Perro", "Grande"), ("Perro", "Mediano"), ("Perro", "Chico")]
         + _perros(2)
     )
-    gatos = crear_pacientes([("Gato", None) for _ in range(4)])
+    gatos = crear_pacientes(
+        [("Gato", None) for _ in range(cupo_publico - len(perros))]
+    )
     nuevo = crear_pacientes([("Gato", None)])
     crear_ocupaciones(perros + gatos, FECHA, Franja.DIA, usuario.id)
 
@@ -122,7 +132,7 @@ def test_perros_y_gatos_comparten_cupo_y_tamanio_no_interviene(
         db_session, nuevo, (FECHA, Franja.DIA), (FECHA, Franja.DIA)
     )
 
-    assert disponibilidad.ocupado == 9
+    assert disponibilidad.ocupado == cupo_publico
     assert resultado.codigo == "SIN_CUPO"
 
 
@@ -134,7 +144,7 @@ def test_dia_lleno_no_impide_reservar_noche(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
-    ocupados = crear_pacientes(_perros(9))
+    ocupados = crear_pacientes(_perros(_cupo_publico(db_session)))
     nuevo = crear_pacientes(_perros(1))
     crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
 
@@ -154,7 +164,7 @@ def test_estadia_de_24_horas_se_rechaza_si_una_franja_esta_llena(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
-    ocupados = crear_pacientes(_perros(9))
+    ocupados = crear_pacientes(_perros(_cupo_publico(db_session)))
     nuevo = crear_pacientes(_perros(1))
     crear_ocupaciones(ocupados, FECHA, Franja.NOCHE, usuario.id)
 
@@ -179,7 +189,8 @@ def test_habilitacion_emergencia_es_por_fecha_y_limitada_por_configuracion(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
-    ocupados = crear_pacientes(_perros(9))
+    cupo_publico = _cupo_publico(db_session)
+    ocupados = crear_pacientes(_perros(cupo_publico))
     nuevo = crear_pacientes(_perros(1))
     crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
 
@@ -201,7 +212,7 @@ def test_habilitacion_emergencia_es_por_fecha_y_limitada_por_configuracion(
     assert habilitada_otro_dia.codigo == "SIN_CUPO"
     assert con_habilitacion.aprobado is True
     assert disponibilidad.habilitadas == 1
-    assert disponibilidad.publico == 10
+    assert disponibilidad.publico == cupo_publico + 1
 
 
 def test_bajar_cupo_no_cancela_ocupaciones_existentes(
@@ -212,10 +223,12 @@ def test_bajar_cupo_no_cancela_ocupaciones_existentes(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
-    ocupados = crear_pacientes(_perros(7))
+    cupo_minimo = get_param(db_session, "guarderia.cupo_minimo")
+    plazas_emergencia = get_param(db_session, "guarderia.plazas_emergencia")
+    ocupados = crear_pacientes(_perros(cupo_minimo - 1))
     nuevo = crear_pacientes(_perros(1))
     crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
-    set_param(db_session, "guarderia.cupo_maximo", 8, "int")
+    set_param(db_session, "guarderia.cupo_maximo", cupo_minimo, "int")
 
     resultado = service.verificar_cupo(
         db_session, nuevo, (FECHA, Franja.DIA), (FECHA, Franja.DIA)
@@ -225,11 +238,14 @@ def test_bajar_cupo_no_cancela_ocupaciones_existentes(
     ).scalar_one()
 
     assert resultado.codigo == "SIN_CUPO"
-    assert service.calcular_disponibilidad(db_session, FECHA, Franja.DIA).publico == 7
-    assert cantidad_ocupaciones == 7
+    assert (
+        service.calcular_disponibilidad(db_session, FECHA, Franja.DIA).publico
+        == cupo_minimo - plazas_emergencia
+    )
+    assert cantidad_ocupaciones == cupo_minimo - 1
 
 
-def test_disponible_puede_ser_negativo_si_cupo_baja_de_ocupacion_existente(
+def test_disponible_es_cero_y_reporta_exceso_si_cupo_baja_de_ocupacion_existente(
     db_session,
     sembrar_cupo,
     crear_pacientes,
@@ -237,21 +253,26 @@ def test_disponible_puede_ser_negativo_si_cupo_baja_de_ocupacion_existente(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
-    ocupados = crear_pacientes(_perros(9))
+    cupo_minimo = get_param(db_session, "guarderia.cupo_minimo")
+    plazas_emergencia = get_param(db_session, "guarderia.plazas_emergencia")
+    ocupados = crear_pacientes(_perros(cupo_minimo + plazas_emergencia + 1))
     nuevo = crear_pacientes(_perros(1))
     crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
-    set_param(db_session, "guarderia.cupo_maximo", 8, "int")
+    set_param(db_session, "guarderia.cupo_maximo", cupo_minimo, "int")
 
     disponibilidad = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
     resultado = service.verificar_cupo(
         db_session, nuevo, (FECHA, Franja.DIA), (FECHA, Franja.DIA)
     )
 
-    assert disponibilidad.publico == 7
-    assert disponibilidad.ocupado == 9
-    assert disponibilidad.disponible == -2
+    assert disponibilidad.publico == cupo_minimo - plazas_emergencia
+    assert disponibilidad.ocupado == cupo_minimo + plazas_emergencia + 1
+    assert disponibilidad.disponible == 0
+    assert disponibilidad.exceso_ocupacion == (
+        disponibilidad.ocupado - disponibilidad.publico
+    )
     assert resultado.codigo == "SIN_CUPO"
-    assert resultado.franjas_sin_lugar[0].disponible == -2
+    assert resultado.franjas_sin_lugar[0].disponible == 0
 
 
 def test_pedido_de_varios_animales_necesita_plaza_para_cada_uno(
@@ -262,7 +283,7 @@ def test_pedido_de_varios_animales_necesita_plaza_para_cada_uno(
     crear_usuario,
 ) -> None:
     usuario = crear_usuario()
-    ocupados = crear_pacientes(_perros(8))
+    ocupados = crear_pacientes(_perros(_cupo_publico(db_session) - 1))
     pedido = crear_pacientes(_perros(2))
     crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
 
@@ -280,11 +301,19 @@ def test_cambio_de_parametro_se_refleja_en_el_calculo_siguiente(
     sembrar_cupo,
 ) -> None:
     inicial = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
-    set_param(db_session, "guarderia.cupo_maximo", 8, "int")
+    cupo_inicial = get_param(db_session, "guarderia.cupo_maximo")
+    cupo_minimo = get_param(db_session, "guarderia.cupo_minimo")
+    plazas_emergencia = get_param(db_session, "guarderia.plazas_emergencia")
+    set_param(
+        db_session,
+        "guarderia.cupo_maximo",
+        cupo_minimo,
+        "int",
+    )
     actualizado = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
 
-    assert inicial.publico == 9
-    assert actualizado.publico == 7
+    assert inicial.publico == cupo_inicial - plazas_emergencia
+    assert actualizado.publico == cupo_minimo - plazas_emergencia
 
 
 def test_plazas_por_animal_es_la_unica_regla_usada_en_disponibilidad_y_verificacion(
@@ -312,12 +341,14 @@ def test_plazas_por_animal_es_la_unica_regla_usada_en_disponibilidad_y_verificac
     calendario = service.calendario(db_session, FECHA, FECHA)
 
     assert normal.aprobado is True
-    assert disponibilidad.ocupado == 8
-    assert disponibilidad.disponible == 1
+    assert disponibilidad.ocupado == len(ocupados) * 2
+    assert disponibilidad.disponible == max(
+        disponibilidad.publico - disponibilidad.ocupado, 0
+    )
     assert resultado.codigo == "SIN_CUPO"
     assert resultado.franjas_sin_lugar[0].necesita == 2
-    assert calendario[0].ocupado == 8
-    assert calendario[0].disponible == 1
+    assert calendario[0].ocupado == len(ocupados) * 2
+    assert calendario[0].disponible == disponibilidad.disponible
 
 
 def test_paciente_ocupado_en_una_franja_se_informa_como_ya_reservado(

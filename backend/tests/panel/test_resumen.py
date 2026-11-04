@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.modules.cobros import service as cobros_service
 from app.modules.cobros.schemas import OrigenCargo, TipoServicio
+from app.modules.panel import service as panel_service
 from tests.panel.conftest import EscenarioPanel
 
 
@@ -84,7 +85,7 @@ def test_periodo_inclusivo_en_los_bordes(
     assert datos["ingresos_centavos"] == 30_000 + 12_000
 
     siguiente = (panel_escenario.fecha + timedelta(days=1)).isoformat()
-    ayer = (date.today() - timedelta(days=1)).isoformat()
+    ayer = (panel_service._hoy_negocio() - timedelta(days=1)).isoformat()
     vacio = _resumen(client, tokens["duenio"], desde=siguiente, hasta=ayer)
     assert vacio["ingresos_centavos"] == 0
 

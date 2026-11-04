@@ -392,6 +392,27 @@ def actualizar_configuracion(
         raise ConfiguracionNoEncontrada(clave)
 
     valor = _convertir_valor_configuracion(datos.valor, actual.tipo)
+    if clave in {
+        "guarderia.cupo_maximo",
+        "guarderia.cupo_minimo",
+        "guarderia.cupo_maximo_permitido",
+    }:
+        from app.modules.guarderia import service as guarderia_service
+
+        try:
+            guarderia_service.actualizar_configuracion_cupo(
+                db,
+                clave=clave,
+                valor=valor,
+                usuario=actor.username,
+            )
+        except guarderia_service.ConfiguracionCupoInvalida as exc:
+            raise DatosInvalidos(str(exc)) from exc
+        actualizado = repository.obtener_configuracion(db, clave)
+        if actualizado is None:
+            raise ConfiguracionNoEncontrada(clave)
+        return ConfiguracionItem.model_validate(actualizado)
+
     try:
         actualizado = parametros.set_param(
             db,

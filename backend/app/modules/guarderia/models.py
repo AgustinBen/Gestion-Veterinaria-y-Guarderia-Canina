@@ -152,3 +152,20 @@ class HabilitacionEmergencia(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+
+
+class ConfiguracionCupoFecha(Base):
+    __tablename__ = "configuracion_cupo_fecha"
+    __table_args__ = (
+        CheckConstraint("cupo_maximo > 0", name="cupo_maximo_positivo"),
+    )
+
+    fecha: Mapped[date] = mapped_column(Date, primary_key=True)
+    cupo_maximo: Mapped[int] = mapped_column(nullable=False)
+    actualizado_por: Mapped[str] = mapped_column(String(100), nullable=False)
+    actualizado_en: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

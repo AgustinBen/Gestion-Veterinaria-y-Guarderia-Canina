@@ -13,6 +13,8 @@ from app.modules.guarderia import service
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import EstadoReserva
 from app.modules.guarderia.schemas import (
+    ConfiguracionCupoActualizar,
+    ConfiguracionCupoOut,
     Disponibilidad,
     HabilitacionEmergenciaCrear,
     ReservaCrear,
@@ -24,6 +26,40 @@ from app.modules.identidad.permisos import Nivel, Recurso
 from app.modules.identidad.schemas import UsuarioActual
 
 router = APIRouter(prefix="/api/guarderia", tags=["guarderia"])
+
+
+@router.get("/configuracion/cupo", response_model=ConfiguracionCupoOut)
+def obtener_configuracion_cupo(
+    fecha: date | None = Query(default=None),
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.USUARIOS_CONFIG, Nivel.LECTURA)
+    ),
+) -> ConfiguracionCupoOut:
+    return service.obtener_configuracion_cupo(db, fecha)
+
+
+@router.put("/configuracion/cupo", response_model=ConfiguracionCupoOut)
+def actualizar_configuracion_cupo(
+    solicitud: ConfiguracionCupoActualizar,
+    db: Session = Depends(get_db),
+    usuario: UsuarioActual = Depends(
+        require_acceso(Recurso.USUARIOS_CONFIG, Nivel.ESCRITURA)
+    ),
+) -> ConfiguracionCupoOut:
+    try:
+        return service.actualizar_configuracion_cupo(
+            db,
+            clave="guarderia.cupo_maximo",
+            valor=solicitud.cupo_maximo,
+            usuario=usuario.username,
+            fecha=solicitud.fecha,
+        )
+    except service.ConfiguracionCupoInvalida as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=str(exc),
+        ) from exc
 
 
 @router.get("/disponibilidad", response_model=Disponibilidad)

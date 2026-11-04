@@ -17,6 +17,8 @@ from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import EstadoReserva, Ocupacion, Reserva
 from app.modules.guarderia.seed import (
     CUPO_MAXIMO_INICIAL,
+    CUPO_MAXIMO_PERMITIDO_INICIAL,
+    CUPO_MINIMO_INICIAL,
     PLAZAS_EMERGENCIA_INICIAL,
     RESERVA_MAX_MESES_INICIAL,
 )
@@ -50,6 +52,20 @@ def limpiar_cache_cupo(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None,
 
 @pytest.fixture
 def sembrar_cupo(db_session: Session) -> None:
+    set_param(
+        db_session,
+        "guarderia.cupo_minimo",
+        CUPO_MINIMO_INICIAL,
+        "int",
+        modulo="guarderia",
+    )
+    set_param(
+        db_session,
+        "guarderia.cupo_maximo_permitido",
+        CUPO_MAXIMO_PERMITIDO_INICIAL,
+        "int",
+        modulo="guarderia",
+    )
     set_param(
         db_session,
         "guarderia.cupo_maximo",

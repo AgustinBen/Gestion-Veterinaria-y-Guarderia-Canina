@@ -9,12 +9,30 @@ from sqlalchemy.orm import Session
 from app.core import parametros
 
 CUPO_MAXIMO_INICIAL = 10
+CUPO_MINIMO_INICIAL = 8
+CUPO_MAXIMO_PERMITIDO_INICIAL = 10
 PLAZAS_EMERGENCIA_INICIAL = 1
 RESERVA_MAX_MESES_INICIAL = 4
 DESCUENTO_MULTIMASCOTA_PCT_INICIAL = Decimal("20")
 
 
 def sembrar_parametros(db: Session) -> None:
+    parametros.registrar_parametro(
+        db,
+        "guarderia.cupo_minimo",
+        CUPO_MINIMO_INICIAL,
+        "int",
+        modulo="guarderia",
+        descripcion="Límite mínimo permitido para el cupo máximo",
+    )
+    parametros.registrar_parametro(
+        db,
+        "guarderia.cupo_maximo_permitido",
+        CUPO_MAXIMO_PERMITIDO_INICIAL,
+        "int",
+        modulo="guarderia",
+        descripcion="Límite máximo permitido para el cupo máximo",
+    )
     parametros.registrar_parametro(
         db,
         "guarderia.cupo_maximo",

@@ -6,12 +6,61 @@ from sqlalchemy.orm import Session
 from app.modules.guarderia.franjas import Franja
 from app.modules.guarderia.models import (
     CancelacionReserva,
+    ConfiguracionCupoFecha,
     EstadoReserva,
     HabilitacionEmergencia,
     Ocupacion,
     Reserva,
     ReservaPaciente,
 )
+
+
+def obtener_configuracion_cupo_fecha(
+    db: Session,
+    fecha: date,
+) -> ConfiguracionCupoFecha | None:
+    return db.get(ConfiguracionCupoFecha, fecha)
+
+
+def listar_configuraciones_cupo_fecha(
+    db: Session,
+    desde: date,
+    hasta: date,
+) -> dict[date, ConfiguracionCupoFecha]:
+    stmt = (
+        select(ConfiguracionCupoFecha)
+        .where(
+            ConfiguracionCupoFecha.fecha >= desde,
+            ConfiguracionCupoFecha.fecha <= hasta,
+        )
+        .order_by(ConfiguracionCupoFecha.fecha)
+    )
+    return {
+        configuracion.fecha: configuracion
+        for configuracion in db.execute(stmt).scalars().all()
+    }
+
+
+def guardar_configuracion_cupo_fecha(
+    db: Session,
+    *,
+    fecha: date,
+    cupo_maximo: int,
+    actualizado_por: str,
+) -> None:
+    configuracion = obtener_configuracion_cupo_fecha(db, fecha)
+    if configuracion is None:
+        db.add(
+            ConfiguracionCupoFecha(
+                fecha=fecha,
+                cupo_maximo=cupo_maximo,
+                actualizado_por=actualizado_por,
+            )
+        )
+    else:
+        configuracion.cupo_maximo = cupo_maximo
+        configuracion.actualizado_por = actualizado_por
+    db.commit()
 
 
 def listar_ocupaciones(
