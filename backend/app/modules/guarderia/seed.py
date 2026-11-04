@@ -14,6 +14,7 @@ CUPO_MAXIMO_PERMITIDO_INICIAL = 10
 PLAZAS_EMERGENCIA_INICIAL = 1
 RESERVA_MAX_MESES_INICIAL = 4
 DESCUENTO_MULTIMASCOTA_PCT_INICIAL = Decimal("20")
+DESCUENTO_MULTIMASCOTA_MINIMO_INICIAL = 2
 
 
 def sembrar_parametros(db: Session) -> None:
@@ -64,4 +65,12 @@ def sembrar_parametros(db: Session) -> None:
         "decimal",
         modulo="guarderia",
         descripcion="Descuento porcentual por reserva de varias mascotas",
+    )
+    parametros.registrar_parametro(
+        db,
+        "guarderia.descuento_multimascota_minimo",
+        DESCUENTO_MULTIMASCOTA_MINIMO_INICIAL,
+        "int",
+        modulo="guarderia",
+        descripcion="Cantidad mínima de mascotas para aplicar el descuento",
     )
