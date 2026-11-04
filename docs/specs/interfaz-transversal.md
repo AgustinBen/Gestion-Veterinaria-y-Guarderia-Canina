@@ -24,8 +24,8 @@ permisos, datos ni reglas de negocio.
   compartido.
 - Dueños y mascotas muestra el rótulo “Padrón de clientes” y pagina las mascotas
   registradas en grupos de cinco.
-- Historia clínica pagina sus atenciones en grupos de cinco, con el mismo
-  paginado de Dueños y mascotas.
+- Historia clínica pagina las mascotas del listado y las atenciones de cada
+  ficha en grupos de cinco, con el mismo paginado de Dueños y mascotas.
 - La barra superior de navegación comparte el fondo ámbar suave del menú.
 - El resumen visual del Panel presenta las etiquetas Mensual y Anual una al lado
   de la otra.
@@ -33,6 +33,8 @@ permisos, datos ni reglas de negocio.
   navegación por página.
 - Cobros muestra cinco clientes por página y no incluye los rótulos ni textos
   informativos señalados.
+- Deudores pagina los saldos pendientes en grupos de cinco, con el mismo
+  paginado compartido; no usa “Cargar más”.
 - La cuenta del cliente no muestra el enlace “Ver cuenta” ni el texto auxiliar
   del historial.
 - El login y la marca de huellita tienen animaciones breves que respetan

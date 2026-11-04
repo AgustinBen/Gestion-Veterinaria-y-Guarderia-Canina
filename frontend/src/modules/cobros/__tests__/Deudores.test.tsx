@@ -100,7 +100,7 @@ describe('Deudores', () => {
     );
   });
 
-  it('carga de forma paginada los deudores posteriores al límite del backend', async () => {
+  it('trae todos los deudores y los pagina de a cinco', async () => {
     const primeraPagina = Array.from({ length: 100 }, (_, indice) => ({
       ...ANA,
       persona: {
@@ -119,24 +119,26 @@ describe('Deudores', () => {
     renderizar();
 
     expect(await screen.findByText('Paz, Cliente1')).toBeInTheDocument();
+    expect(screen.getByText('Paz, Cliente5')).toBeInTheDocument();
+    expect(screen.queryByText('Paz, Cliente6')).not.toBeInTheDocument();
+    expect(screen.getByText('Página 1 de 21')).toBeInTheDocument();
     expect(listarDeudores).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({ limite: 100, offset: 0 }),
     );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Cargar más deudores' }));
-
-    expect(await screen.findByText('Paz, Cliente101')).toBeInTheDocument();
     expect(listarDeudores).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({ limite: 100, offset: 100 }),
     );
-    expect(
-      screen.queryByRole('button', { name: 'Cargar más deudores' }),
-    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Página siguiente' }));
+
+    expect(screen.getByText('Paz, Cliente6')).toBeInTheDocument();
+    expect(screen.queryByText('Paz, Cliente1')).not.toBeInTheDocument();
+    expect(screen.getByText('Página 2 de 21')).toBeInTheDocument();
   });
 
-  it('permite reintentar la carga de la siguiente página', async () => {
+  it('muestra el error si falla un tramo y permite reintentar la carga', async () => {
     const primeraPagina = Array.from({ length: 100 }, (_, indice) => ({
       ...ANA,
       persona: {
@@ -145,29 +147,22 @@ describe('Deudores', () => {
         nombre: `Cliente${indice + 1}`,
       },
     }));
-    const siguientePagina: Deudor = {
-      ...ANA,
-      persona: { ...ANA.persona, id: 101, nombre: 'Cliente101' },
-    };
     vi.mocked(listarDeudores)
       .mockResolvedValueOnce(primeraPagina)
       .mockRejectedValueOnce(new ApiError('No pudimos conectar.', { tipo: 'red' }))
-      .mockResolvedValueOnce([siguientePagina]);
+      .mockResolvedValueOnce([ANA]);
     renderizar();
-
-    await screen.findByText('Paz, Cliente1');
-    fireEvent.click(screen.getByRole('button', { name: 'Cargar más deudores' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'No pudimos conectar.',
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Reintentar carga' }));
 
-    expect(await screen.findByText('Paz, Cliente101')).toBeInTheDocument();
-    expect(listarDeudores).toHaveBeenNthCalledWith(
-      3,
-      expect.objectContaining({ limite: 100, offset: 100 }),
-    );
+    fireEvent.click(screen.getByRole('button', { name: 'Reintentar' }));
+
+    expect(await screen.findByText('Paz, Ana')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: 'Paginación de deudores' }),
+    ).not.toBeInTheDocument();
   });
 
   it('avisa cuando no hay deudores', async () => {
