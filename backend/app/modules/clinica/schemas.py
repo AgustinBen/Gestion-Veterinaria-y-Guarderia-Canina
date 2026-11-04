@@ -100,8 +100,8 @@ class TurnoCrear(BaseModel):
     fin: datetime
     motivo: str | None = None
     externo_empleado_id: int | None = Field(default=None, gt=0)
-    # Monto a cobrar al dueño, en centavos. Opcional: sin monto no se crea cargo.
-    monto_centavos: int | None = Field(default=None, gt=0, strict=True)
+    # Monto a cobrar al dueño, en centavos. Obligatorio: todo turno genera un cargo.
+    monto_centavos: int = Field(gt=0, strict=True)
 
     @model_validator(mode="after")
     def validar_horas_locales(self) -> TurnoCrear:

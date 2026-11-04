@@ -23,6 +23,7 @@ def _crear_turno(client, headers, paciente_id, veterinario_id, hora: int):
             "veterinario_empleado_id": veterinario_id,
             "inicio": inicio.isoformat(),
             "fin": (inicio + timedelta(minutes=30)).isoformat(),
+            "monto_centavos": 100000,
         },
     )
 

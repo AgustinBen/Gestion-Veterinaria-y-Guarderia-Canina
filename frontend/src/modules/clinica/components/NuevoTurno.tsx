@@ -103,7 +103,7 @@ export function NuevoTurno({
     }
 
     if (monto.trim() === '') {
-      void agendar(undefined);
+      setError('El monto a cobrar es obligatorio.');
       return;
     }
 
@@ -139,7 +139,7 @@ export function NuevoTurno({
     }
   }
 
-  async function agendar(centavos: number | undefined) {
+  async function agendar(centavos: number) {
     if (envioEnCurso.current) {
       return;
     }
@@ -158,7 +158,7 @@ export function NuevoTurno({
         motivo: motivo.trim() || null,
         externo_empleado_id:
           tipo === 'CIRUGIA' ? Number(externoId) : undefined,
-        ...(centavos !== undefined ? { monto_centavos: centavos } : {}),
+        monto_centavos: centavos,
       });
 
       setAviso(null);
@@ -184,7 +184,7 @@ export function NuevoTurno({
       ) : null}
 
       <div className={estilos.campos}>
-        <Campo id="turno-paciente" etiqueta="Mascota">
+        <Campo id="turno-paciente" etiqueta="Mascota" obligatorio>
           <select
             id="turno-paciente"
             onChange={(evento) => setPacienteId(evento.target.value)}
@@ -199,7 +199,7 @@ export function NuevoTurno({
           </select>
         </Campo>
 
-        <Campo id="turno-tipo" etiqueta="Tipo de turno">
+        <Campo id="turno-tipo" etiqueta="Tipo de turno" obligatorio>
           <select
             id="turno-tipo"
             onChange={(evento) =>
@@ -215,7 +215,7 @@ export function NuevoTurno({
           </select>
         </Campo>
 
-        <Campo id="turno-veterinario" etiqueta="Veterinario">
+        <Campo id="turno-veterinario" etiqueta="Veterinario" obligatorio>
           <select
             id="turno-veterinario"
             onChange={(evento) => setVeterinarioId(evento.target.value)}
@@ -231,7 +231,7 @@ export function NuevoTurno({
         </Campo>
 
         {tipo === 'CIRUGIA' ? (
-          <Campo id="turno-externo" etiqueta="Veterinario externo">
+          <Campo id="turno-externo" etiqueta="Veterinario externo" obligatorio>
             <select
               id="turno-externo"
               onChange={(evento) => setExternoId(evento.target.value)}
@@ -247,7 +247,7 @@ export function NuevoTurno({
           </Campo>
         ) : null}
 
-        <Campo id="turno-fecha" etiqueta="Fecha">
+        <Campo id="turno-fecha" etiqueta="Fecha" obligatorio>
           <input
             id="turno-fecha"
             onChange={(evento) => setFecha(evento.target.value)}
@@ -256,7 +256,7 @@ export function NuevoTurno({
           />
         </Campo>
 
-        <Campo id="turno-inicio" etiqueta="Hora de inicio">
+        <Campo id="turno-inicio" etiqueta="Hora de inicio" obligatorio>
           <input
             id="turno-inicio"
             onChange={(evento) => setHoraInicio(evento.target.value)}
@@ -265,7 +265,7 @@ export function NuevoTurno({
           />
         </Campo>
 
-        <Campo id="turno-fin" etiqueta="Hora de fin">
+        <Campo id="turno-fin" etiqueta="Hora de fin" obligatorio>
           <input
             id="turno-fin"
             onChange={(evento) => setHoraFin(evento.target.value)}
@@ -277,7 +277,8 @@ export function NuevoTurno({
         <Campo
           ayuda="Se registra como cargo en Cobros, a nombre del dueño de la mascota."
           id="turno-monto"
-          etiqueta="Monto a cobrar (opcional)"
+          etiqueta="Monto a cobrar"
+          obligatorio
         >
           <input
             id="turno-monto"
@@ -326,7 +327,11 @@ export function NuevoTurno({
             </Boton>
             <Boton
               cargando={guardando}
-              onClick={() => void agendar(aviso?.centavos)}
+              onClick={() => {
+                if (aviso) {
+                  void agendar(aviso.centavos);
+                }
+              }}
               type="button"
             >
               Confirmar y agendar

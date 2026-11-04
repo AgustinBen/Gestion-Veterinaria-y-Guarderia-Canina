@@ -43,6 +43,7 @@ def _crear_cirugia(
             "externo_empleado_id": externo_id,
             "inicio": inicio.isoformat(),
             "fin": (inicio + timedelta(minutes=30)).isoformat(),
+            "monto_centavos": 100000,
         },
     )
 
@@ -110,6 +111,7 @@ def test_creacion_cirugia_exige_externo_valido(
         "veterinario_empleado_id": clinica_context["veterinario_id"],
         "inicio": inicio.isoformat(),
         "fin": (inicio + timedelta(minutes=30)).isoformat(),
+        "monto_centavos": 100000,
     }
 
     sin_externo = client.post("/api/turnos", headers=headers, json=payload)
