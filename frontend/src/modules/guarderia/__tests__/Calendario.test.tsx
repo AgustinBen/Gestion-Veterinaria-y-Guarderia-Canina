@@ -506,7 +506,7 @@ describe('Calendario de guardería', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('confirma al Dueño qué franja habilitó y cuántos cupos públicos quedan', async () => {
+  it('confirma al Dueño que la plaza de emergencia quedó habilitada', async () => {
     const hoy = fechaLocal(new Date());
     vi.mocked(habilitarPlazaEmergencia).mockResolvedValue({
       fecha: hoy,
@@ -537,7 +537,7 @@ describe('Calendario de guardería', () => {
     );
 
     expect(await screen.findByRole('status')).toHaveTextContent(
-      'Plaza de emergencia habilitada para Noche. Quedan 5 cupos públicos.',
+      'Plaza de emergencia habilitada.',
     );
   });
 
@@ -577,7 +577,7 @@ describe('Calendario de guardería', () => {
     );
 
     const titulo = await screen.findByRole('heading', {
-      name: 'Plaza de emergencia',
+      name: 'Plazas de emergencia habilitadas',
     });
     const seccion = titulo.closest('section') as HTMLElement;
 
