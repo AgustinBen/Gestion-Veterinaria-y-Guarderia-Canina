@@ -316,11 +316,13 @@ export function CrearCuentaPage() {
             <input
               autoComplete="off"
               id="empleado-telefono"
-              inputMode="tel"
+              inputMode="numeric"
               required={true}
               type="text"
               value={datos.telefono}
-              onChange={(evento) => actualizar('telefono', evento.target.value)}
+              onChange={(evento) =>
+                actualizar('telefono', evento.target.value.replace(/\D/g, ''))
+              }
             />
           </div>
 
