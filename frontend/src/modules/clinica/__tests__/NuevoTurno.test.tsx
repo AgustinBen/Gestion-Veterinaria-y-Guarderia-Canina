@@ -85,6 +85,16 @@ describe('NuevoTurno', () => {
   it('agenda un turno con inicio y fin elegidos por el usuario', async () => {
     const crearMock = vi.mocked(crearTurno);
     crearMock.mockResolvedValue(TURNO);
+    vi.mocked(obtenerTitulares).mockResolvedValue([
+      {
+        persona_id: 1,
+        nombre: 'Marta',
+        apellido: 'Paz',
+        tipo: 'TITULAR',
+        principal: true,
+        desde: '2026-01-01',
+      },
+    ]);
     const onCreado = vi.fn();
 
     render(
@@ -105,7 +115,13 @@ describe('NuevoTurno', () => {
     fireEvent.change(screen.getByLabelText('Hora de fin'), {
       target: { value: '09:30' },
     });
+    fireEvent.change(screen.getByLabelText('Monto a cobrar'), {
+      target: { value: '10.000' },
+    });
     fireEvent.click(screen.getByRole('button', { name: 'Agendar turno' }));
+
+    await screen.findByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar y agendar' }));
 
     await waitFor(() => {
       expect(crearMock).toHaveBeenCalledWith(
@@ -115,6 +131,7 @@ describe('NuevoTurno', () => {
           veterinario_empleado_id: 7,
           inicio: '2026-11-02T09:00',
           fin: '2026-11-02T09:30',
+          monto_centavos: 1000000,
         }),
       );
     });
@@ -168,7 +185,7 @@ describe('NuevoTurno', () => {
       />,
     );
     completarTurno();
-    fireEvent.change(screen.getByLabelText('Monto a cobrar (opcional)'), {
+    fireEvent.change(screen.getByLabelText('Monto a cobrar'), {
       target: { value: '15.000,50' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Agendar turno' }));
@@ -212,7 +229,7 @@ describe('NuevoTurno', () => {
       />,
     );
     completarTurno();
-    fireEvent.change(screen.getByLabelText('Monto a cobrar (opcional)'), {
+    fireEvent.change(screen.getByLabelText('Monto a cobrar'), {
       target: { value: '500' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Agendar turno' }));
@@ -236,7 +253,7 @@ describe('NuevoTurno', () => {
       />,
     );
     completarTurno();
-    fireEvent.change(screen.getByLabelText('Monto a cobrar (opcional)'), {
+    fireEvent.change(screen.getByLabelText('Monto a cobrar'), {
       target: { value: 'abc' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Agendar turno' }));
@@ -246,9 +263,7 @@ describe('NuevoTurno', () => {
     expect(crearTurno).not.toHaveBeenCalled();
   });
 
-  it('sin monto agenda directo, sin aviso ni cobro', async () => {
-    vi.mocked(crearTurno).mockResolvedValue(TURNO);
-
+  it('exige el monto a cobrar antes de agendar', async () => {
     render(
       <NuevoTurno
         empleados={EMPLEADOS}
@@ -260,11 +275,11 @@ describe('NuevoTurno', () => {
     completarTurno();
     fireEvent.click(screen.getByRole('button', { name: 'Agendar turno' }));
 
-    await waitFor(() => expect(crearTurno).toHaveBeenCalled());
-    expect(crearTurno).toHaveBeenCalledWith(
-      expect.not.objectContaining({ monto_centavos: expect.anything() }),
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'El monto a cobrar es obligatorio.',
     );
     expect(obtenerTitulares).not.toHaveBeenCalled();
+    expect(crearTurno).not.toHaveBeenCalled();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
@@ -280,7 +295,7 @@ describe('NuevoTurno', () => {
       />,
     );
     completarTurno();
-    fireEvent.change(screen.getByLabelText('Monto a cobrar (opcional)'), {
+    fireEvent.change(screen.getByLabelText('Monto a cobrar'), {
       target: { value: '500' },
     });
     fireEvent.click(screen.getByRole('button', { name: 'Agendar turno' }));

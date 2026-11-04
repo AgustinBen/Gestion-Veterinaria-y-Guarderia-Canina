@@ -209,7 +209,7 @@ export function Egresos() {
       <section aria-label="Nuevo egreso" className={estilos.tarjeta}>
         <h2>Registrar egreso</h2>
         <form className={estilos.formulario} onSubmit={registrar}>
-          <Campo etiqueta="Fecha" id="egreso-fecha">
+          <Campo etiqueta="Fecha" id="egreso-fecha" obligatorio>
             <input
               id="egreso-fecha"
               onChange={(evento) => setFecha(evento.target.value)}
@@ -218,7 +218,7 @@ export function Egresos() {
             />
           </Campo>
 
-          <Campo etiqueta="Monto" id="egreso-monto">
+          <Campo etiqueta="Monto" id="egreso-monto" obligatorio>
             <input
               id="egreso-monto"
               inputMode="decimal"
@@ -228,7 +228,7 @@ export function Egresos() {
             />
           </Campo>
 
-          <Campo etiqueta="Categoría" id="egreso-categoria">
+          <Campo etiqueta="Categoría" id="egreso-categoria" obligatorio>
             <select
               id="egreso-categoria"
               onChange={(evento) => setCategoriaId(evento.target.value)}
@@ -243,7 +243,7 @@ export function Egresos() {
             </select>
           </Campo>
 
-          <Campo etiqueta="Descripción" id="egreso-descripcion">
+          <Campo etiqueta="Descripción" id="egreso-descripcion" obligatorio>
             <input
               id="egreso-descripcion"
               onChange={(evento) => setDescripcion(evento.target.value)}
@@ -406,6 +406,7 @@ export function Egresos() {
           error={errorAnular}
           etiqueta="Motivo"
           id="egreso-motivo-anulacion"
+          obligatorio
         >
           <input
             id="egreso-motivo-anulacion"

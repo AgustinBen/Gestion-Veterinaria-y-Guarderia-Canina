@@ -162,7 +162,7 @@ export function GastosExternos() {
       <section aria-label="Nuevo gasto a externo" className={estilos.tarjeta}>
         <h2>Registrar gasto a externo</h2>
         <form className={estilos.formulario} onSubmit={registrar}>
-          <Campo etiqueta="Descripción" id="gasto-externo-descripcion">
+          <Campo etiqueta="Descripción" id="gasto-externo-descripcion" obligatorio>
             <input
               id="gasto-externo-descripcion"
               onChange={(evento) => setDescripcion(evento.target.value)}
@@ -170,7 +170,7 @@ export function GastosExternos() {
             />
           </Campo>
 
-          <Campo etiqueta="Monto" id="gasto-externo-monto">
+          <Campo etiqueta="Monto" id="gasto-externo-monto" obligatorio>
             <input
               id="gasto-externo-monto"
               inputMode="decimal"
@@ -180,7 +180,7 @@ export function GastosExternos() {
             />
           </Campo>
 
-          <Campo etiqueta="Fecha" id="gasto-externo-fecha">
+          <Campo etiqueta="Fecha" id="gasto-externo-fecha" obligatorio>
             <input
               id="gasto-externo-fecha"
               onChange={(evento) => setFecha(evento.target.value)}
@@ -324,6 +324,7 @@ export function GastosExternos() {
           error={errorAnular}
           etiqueta="Motivo"
           id="gasto-motivo-anulacion"
+          obligatorio
         >
           <input
             id="gasto-motivo-anulacion"

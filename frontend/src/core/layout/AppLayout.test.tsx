@@ -7,12 +7,18 @@ import { AuthProvider } from '../auth/AuthContext';
 import { borrarSesion, guardarSesion } from '../auth/almacenSesion';
 import type { Rol } from '../auth/permisos';
 import { solicitarUsuarioActual } from '../auth/servicioAuth';
+import { listarReservas } from '../../modules/guarderia/api';
+import type { Reserva } from '../../modules/guarderia/tipos';
 import { AppLayout } from './AppLayout';
 
 vi.mock('../auth/servicioAuth', () => ({
   iniciarSesionApi: vi.fn(),
   cerrarSesionApi: vi.fn().mockResolvedValue(undefined),
   solicitarUsuarioActual: vi.fn(),
+}));
+
+vi.mock('../../modules/guarderia/api', () => ({
+  listarReservas: vi.fn(),
 }));
 
 const contadorDeudoresMock = vi.hoisted(() => vi.fn());
@@ -71,6 +77,31 @@ function enlacesLateral(): string[] {
     .map((enlace) => enlace.textContent?.trim() ?? '');
 }
 
+function reservaMock(
+  id: number,
+  estado: Reserva['estado'],
+  pacientes: number[],
+): Reserva {
+  return {
+    id,
+    tutor_persona_id: 1,
+    desde_fecha: '2026-11-03',
+    desde_franja: 'DIA',
+    hasta_fecha: '2026-11-03',
+    hasta_franja: 'DIA',
+    estado,
+    cargo_id: null,
+    total_centavos: 10_000,
+    sena_centavos: 1_000,
+    pacientes: pacientes.map((paciente_id) => ({
+      paciente_id,
+      cuidados_extras: false,
+      tipo_cuidado: null,
+    })),
+    created_at: '2026-11-01T10:00:00Z',
+  };
+}
+
 beforeEach(() => {
   borrarSesion();
   vi.mocked(solicitarUsuarioActual).mockRejectedValue(
@@ -78,6 +109,10 @@ beforeEach(() => {
   );
   contadorDeudoresMock.mockReset();
   contadorDeudoresMock.mockReturnValue(null);
+  vi.mocked(listarReservas).mockReset();
+  vi.mocked(listarReservas).mockImplementation(
+    () => new Promise<Reserva[]>(() => {}),
+  );
 });
 
 describe('AppLayout', () => {
@@ -98,11 +133,19 @@ describe('AppLayout', () => {
     expect(await screen.findByRole('heading', { name: 'Login' })).toBeInTheDocument();
   });
 
-  it('saluda al usuario en la ilustración del menú', () => {
+  it('saluda al usuario y muestra las mascotas de guardería de hoy', async () => {
+    vi.mocked(listarReservas).mockResolvedValue([
+      reservaMock(1, 'CONFIRMADA', [10, 11]),
+      reservaMock(2, 'PENDIENTE_SENA', [12]),
+      reservaMock(3, 'CANCELADA', [13]),
+    ]);
+
     renderizar('DUENIO');
 
     expect(screen.getByText('Hola, Prueba!')).toBeInTheDocument();
-    expect(screen.queryByText(/huellitas en casa/)).not.toBeInTheDocument();
+    expect(
+      await screen.findByText('Hoy hay 2 huellitas en casa'),
+    ).toBeInTheDocument();
   });
 
   it('DUENIO ve las secciones sin enlaces separados para configuración o nueva reserva', () => {

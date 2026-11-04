@@ -1,3 +1,4 @@
+import { MarcaObligatorio } from '../../../core/components/ui/EtiquetaCampo';
 import type { PacienteResumen } from '../../padron/tipos';
 import estilos from '../guarderia.module.css';
 
@@ -28,7 +29,10 @@ export function SelectorMascotas({
 
   return (
     <fieldset className={estilos.grupoFormulario} disabled={bloqueado}>
-      <legend>Mascotas que se reservan</legend>
+      <legend>
+        Mascotas que se reservan
+        <MarcaObligatorio />
+      </legend>
       <div className={estilos.listaMascotas}>
         {mascotas.map((mascota) => {
           const seleccionada = seleccionadas.has(mascota.id);

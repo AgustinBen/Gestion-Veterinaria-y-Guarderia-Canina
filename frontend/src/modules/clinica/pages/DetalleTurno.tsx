@@ -481,7 +481,7 @@ export function DetalleTurno() {
               onSubmit={(evento) => void cancelar(evento)}
             >
               <p>El turno quedará registrado como cancelado.</p>
-              <Campo id="cancelar-motivo" etiqueta="Motivo">
+              <Campo id="cancelar-motivo" etiqueta="Motivo" obligatorio>
                 <textarea
                   id="cancelar-motivo"
                   onChange={(evento) => setMotivoCancelacion(evento.target.value)}
@@ -561,6 +561,7 @@ export function DetalleTurno() {
                     ayuda="La cirugía debe coincidir con el veterinario externo del turno."
                     id="atender-atencion"
                     etiqueta="Atención de cirugía"
+                    obligatorio
                   >
                     <select
                       id="atender-atencion"
@@ -610,7 +611,7 @@ export function DetalleTurno() {
               id="form-reprogramar-turno"
               onSubmit={(evento) => void reprogramar(evento)}
             >
-              <Campo id="reprogramar-fecha" etiqueta="Fecha">
+              <Campo id="reprogramar-fecha" etiqueta="Fecha" obligatorio>
                 <input
                   id="reprogramar-fecha"
                   onChange={(evento) => setReproFecha(evento.target.value)}
@@ -618,7 +619,7 @@ export function DetalleTurno() {
                   value={reproFecha}
                 />
               </Campo>
-              <Campo id="reprogramar-inicio" etiqueta="Hora de inicio">
+              <Campo id="reprogramar-inicio" etiqueta="Hora de inicio" obligatorio>
                 <input
                   id="reprogramar-inicio"
                   onChange={(evento) => setReproInicio(evento.target.value)}
@@ -626,7 +627,7 @@ export function DetalleTurno() {
                   value={reproInicio}
                 />
               </Campo>
-              <Campo id="reprogramar-fin" etiqueta="Hora de fin">
+              <Campo id="reprogramar-fin" etiqueta="Hora de fin" obligatorio>
                 <input
                   id="reprogramar-fin"
                   onChange={(evento) => setReproFin(evento.target.value)}
@@ -634,7 +635,7 @@ export function DetalleTurno() {
                   value={reproFin}
                 />
               </Campo>
-              <Campo id="reprogramar-veterinario" etiqueta="Veterinario">
+              <Campo id="reprogramar-veterinario" etiqueta="Veterinario" obligatorio>
                 <select
                   id="reprogramar-veterinario"
                   onChange={(evento) => setReproVeterinario(evento.target.value)}

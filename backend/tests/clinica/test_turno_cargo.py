@@ -1,4 +1,4 @@
-"""El monto de un turno se registra como cargo del dueño en Cobros."""
+"""El monto de un turno es obligatorio y se registra como cargo del dueño en Cobros."""
 
 from datetime import date, datetime, time, timedelta
 
@@ -65,15 +65,15 @@ def test_turno_con_monto_crea_cargo_al_dueno_principal(
     assert guardado["cargo_id"] == turno["cargo_id"]
 
 
-def test_turno_sin_monto_no_crea_cargo(
+def test_turno_sin_monto_se_rechaza(
     client, crear_usuario_clinica, clinica_context
 ) -> None:
     duenio = _preparar(client, crear_usuario_clinica)
 
     respuesta = _agendar(client, duenio, clinica_context, 11)
 
-    assert respuesta.status_code == 201
-    assert respuesta.json()["cargo_id"] is None
+    assert respuesta.status_code == 422
+    assert client.get("/api/turnos", headers=duenio).json() == []
 
 
 def test_monto_invalido_se_rechaza_y_no_crea_turno(

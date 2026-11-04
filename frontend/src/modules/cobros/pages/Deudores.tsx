@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Alerta } from '../../../core/components/ui/Alerta';
 import { Boton } from '../../../core/components/ui/Boton';
+import { Paginacion } from '../../../core/components/ui/Paginacion';
 import { formatearDinero } from '../../../core/formatos/dinero';
 import { listarDeudores, mensajeDeError } from '../api';
 import type { Deudor, OrdenDeudores } from '../tipos';
@@ -15,9 +16,6 @@ type Carga = {
   estado: Estado;
   filas: Deudor[];
   error: string;
-  hayMas: boolean;
-  cargandoMas: boolean;
-  errorCargarMas: string;
 };
 
 /** "2026-03-05" → "05/03/2026" sin pasar por zonas horarias. */
@@ -34,22 +32,21 @@ const ORDENES: readonly { id: OrdenDeudores; etiqueta: string }[] = [
   { id: 'antiguedad', etiqueta: 'Por antigüedad' },
 ];
 
-const LIMITE_POR_PAGINA = 100;
+/** El backend acepta hasta 100 deudores por pedido. */
+const LIMITE_BACKEND = 100;
+const TAMANIO_PAGINA_DEUDORES = 5;
 
 /** Listado de clientes con deuda. La deuda solo avisa: nunca bloquea (RN-23). */
 export function Deudores() {
   const [orden, setOrden] = useState<OrdenDeudores>('monto');
   const [intento, setIntento] = useState(0);
-  const cargandoMasRef = useRef(false);
+  const [pagina, setPagina] = useState(1);
   const clave = `${orden}:${intento}`;
   const [carga, setCarga] = useState<Carga>({
     clave,
     estado: 'cargando',
     filas: [],
     error: '',
-    hayMas: false,
-    cargandoMas: false,
-    errorCargarMas: '',
   });
 
   useEffect(() => {
@@ -57,28 +54,35 @@ export function Deudores() {
     let activo = true;
     const claveConsulta = `${orden}:${intento}`;
 
-    listarDeudores({
-      orden,
-      limite: LIMITE_POR_PAGINA,
-      offset: 0,
-      signal: control.signal,
-    })
-      .then((filas) => {
+    async function cargar() {
+      try {
+        const filas: Deudor[] = [];
+        let offset = 0;
+
+        // Se traen todas las páginas del backend para paginar de a cinco con
+        // el mismo paginado que el resto de los listados.
+        for (;;) {
+          const tramo = await listarDeudores({
+            orden,
+            limite: LIMITE_BACKEND,
+            offset,
+            signal: control.signal,
+          });
+          filas.push(...tramo);
+
+          if (tramo.length < LIMITE_BACKEND) {
+            break;
+          }
+
+          offset += tramo.length;
+        }
+
         if (!activo || control.signal.aborted) {
           return;
         }
 
-        setCarga({
-          clave: claveConsulta,
-          estado: 'listo',
-          filas,
-          error: '',
-          hayMas: filas.length === LIMITE_POR_PAGINA,
-          cargandoMas: false,
-          errorCargarMas: '',
-        });
-      })
-      .catch((fallo) => {
+        setCarga({ clave: claveConsulta, estado: 'listo', filas, error: '' });
+      } catch (fallo) {
         if (!activo || control.signal.aborted) {
           return;
         }
@@ -88,11 +92,11 @@ export function Deudores() {
           estado: 'error',
           filas: [],
           error: mensajeDeError(fallo),
-          hayMas: false,
-          cargandoMas: false,
-          errorCargarMas: '',
         });
-      });
+      }
+    }
+
+    void cargar();
 
     return () => {
       activo = false;
@@ -102,56 +106,15 @@ export function Deudores() {
 
   const vigente = carga.clave === clave ? carga : null;
   const estado: Estado = vigente?.estado ?? 'cargando';
-  const deudores = vigente?.filas ?? [];
+  const filas = vigente?.filas ?? [];
   const error = vigente?.error ?? '';
-  const hayMas = vigente?.hayMas ?? false;
-  const cargandoMas = vigente?.cargandoMas ?? false;
-  const errorCargarMas = vigente?.errorCargarMas ?? '';
-
-  async function cargarMas() {
-    if (cargandoMasRef.current || !vigente || !hayMas) {
-      return;
-    }
-
-    cargandoMasRef.current = true;
-    setCarga((actual) =>
-      actual.clave === clave
-        ? { ...actual, cargandoMas: true, errorCargarMas: '' }
-        : actual,
-    );
-
-    try {
-      const siguientes = await listarDeudores({
-        orden,
-        limite: LIMITE_POR_PAGINA,
-        offset: deudores.length,
-      });
-
-      setCarga((actual) =>
-        actual.clave === clave
-          ? {
-              ...actual,
-              filas: [...actual.filas, ...siguientes],
-              hayMas: siguientes.length === LIMITE_POR_PAGINA,
-              cargandoMas: false,
-              errorCargarMas: '',
-            }
-          : actual,
-      );
-    } catch (fallo) {
-      setCarga((actual) =>
-        actual.clave === clave
-          ? {
-              ...actual,
-              cargandoMas: false,
-              errorCargarMas: mensajeDeError(fallo),
-            }
-          : actual,
-      );
-    } finally {
-      cargandoMasRef.current = false;
-    }
-  }
+  const cantidadPaginas = Math.ceil(filas.length / TAMANIO_PAGINA_DEUDORES);
+  const paginaVisible = Math.min(pagina, Math.max(cantidadPaginas, 1));
+  const indiceInicio = (paginaVisible - 1) * TAMANIO_PAGINA_DEUDORES;
+  const deudores = filas.slice(
+    indiceInicio,
+    indiceInicio + TAMANIO_PAGINA_DEUDORES,
+  );
 
   return (
     <section className={estilos.pagina} aria-labelledby="titulo-deudores">
@@ -195,7 +158,10 @@ export function Deudores() {
                 .filter(Boolean)
                 .join(' ')}
               key={opcion.id}
-              onClick={() => setOrden(opcion.id)}
+              onClick={() => {
+                setOrden(opcion.id);
+                setPagina(1);
+              }}
               type="button"
             >
               {opcion.etiqueta}
@@ -330,35 +296,12 @@ export function Deudores() {
             </div>
           </div>
 
-          {errorCargarMas ? (
-            <Alerta
-              acciones={
-                <Boton
-                  cargando={cargandoMas}
-                  disabled={cargandoMas}
-                  onClick={cargarMas}
-                  variante="secundario"
-                >
-                  Reintentar carga
-                </Boton>
-              }
-              role="alert"
-              tono="error"
-            >
-              {errorCargarMas}
-            </Alerta>
-          ) : null}
-
-          {hayMas && !errorCargarMas ? (
-            <Boton
-              cargando={cargandoMas}
-              disabled={cargandoMas}
-              onClick={cargarMas}
-              variante="secundario"
-            >
-              Cargar más deudores
-            </Boton>
-          ) : null}
+          <Paginacion
+            ariaLabel="Paginación de deudores"
+            cantidadPaginas={cantidadPaginas}
+            onCambiarPagina={setPagina}
+            pagina={paginaVisible}
+          />
         </>
       ) : null}
     </section>

@@ -29,6 +29,7 @@ def _crear_cirugia(client, headers, *, paciente_id, veterinario_id, externo_id, 
             "externo_empleado_id": externo_id,
             "inicio": inicio.isoformat(),
             "fin": (inicio + timedelta(minutes=30)).isoformat(),
+            "monto_centavos": 100000,
         },
     )
 

@@ -69,6 +69,7 @@ Fecha: 2026-10-25. Fuentes: enunciado, documentos de alcance y plan, apuntes de 
 - **RN-31** Una cirugía (por ejemplo castración) requiere un veterinario externo, que se registra con su costo. `CONFIRMADA`
 - **RN-32** La agenda veterinaria funciona en un horario acotado: de 9 a 18 (confirmado por el cliente el 2026-11-02; los días de atención se cargan como configuración, no en el código). Un turno fuera de ese horario se rechaza con "La clínica no atiende en ese horario. Por favor seleccione un horario válido". Los turnos de personal son Mañana, Tarde y Noche, con 30 minutos de traspaso; la pantalla de turnos del personal se quitó de la interfaz el 2026-11-02. `CONFIRMADA`
 - **RN-33** Cada servicio registra qué empleado o veterinario lo realizó. `CONFIRMADA`
+- **RN-33a** Todo turno veterinario se agenda con un **monto a cobrar mayor a cero**, que se registra como cargo a nombre del titular principal de la mascota en Cobros. Un turno sin monto se rechaza. `DECIDIDA` (2026-11-04)
 
 ### Roles y migración
 - **RN-40** Hay tres roles: **Dueño**, **Personal** (recepción) y **Veterinario**. El acceso se define en una matriz rol × recurso (ver sección 3). El rol define los permisos; que alguien sea veterinario es un dato del empleado. Las deudas están separadas de las finanzas. `CONFIRMADA` (separación de finanzas y deudas); `DECIDIDA` (matriz, aprobada por Aldana y Emiliano; con la excepción de la historia clínica para Personal, que sigue `PENDIENTE`)
@@ -134,6 +135,7 @@ Karma de confiabilidad, notificaciones, portal para dueños, política automatiz
 | 2026-11-02 | Horario de atención veterinaria de 9 a 18, confirmado por el cliente. | Respuesta del cliente; se carga como configuración (`horario_atencion`). |
 | 2026-11-02 | Turnos veterinarios: solo Dueño y Personal agendan, reprograman y cancelan; el Veterinario ve y atiende únicamente los turnos que tiene asignados. Se quita la pantalla de turnos del personal. | Pedido de Aldana. Reemplaza el "Sí, Sí, Sí" de la matriz para turnos. El filtro del veterinario se aplica en el backend. |
 | 2026-11-02 | Las cuentas PERSONAL y VETERINARIO crean su empleado interno en el mismo alta; el Padrón solo da de alta dueños y mascotas. | Pedido de Aldana; ver `docs/specs/identidad.md`. |
+| 2026-11-04 | RN-33a: el monto a cobrar de un turno es obligatorio (mayor a cero) y se registra como cargo del titular principal. | Evitar servicios sin cargo: no había forma de cobrar un turno después de agendarlo sin monto. |
 
 ## 7. Documentos a corregir (tickets y agentes con texto viejo)
 - `AGENTS.md` (PR #15 de Aldana): precio: subir cualquier rol con permiso de cobro, bajar solo Dueño; encabezado que no diga que todo `SUPUESTO` es `DECIDIDA` y remita a este documento; cerrar el bloque de código de la sección 4; reponer la sección de seguridad y datos (secretos, `.env`, `.db`, Excel real fuera del repo, contraseñas con hash).

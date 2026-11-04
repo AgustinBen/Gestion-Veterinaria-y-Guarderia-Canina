@@ -978,11 +978,7 @@ def agendar_turno(
         externo_id = datos.externo_empleado_id
         if externo_id is not None:
             _validar_externo(db, externo_id)
-        titular_id = (
-            _titular_principal_id(db, datos.paciente_id)
-            if datos.monto_centavos is not None
-            else None
-        )
+        titular_id = _titular_principal_id(db, datos.paciente_id)
         turno = repository.crear_turno(
             db,
             Turno(
@@ -1001,19 +997,18 @@ def agendar_turno(
                 created_by=created_by,
             ),
         )
-        if datos.monto_centavos is not None and titular_id is not None:
-            cargo = cobros_service.crear_cargo(
-                db,
-                persona_id=titular_id,
-                concepto=f"Turno {datos.tipo.value}",
-                total_centavos=datos.monto_centavos,
-                paciente_id=datos.paciente_id,
-                referencia_tipo="TURNO",
-                referencia_id=turno.id,
-                usuario_id=created_by,
-                transaccion_externa=True,
-            )
-            turno.cargo_id = cargo.id
+        cargo = cobros_service.crear_cargo(
+            db,
+            persona_id=titular_id,
+            concepto=f"Turno {datos.tipo.value}",
+            total_centavos=datos.monto_centavos,
+            paciente_id=datos.paciente_id,
+            referencia_tipo="TURNO",
+            referencia_id=turno.id,
+            usuario_id=created_by,
+            transaccion_externa=True,
+        )
+        turno.cargo_id = cargo.id
     db.refresh(turno)
     return _turno_out(turno)
 

@@ -8,6 +8,7 @@ import {
   mensajeDeError,
   obtenerPersona,
 } from '../api';
+import { EtiquetaCampo } from '../../../core/components/ui/EtiquetaCampo';
 import { ModalDuplicado } from '../components/ModalDuplicado';
 import type { CoincidenciaDuplicado, PersonaDetalle, PersonaResumen } from '../tipos';
 import estilos from '../padron.module.css';
@@ -221,7 +222,9 @@ export function AltaPersona() {
       <form className={estilos.formulario} onSubmit={guardar}>
         <div className={`${estilos.grilla} ${estilos.grillaDos}`}>
           <div className={estilos.campo}>
-            <label htmlFor="persona-nombre">Nombre</label>
+            <EtiquetaCampo htmlFor="persona-nombre" obligatorio>
+              Nombre
+            </EtiquetaCampo>
             <input
               id="persona-nombre"
               onChange={(evento) => cambiar('nombre', evento.target.value)}
@@ -232,7 +235,9 @@ export function AltaPersona() {
           </div>
 
           <div className={estilos.campo}>
-            <label htmlFor="persona-apellido">Apellido</label>
+            <EtiquetaCampo htmlFor="persona-apellido" obligatorio>
+              Apellido
+            </EtiquetaCampo>
             <input
               id="persona-apellido"
               onChange={(evento) => cambiar('apellido', evento.target.value)}
@@ -244,7 +249,9 @@ export function AltaPersona() {
         </div>
 
         <div className={estilos.campo}>
-          <label htmlFor="persona-dni">DNI</label>
+          <EtiquetaCampo htmlFor="persona-dni" obligatorio>
+            DNI
+          </EtiquetaCampo>
           <input
             id="persona-dni"
             inputMode="numeric"
@@ -256,7 +263,9 @@ export function AltaPersona() {
         </div>
 
         <div className={estilos.campo}>
-          <label htmlFor="persona-telefonos">Teléfonos</label>
+          <EtiquetaCampo htmlFor="persona-telefonos" obligatorio>
+            Teléfonos
+          </EtiquetaCampo>
           <input
             id="persona-telefonos"
             onChange={(evento) => cambiar('telefonos', evento.target.value)}

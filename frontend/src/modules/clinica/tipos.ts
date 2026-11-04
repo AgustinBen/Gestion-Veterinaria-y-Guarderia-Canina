@@ -180,7 +180,7 @@ export type TurnoCrear = {
   motivo?: string | null;
   externo_empleado_id?: number | null;
   /** Monto a cobrar al dueño, en centavos. Se registra como cargo en Cobros. */
-  monto_centavos?: number;
+  monto_centavos: number;
 };
 
 export type TurnoReprogramar = {

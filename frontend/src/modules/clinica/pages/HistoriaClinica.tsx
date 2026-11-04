@@ -4,6 +4,7 @@ import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../../core/auth/contexto';
 import { Alerta } from '../../../core/components/ui/Alerta';
 import { Boton } from '../../../core/components/ui/Boton';
+import { Paginacion } from '../../../core/components/ui/Paginacion';
 import { listarEmpleados, obtenerPaciente } from '../../padron/api';
 import type { EmpleadoDetalle, PacienteDetalle } from '../../padron/tipos';
 import {
@@ -44,6 +45,7 @@ const FILTROS: { id: 'TODAS' | CategoriaClinica; etiqueta: string }[] = [
 ];
 
 const MAX_ATENCIONES = 100;
+const TAMANIO_PAGINA_ATENCIONES = 5;
 
 type Estado = 'cargando' | 'listo' | 'error';
 
@@ -82,6 +84,7 @@ export function HistoriaClinica() {
   const [error, setError] = useState('');
   const [intento, setIntento] = useState(0);
   const [filtro, setFiltro] = useState<'TODAS' | CategoriaClinica>('TODAS');
+  const [paginaAtenciones, setPaginaAtenciones] = useState(1);
   const [mostrandoFormulario, setMostrandoFormulario] = useState(false);
   const [rectificando, setRectificando] = useState<AtencionDetalle | null>(null);
   const [errorAccion, setErrorAccion] = useState('');
@@ -164,6 +167,18 @@ export function HistoriaClinica() {
     filtro === 'TODAS'
       ? atenciones
       : atenciones.filter((atencion) => atencion.tipo === filtro);
+  const cantidadPaginas = Math.ceil(
+    visibles.length / TAMANIO_PAGINA_ATENCIONES,
+  );
+  const paginaVisible = Math.min(
+    paginaAtenciones,
+    Math.max(cantidadPaginas, 1),
+  );
+  const indiceInicio = (paginaVisible - 1) * TAMANIO_PAGINA_ATENCIONES;
+  const atencionesVisibles = visibles.slice(
+    indiceInicio,
+    indiceInicio + TAMANIO_PAGINA_ATENCIONES,
+  );
 
   return (
     <section className={estilos.pagina} aria-labelledby="titulo-mascota">
@@ -267,7 +282,10 @@ export function HistoriaClinica() {
                     filtro === opcion.id ? estilos.chipActivo : ''
                   }`.trim()}
                   key={opcion.id}
-                  onClick={() => setFiltro(opcion.id)}
+                  onClick={() => {
+                    setFiltro(opcion.id);
+                    setPaginaAtenciones(1);
+                  }}
                   type="button"
                 >
                   {opcion.etiqueta}
@@ -282,78 +300,86 @@ export function HistoriaClinica() {
                   : 'No hay atenciones de esta categoría.'}
               </p>
             ) : (
-              <ul className={estilos.lista}>
-                {visibles.map((atencion) => (
-                  <li className={estilos.tarjeta} key={atencion.id}>
-                    <div className={estilos.tarjetaCabecera}>
-                      <strong className={estilos.tarjetaTitulo}>
-                        {ETIQUETA_TIPO[atencion.tipo]} · #{atencion.id}
-                      </strong>
-                      <span className={estilos.etiqueta}>
-                        {formatearFechaHora(atencion.fecha_hora)}
-                      </span>
-                    </div>
-
-                    <div className={estilos.meta}>
-                      <span>
-                        Veterinario:{' '}
-                        <strong>
-                          {atencion.veterinario_nombre ?? 'sin asignar'}
+              <>
+                <ul className={estilos.lista}>
+                  {atencionesVisibles.map((atencion) => (
+                    <li className={estilos.tarjeta} key={atencion.id}>
+                      <div className={estilos.tarjetaCabecera}>
+                        <strong className={estilos.tarjetaTitulo}>
+                          {ETIQUETA_TIPO[atencion.tipo]} · #{atencion.id}
                         </strong>
-                      </span>
-                      {atencion.cirujano_externo_nombre ? (
-                        <span>
-                          Cirujano:{' '}
-                          <strong>{atencion.cirujano_externo_nombre}</strong>
-                        </span>
-                      ) : null}
-                      {atencion.origen === 'MIGRACION' ? (
-                        <span className={estilos.etiqueta}>Migración</span>
-                      ) : null}
-                      {atencion.rectificada ? (
-                        <span className={estilos.etiqueta}>Rectificada</span>
-                      ) : null}
-                      {atencion.rectifica_a_id !== null ? (
                         <span className={estilos.etiqueta}>
-                          Rectifica a #{atencion.rectifica_a_id}
+                          {formatearFechaHora(atencion.fecha_hora)}
                         </span>
-                      ) : null}
-                    </div>
-
-                    {atencion.motivo ? (
-                      <p>
-                        <strong>Motivo:</strong> {atencion.motivo}
-                      </p>
-                    ) : null}
-                    {atencion.diagnostico ? (
-                      <p>
-                        <strong>Diagnóstico:</strong> {atencion.diagnostico}
-                      </p>
-                    ) : null}
-                    {atencion.tratamiento ? (
-                      <p>
-                        <strong>Tratamiento:</strong> {atencion.tratamiento}
-                      </p>
-                    ) : null}
-                    {atencion.observaciones ? (
-                      <p>
-                        <strong>Observaciones:</strong> {atencion.observaciones}
-                      </p>
-                    ) : null}
-
-                    {puedeEscribir && !atencion.rectificada ? (
-                      <div className={estilos.acciones}>
-                        <Boton
-                          onClick={() => void abrirRectificacion(atencion)}
-                          variante="secundario"
-                        >
-                          Rectificar
-                        </Boton>
                       </div>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
+
+                      <div className={estilos.meta}>
+                        <span>
+                          Veterinario:{' '}
+                          <strong>
+                            {atencion.veterinario_nombre ?? 'sin asignar'}
+                          </strong>
+                        </span>
+                        {atencion.cirujano_externo_nombre ? (
+                          <span>
+                            Cirujano:{' '}
+                            <strong>{atencion.cirujano_externo_nombre}</strong>
+                          </span>
+                        ) : null}
+                        {atencion.origen === 'MIGRACION' ? (
+                          <span className={estilos.etiqueta}>Migración</span>
+                        ) : null}
+                        {atencion.rectificada ? (
+                          <span className={estilos.etiqueta}>Rectificada</span>
+                        ) : null}
+                        {atencion.rectifica_a_id !== null ? (
+                          <span className={estilos.etiqueta}>
+                            Rectifica a #{atencion.rectifica_a_id}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {atencion.motivo ? (
+                        <p>
+                          <strong>Motivo:</strong> {atencion.motivo}
+                        </p>
+                      ) : null}
+                      {atencion.diagnostico ? (
+                        <p>
+                          <strong>Diagnóstico:</strong> {atencion.diagnostico}
+                        </p>
+                      ) : null}
+                      {atencion.tratamiento ? (
+                        <p>
+                          <strong>Tratamiento:</strong> {atencion.tratamiento}
+                        </p>
+                      ) : null}
+                      {atencion.observaciones ? (
+                        <p>
+                          <strong>Observaciones:</strong> {atencion.observaciones}
+                        </p>
+                      ) : null}
+
+                      {puedeEscribir && !atencion.rectificada ? (
+                        <div className={estilos.acciones}>
+                          <Boton
+                            onClick={() => void abrirRectificacion(atencion)}
+                            variante="secundario"
+                          >
+                            Rectificar
+                          </Boton>
+                        </div>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+                <Paginacion
+                  ariaLabel="Paginación de atenciones"
+                  cantidadPaginas={cantidadPaginas}
+                  onCambiarPagina={setPaginaAtenciones}
+                  pagina={paginaVisible}
+                />
+              </>
             )}
           </section>
 

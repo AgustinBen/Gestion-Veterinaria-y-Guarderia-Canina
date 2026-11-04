@@ -69,6 +69,7 @@ def test_agenda_combina_turnos_horarios_personal_y_traspasos(
             "veterinario_empleado_id": clinica_context["veterinario_id"],
             "inicio": inicio.isoformat(),
             "fin": (inicio + timedelta(minutes=30)).isoformat(),
+            "monto_centavos": 100000,
         },
     )
     assert turno.status_code == 201

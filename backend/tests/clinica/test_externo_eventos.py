@@ -40,6 +40,7 @@ def _crear_cirugia(
             "externo_empleado_id": externo_id,
             "inicio": inicio.isoformat(),
             "fin": (inicio + timedelta(minutes=minutos)).isoformat(),
+            "monto_centavos": 100000,
         },
     )
 

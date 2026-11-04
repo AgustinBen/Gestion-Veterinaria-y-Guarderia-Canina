@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 
+import { Paginacion } from '../../../core/components/ui/Paginacion';
 import {
   buscarPersonas,
   listarPacientes,
@@ -411,31 +412,12 @@ export function Buscador() {
           ) : null}
 
           {cantidadPaginas > 1 ? (
-            <nav className={estilos.paginacion} aria-label="Paginación de mascotas">
-              <div className={estilos.controlesPaginacion}>
-                <button
-                  aria-label="Página anterior"
-                  className={estilos.botonPaginacion}
-                  disabled={paginaVisible === 1}
-                  onClick={() => setPaginaListado(paginaVisible - 1)}
-                  type="button"
-                >
-                  Anterior
-                </button>
-                <span aria-current="page" className={estilos.indicadorPagina}>
-                  Página {paginaVisible} de {cantidadPaginas}
-                </span>
-                <button
-                  aria-label="Página siguiente"
-                  className={estilos.botonPaginacion}
-                  disabled={paginaVisible === cantidadPaginas}
-                  onClick={() => setPaginaListado(paginaVisible + 1)}
-                  type="button"
-                >
-                  Siguiente
-                </button>
-              </div>
-            </nav>
+            <Paginacion
+              ariaLabel="Paginación de mascotas"
+              cantidadPaginas={cantidadPaginas}
+              onCambiarPagina={setPaginaListado}
+              pagina={paginaVisible}
+            />
           ) : null}
         </section>
       ) : null}
