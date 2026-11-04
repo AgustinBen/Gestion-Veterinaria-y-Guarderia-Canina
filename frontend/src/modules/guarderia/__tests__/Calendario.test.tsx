@@ -133,12 +133,21 @@ describe('Calendario de guardería', () => {
   it('muestra el acceso a configuración del cupo solo al Dueño', () => {
     const { unmount } = renderizarCalendario('DUENIO');
 
-    expect(
-      screen.getByRole('link', { name: 'Configurar cupo' }),
-    ).toHaveAttribute(
+    const botonConfiguracion = screen.getByRole('link', {
+      name: 'Configurar cupo',
+    });
+    expect(botonConfiguracion).toHaveAttribute(
       'href',
       `/guarderia/configuracion?fecha=${fechaLocal(new Date())}`,
     );
+    expect(
+      within(
+        screen.getByRole('region', { name: 'Calendario mensual' }),
+      ).getByRole('link', { name: 'Configurar cupo' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Disponibilidad de guardería' }),
+    ).not.toBeInTheDocument();
 
     unmount();
     renderizarCalendario('PERSONAL');
@@ -218,7 +227,9 @@ describe('Calendario de guardería', () => {
       '/guarderia/reservas/71',
     );
     expect(screen.queryByRole('link', { name: 'Reserva #72' })).not.toBeInTheDocument();
-    expect(screen.getByText(/Día · Noche/)).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Disponibilidad de guardería' }),
+    ).not.toBeInTheDocument();
   });
 
   it('informa el exceso de ocupación y disponibilidad cero en el calendario', async () => {
@@ -239,11 +250,13 @@ describe('Calendario de guardería', () => {
 
     renderizarCalendario('DUENIO');
 
-    expect(
-      await screen.findByRole('button', {
-        name: 'Día: 3 ocupadas de 1, Sobreocupado por 2',
-      }),
-    ).toBeInTheDocument();
+    const diaHoy = await screen.findByRole('button', {
+      name: `${new Date().getDate()} de ${new Intl.DateTimeFormat('es-AR', {
+        month: 'long',
+        year: 'numeric',
+      }).format(new Date())}`,
+    });
+    await waitFor(() => expect(diaHoy).toHaveTextContent('3/2'));
   });
 
   it('permite al Dueño habilitar una plaza de emergencia para el día seleccionado', async () => {
