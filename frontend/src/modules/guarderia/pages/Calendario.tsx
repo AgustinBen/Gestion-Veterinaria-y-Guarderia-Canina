@@ -16,6 +16,7 @@ import {
 } from '../api';
 import {
   UMBRAL_ULTIMAS_PLAZAS_PORCENTAJE,
+  cuposPublicosLibres,
   etiquetaNivel,
   nivelDisponibilidad,
   type NivelDisponibilidad,
@@ -158,6 +159,16 @@ function nombreFranja(franja: Franja): string {
   return franja === 'DIA' ? 'Día' : 'Noche';
 }
 
+function textoCuposPublicos(disponible: number): string {
+  if (disponible <= 0) {
+    return 'No quedan cupos públicos.';
+  }
+
+  return disponible === 1
+    ? 'Queda 1 cupo público.'
+    : `Quedan ${disponible} cupos públicos.`;
+}
+
 const CLASES_NIVEL: Record<NivelDisponibilidad, string> = {
   libre: estilos.cupoLibre ?? '',
   limitada: estilos.cupoLimitado ?? '',
@@ -200,6 +211,11 @@ export function Calendario() {
   const [claveEmergencia, setClaveEmergencia] = useState(generarIdempotencyKey);
   const [enviandoEmergencia, setEnviandoEmergencia] = useState(false);
   const [errorEmergencia, setErrorEmergencia] = useState('');
+  const [avisoEmergencia, setAvisoEmergencia] = useState<{
+    fecha: string;
+    franja: Franja;
+    libres: number;
+  } | null>(null);
   const enviandoEmergenciaRef = useRef(false);
   const { sesion } = useAuth();
   const soloLectura = sesion
@@ -272,6 +288,31 @@ export function Calendario() {
         disponibilidad.habilitadas >= disponibilidad.plazas_emergencia
       );
     });
+  // Lo ve cualquier rol con acceso al calendario: Personal y Veterinario se
+  // enteran de la plaza habilitada aunque no puedan habilitarla.
+  const emergenciasHabilitadas =
+    cargaDelMes.estado === 'lista'
+      ? cargaDelMes.disponibilidad.filter(
+          (item) => item.fecha === fechaSeleccionadaISO && item.habilitadas > 0,
+        )
+      : [];
+  // El número se recalcula con los datos vigentes: cada plaza que se ocupa
+  // descuenta un cupo público. Si el calendario todavía no se refrescó, se usa
+  // el valor que devolvió la habilitación.
+  const disponibilidadAviso =
+    avisoEmergencia && avisoEmergencia.fecha === fechaSeleccionadaISO
+      ? cargaDelMes.disponibilidad.find(
+          (item) =>
+            item.fecha === avisoEmergencia.fecha &&
+            item.franja === avisoEmergencia.franja,
+        )
+      : undefined;
+  const libresAvisoEmergencia =
+    avisoEmergencia && avisoEmergencia.fecha === fechaSeleccionadaISO
+      ? disponibilidadAviso
+        ? cuposPublicosLibres(disponibilidadAviso)
+        : avisoEmergencia.libres
+      : null;
 
   useEffect(() => {
     const controlador = new AbortController();
@@ -401,7 +442,7 @@ export function Calendario() {
     setErrorEmergencia('');
 
     try {
-      await habilitarPlazaEmergencia(
+      const actualizada = await habilitarPlazaEmergencia(
         {
           fecha: fechaSeleccionadaISO,
           franja: franjaEmergencia,
@@ -412,6 +453,11 @@ export function Calendario() {
       setEmergenciaAbierta(false);
       setMotivoEmergencia('');
       setClaveEmergencia(generarIdempotencyKey());
+      setAvisoEmergencia({
+        fecha: actualizada.fecha,
+        franja: actualizada.franja,
+        libres: cuposPublicosLibres(actualizada),
+      });
       setReintento((actual) => actual + 1);
     } catch (error: unknown) {
       setErrorEmergencia(mensajeDeError(error));
@@ -487,6 +533,7 @@ export function Calendario() {
                   onClick={() => {
                     setEmergenciaAbierta(false);
                     setErrorEmergencia('');
+                    setAvisoEmergencia(null);
                     setClaveEmergencia(generarIdempotencyKey());
                     setFechaSeleccionada(
                       new Date(
@@ -637,15 +684,40 @@ export function Calendario() {
             ) : null}
           </section>
 
+          {emergenciasHabilitadas.length > 0 ? (
+            <section
+              aria-labelledby="titulo-emergencia-habilitada"
+              className={estilos.seccionAgenda}
+            >
+              <h3 id="titulo-emergencia-habilitada">
+                Plazas de emergencia habilitadas
+              </h3>
+              <ul className={estilos.avisosEmergencia}>
+                {emergenciasHabilitadas.map((item) => (
+                  <li key={item.franja}>
+                    <strong>{nombreFranja(item.franja)}:</strong>{' '}
+                    El dueño habilitó la plaza de emergencia.{' '}
+                    {textoCuposPublicos(cuposPublicosLibres(item))}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
           {esDuenio ? (
             <section
               aria-labelledby="titulo-emergencia"
               className={estilos.seccionAgenda}
             >
               <h3 id="titulo-emergencia">Plaza de emergencia</h3>
+              {avisoEmergencia && libresAvisoEmergencia !== null ? (
+                <p className={estilos.avisoEmergenciaExito} role="status">
+                  Plaza de emergencia habilitada.
+                </p>
+              ) : null}
               {emergenciaAgotada ? (
                 <p className={estilos.vacioAgenda}>
-                  No quedan plazas de emergencia disponibles para {nombreFranja(franjaEmergencia)}.
+                  No quedan plazas de emergencia disponibles.
                 </p>
               ) : null}
               <Boton

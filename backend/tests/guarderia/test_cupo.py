@@ -80,6 +80,70 @@ def test_lleno_justo_acepta_una_reserva(
     assert resultado.codigo == "DISPONIBLE"
 
 
+def test_cada_ocupacion_descuenta_un_cupo_publico(
+    db_session,
+    sembrar_cupo,
+    crear_pacientes,
+    crear_ocupaciones,
+    crear_usuario,
+) -> None:
+    """RN-13: cupos públicos = cupo máximo − plazas de emergencia − ocupadas."""
+    usuario = crear_usuario()
+    cupo_maximo = get_param(db_session, "guarderia.cupo_maximo")
+    plazas_emergencia = get_param(db_session, "guarderia.plazas_emergencia")
+    cupo_publico = cupo_maximo - plazas_emergencia
+    ocupados = crear_pacientes(_perros(2))
+
+    vacia = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
+    crear_ocupaciones(ocupados[:1], FECHA, Franja.DIA, usuario.id)
+    una_ocupada = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
+    crear_ocupaciones(ocupados[1:], FECHA, Franja.DIA, usuario.id)
+    dos_ocupadas = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
+
+    assert vacia.disponible == cupo_publico
+    assert una_ocupada.disponible == cupo_publico - 1
+    assert dos_ocupadas.disponible == cupo_publico - 2
+    assert dos_ocupadas.disponible == (
+        cupo_maximo - plazas_emergencia - dos_ocupadas.ocupado
+    )
+
+
+def test_plaza_de_emergencia_habilitada_no_supera_el_cupo_maximo(
+    db_session,
+    sembrar_cupo,
+    crear_pacientes,
+    crear_ocupaciones,
+    crear_usuario,
+) -> None:
+    """La plaza habilitada se suma al cupo público, pero nunca al máximo."""
+    usuario = crear_usuario()
+    cupo_maximo = get_param(db_session, "guarderia.cupo_maximo")
+    cupo_publico = _cupo_publico(db_session)
+    ocupados = crear_pacientes(_perros(cupo_publico))
+    nuevos = crear_pacientes(_perros(2))
+    crear_ocupaciones(ocupados, FECHA, Franja.DIA, usuario.id)
+    _habilitar(db_session, FECHA, Franja.DIA, usuario.id)
+
+    habilitada = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
+    primera = service.verificar_cupo(
+        db_session, nuevos[:1], (FECHA, Franja.DIA), (FECHA, Franja.DIA)
+    )
+
+    assert habilitada.disponible == 1
+    assert habilitada.ocupado + habilitada.disponible == cupo_maximo
+    assert primera.aprobado is True
+
+    crear_ocupaciones(nuevos[:1], FECHA, Franja.DIA, usuario.id)
+    llena = service.calcular_disponibilidad(db_session, FECHA, Franja.DIA)
+    segunda = service.verificar_cupo(
+        db_session, nuevos[1:], (FECHA, Franja.DIA), (FECHA, Franja.DIA)
+    )
+
+    assert llena.ocupado == cupo_maximo
+    assert llena.disponible == 0
+    assert segunda.codigo == "SIN_CUPO"
+
+
 def test_uno_mas_rechaza_y_detalla_fecha_y_franja(
     db_session,
     sembrar_cupo,
