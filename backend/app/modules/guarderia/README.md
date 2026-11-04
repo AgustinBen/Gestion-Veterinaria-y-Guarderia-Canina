@@ -2,7 +2,9 @@
 
 - Responsable: Aldana
 - Servicio público: `disponibilidad`, `calendario`, `verificar_cupo`,
-  `franjas_del_tramo`, `habilitar_plaza_emergencia` y `cancelar_reserva`.
+  `franjas_del_tramo`, `habilitar_plaza_emergencia`, `cancelar_reserva` y
+  `estado_reserva` (devuelve el estado de una reserva o `None`, sin exponer
+  modelos; lo consume Cobros en T-66).
 - `ReservaOut.sena_centavos` expone el total neto de señas por el recurso
   `reservas_cupo`, sin exponer pagos ni saldos de Cobros.
 - Cada paciente de una reserva conserva el indicador de cuidados extras y su

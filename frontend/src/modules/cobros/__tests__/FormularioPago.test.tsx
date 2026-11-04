@@ -31,6 +31,7 @@ const CARGO: CargoDetalle = {
   origen: 'NORMAL',
   referencia_tipo: null,
   referencia_id: null,
+  reserva_estado: null,
   creado_por: 1,
   created_at: '2026-10-20T10:00:00',
   total_vigente: 10000,

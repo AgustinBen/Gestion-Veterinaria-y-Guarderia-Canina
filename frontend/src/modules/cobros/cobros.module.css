@@ -322,6 +322,11 @@
   color: var(--color-success);
 }
 
+.insigniaCancelado {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+}
+
 .enlace {
   color: var(--color-primary);
   font-weight: var(--weight-semibold);

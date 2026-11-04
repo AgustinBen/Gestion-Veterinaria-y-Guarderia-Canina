@@ -386,6 +386,12 @@ def obtener_cargo_detalle(db: Session, cargo_id: int) -> schemas.CargoDetalleOut
     cargo = _obtener_cargo_o_error(db, cargo_id)
     total_vig = repository.total_vigente(db, cargo_id)
     total_pag = repository.total_pagado(db, cargo_id)
+    reserva_estado: str | None = None
+    if cargo.referencia_tipo == "RESERVA" and cargo.referencia_id is not None:
+        # Contrato público con guardería (T-66): solo el estado, sin sus modelos.
+        from app.modules.guarderia import service as guarderia_service
+
+        reserva_estado = guarderia_service.estado_reserva(db, cargo.referencia_id)
     return schemas.CargoDetalleOut(
         id=cargo.id,
         persona_id=cargo.persona_id,
@@ -396,6 +402,7 @@ def obtener_cargo_detalle(db: Session, cargo_id: int) -> schemas.CargoDetalleOut
         origen=cargo.origen.value,
         referencia_tipo=cargo.referencia_tipo,
         referencia_id=cargo.referencia_id,
+        reserva_estado=reserva_estado,
         creado_por=cargo.creado_por,
         created_at=cargo.created_at,
         total_vigente=total_vig,

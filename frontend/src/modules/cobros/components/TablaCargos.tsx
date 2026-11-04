@@ -67,6 +67,11 @@ export function TablaCargos({
                           Migrado
                         </span>
                       ) : null}
+                      {cargo.reserva_estado === 'CANCELADA' ? (
+                        <span className={`${estilos.insignia} ${estilos.insigniaCancelado}`}>
+                          CANCELADO
+                        </span>
+                      ) : null}
                     </span>
                   </td>
                   <td className={estilos.numero} data-etiqueta="Total">

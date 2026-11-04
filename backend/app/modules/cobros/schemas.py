@@ -84,6 +84,8 @@ class CargoDetalleOut(BaseModel):
     origen: str
     referencia_tipo: str | None
     referencia_id: int | None
+    # T-66: estado de la reserva vinculada, solo para cargos de guardería.
+    reserva_estado: str | None = None
     creado_por: int
     created_at: datetime
     total_vigente: int
