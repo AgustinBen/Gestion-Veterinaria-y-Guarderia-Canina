@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { Alerta } from '../../../core/components/ui/Alerta';
 import { Boton } from '../../../core/components/ui/Boton';
+import { Paginacion } from '../../../core/components/ui/Paginacion';
 import {
   buscarPacientes,
   listarPacientes,
@@ -24,6 +25,7 @@ const CATEGORIAS: { id: Filtro; etiqueta: string }[] = [
   { id: 'TRATAMIENTO', etiqueta: 'Tratamientos' },
 ];
 const MAX_PACIENTES = 100;
+const TAMANIO_PAGINA_PACIENTES = 5;
 const RETRASO_BUSQUEDA_MS = 250;
 
 type Estado = 'cargando' | 'listo' | 'error';
@@ -42,6 +44,7 @@ export function Pacientes() {
   const [estado, setEstado] = useState<Estado>('cargando');
   const [error, setError] = useState('');
   const [intento, setIntento] = useState(0);
+  const [pagina, setPagina] = useState(1);
 
   useEffect(() => {
     const controlador = new AbortController();
@@ -104,6 +107,14 @@ export function Pacientes() {
     };
   }, [texto, filtro, intento]);
 
+  const cantidadPaginas = Math.ceil(filas.length / TAMANIO_PAGINA_PACIENTES);
+  const paginaVisible = Math.min(pagina, Math.max(cantidadPaginas, 1));
+  const indiceInicio = (paginaVisible - 1) * TAMANIO_PAGINA_PACIENTES;
+  const filasVisibles = filas.slice(
+    indiceInicio,
+    indiceInicio + TAMANIO_PAGINA_PACIENTES,
+  );
+
   return (
     <section className={estilos.pagina} aria-labelledby="titulo-historia">
       <header className={estilos.cabecera}>
@@ -123,7 +134,10 @@ export function Pacientes() {
           Buscar mascota
           <input
             id="buscar-mascota"
-            onChange={(evento) => setTexto(evento.target.value)}
+            onChange={(evento) => {
+              setTexto(evento.target.value);
+              setPagina(1);
+            }}
             placeholder="Nombre de la mascota"
             type="search"
             value={texto}
@@ -143,7 +157,10 @@ export function Pacientes() {
                 aria-pressed={activo}
                 className={`${estilos.chip} ${activo ? estilos.chipActivo : ''}`}
                 key={categoria.id}
-                onClick={() => setFiltro(categoria.id)}
+                onClick={() => {
+                  setFiltro(categoria.id);
+                  setPagina(1);
+                }}
                 type="button"
               >
                 {categoria.etiqueta}
@@ -178,27 +195,35 @@ export function Pacientes() {
                 : 'Todavía no hay mascotas en el padrón.'}
           </p>
         ) : (
-          <ul className={estilos.lista}>
-            {filas.map((paciente) => (
-              <li key={paciente.id}>
-                <Link
-                  className={`${estilos.tarjeta} ${estilos.enlace}`}
-                  to={`/historia-clinica/${paciente.id}`}
-                >
-                  <span className={estilos.tarjetaTitulo}>
-                    {paciente.nombre}
-                  </span>
-                  <span className={estilos.meta}>
-                    <span>{paciente.especie_nombre}</span>
-                    {paciente.raza_nombre ? (
-                      <span>{paciente.raza_nombre}</span>
-                    ) : null}
-                    <DuenioMascota pacienteId={paciente.id} />
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className={estilos.lista}>
+              {filasVisibles.map((paciente) => (
+                <li key={paciente.id}>
+                  <Link
+                    className={`${estilos.tarjeta} ${estilos.enlace}`}
+                    to={`/historia-clinica/${paciente.id}`}
+                  >
+                    <span className={estilos.tarjetaTitulo}>
+                      {paciente.nombre}
+                    </span>
+                    <span className={estilos.meta}>
+                      <span>{paciente.especie_nombre}</span>
+                      {paciente.raza_nombre ? (
+                        <span>{paciente.raza_nombre}</span>
+                      ) : null}
+                      <DuenioMascota pacienteId={paciente.id} />
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <Paginacion
+              ariaLabel="Paginación de mascotas"
+              cantidadPaginas={cantidadPaginas}
+              onCambiarPagina={setPagina}
+              pagina={paginaVisible}
+            />
+          </>
         )}
       </section>
     </section>
