@@ -202,12 +202,34 @@
 
 .cupoFranja {
   display: inline-flex;
+  max-width: 100%;
   min-width: 0;
   align-items: center;
   gap: 0.1rem;
+  padding: 1px 3px;
+  border: 0;
+  border-radius: 0.4rem;
   font-size: 0.65rem;
   font-variant-numeric: tabular-nums;
   line-height: 1;
+}
+
+.cupoLibre {
+  background: var(--color-success-soft);
+}
+
+.cupoLimitado {
+  background: var(--color-warning-soft);
+}
+
+.cupoSinCupo {
+  background: var(--color-danger-soft);
+}
+
+.cupoSinDatos {
+  border: 1px dashed var(--color-border-strong);
+  background: var(--color-surface-muted);
+  color: var(--color-text-soft);
 }
 
 .puntoFranja {
@@ -225,19 +247,28 @@
   background: var(--color-peach);
 }
 
-.cupoSinDatos {
+.puntoSinDatos {
   background: var(--color-border-strong);
 }
 
 .cupoOcupadoParcial {
-  color: #43834b;
+  color: var(--color-success);
   font-weight: var(--weight-bold);
 }
 
-.cupoOcupadoCompleto,
-.cupoMaximo {
-  color: #c44f4f;
+.cupoOcupadoLimitado {
+  color: var(--color-warning);
   font-weight: var(--weight-bold);
+}
+
+.cupoOcupadoCompleto {
+  color: var(--color-danger);
+  font-weight: var(--weight-bold);
+}
+
+.cupoMaximo {
+  color: var(--color-text-soft);
+  font-weight: var(--weight-semibold);
 }
 
 .leyenda {
@@ -267,6 +298,18 @@
 
 .muestraNoche {
   background: var(--color-peach);
+}
+
+.muestraConLugar {
+  background: var(--color-success);
+}
+
+.muestraUltimasPlazas {
+  background: var(--color-warning);
+}
+
+.muestraCompleto {
+  background: var(--color-danger);
 }
 
 .panelDia {
@@ -442,6 +485,17 @@
     gap: var(--space-1);
     padding: 5px;
     border-radius: 0.8rem;
+  }
+
+  .cupoFranja {
+    gap: 0.05rem;
+    padding: 1px 2px;
+    font-size: 0.625rem;
+  }
+
+  .puntoFranja {
+    width: 0.35rem;
+    height: 0.35rem;
   }
 
   .diasSemana {

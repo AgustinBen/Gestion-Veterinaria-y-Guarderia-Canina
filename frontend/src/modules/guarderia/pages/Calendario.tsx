@@ -14,6 +14,12 @@ import {
   listarTurnosClinicos,
   mensajeDeError,
 } from '../api';
+import {
+  UMBRAL_ULTIMAS_PLAZAS_PORCENTAJE,
+  etiquetaNivel,
+  nivelDisponibilidad,
+  type NivelDisponibilidad,
+} from '../disponibilidad';
 import { fechaLocal } from '../fechas';
 import type {
   Disponibilidad,
@@ -150,6 +156,25 @@ function horaDeTurno(iso: string): string {
 
 function nombreFranja(franja: Franja): string {
   return franja === 'DIA' ? 'Día' : 'Noche';
+}
+
+const CLASES_NIVEL: Record<NivelDisponibilidad, string> = {
+  libre: estilos.cupoLibre ?? '',
+  limitada: estilos.cupoLimitado ?? '',
+  'sin-cupo': estilos.cupoSinCupo ?? '',
+  'sin-datos': estilos.cupoSinDatos ?? '',
+};
+
+function claseDelNumero(nivel: NivelDisponibilidad): string {
+  if (nivel === 'sin-cupo') {
+    return estilos.cupoOcupadoCompleto ?? '';
+  }
+
+  if (nivel === 'limitada') {
+    return estilos.cupoOcupadoLimitado ?? '';
+  }
+
+  return estilos.cupoOcupadoParcial ?? '';
 }
 
 export function Calendario() {
@@ -486,18 +511,22 @@ export function Calendario() {
                             )
                           : undefined;
                       const etiquetaFranja = nombreFranja(franja);
-                      const cupoCompleto =
-                        disponibilidad !== undefined &&
-                        disponibilidad.ocupado >= disponibilidad.cupo_maximo;
+                      const nivel = nivelDisponibilidad(
+                        disponibilidad,
+                        UMBRAL_ULTIMAS_PLAZAS_PORCENTAJE,
+                      );
+                      const estado = etiquetaNivel(nivel);
 
                       return (
                         <span
                           aria-label={
                             disponibilidad
-                              ? `${etiquetaFranja}: ${disponibilidad.ocupado} de ${disponibilidad.cupo_maximo} plazas ocupadas`
+                              ? `${etiquetaFranja}: ${disponibilidad.ocupado} de ${disponibilidad.cupo_maximo} plazas ocupadas, ${estado}`
                               : `${etiquetaFranja}: cupo sin datos`
                           }
-                          className={estilos.cupoFranja}
+                          className={[estilos.cupoFranja, CLASES_NIVEL[nivel]].join(
+                            ' ',
+                          )}
                           key={franja}
                         >
                           <i
@@ -508,17 +537,11 @@ export function Calendario() {
                                 ? franja === 'DIA'
                                   ? estilos.cupoDia
                                   : estilos.cupoNoche
-                                : estilos.cupoSinDatos,
+                                : estilos.puntoSinDatos,
                             ].join(' ')}
                           />
                           {disponibilidad ? (
-                            <span
-                              className={
-                                cupoCompleto
-                                  ? estilos.cupoOcupadoCompleto
-                                  : estilos.cupoOcupadoParcial
-                              }
-                            >
+                            <span className={claseDelNumero(nivel)}>
                               {disponibilidad.ocupado}
                             </span>
                           ) : null}
@@ -535,9 +558,17 @@ export function Calendario() {
               ),
             )}
           </div>
-          <div className={estilos.leyenda} aria-label="Franjas de guardería">
+          <div
+            className={estilos.leyenda}
+            aria-label="Franjas y disponibilidad de guardería"
+          >
             <span><i className={estilos.muestraDia} /> Día</span>
             <span><i className={estilos.muestraNoche} /> Noche</span>
+            <span><i className={estilos.muestraConLugar} /> Con lugar</span>
+            <span>
+              <i className={estilos.muestraUltimasPlazas} /> Últimas plazas
+            </span>
+            <span><i className={estilos.muestraCompleto} /> Completo</span>
           </div>
           {esDuenio ? (
             <Link
