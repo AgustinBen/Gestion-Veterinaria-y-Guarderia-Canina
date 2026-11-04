@@ -139,9 +139,8 @@ Karma de confiabilidad, notificaciones, portal para dueños, política automatiz
 
 ## 7. Documentos a corregir (tickets y agentes con texto viejo)
 - `AGENTS.md` (PR #15 de Aldana): precio: subir cualquier rol con permiso de cobro, bajar solo Dueño; encabezado que no diga que todo `SUPUESTO` es `DECIDIDA` y remita a este documento; cerrar el bloque de código de la sección 4; reponer la sección de seguridad y datos (secretos, `.env`, `.db`, Excel real fuera del repo, contraseñas con hash).
-- `opencode.json` (PR #15): la clave correcta es `permission` (objeto), no `permissions` (lista); quitar el modelo fijo.
+- `opencode.json` (PR #15): ~~la clave correcta es `permission` (objeto), no `permissions` (lista)~~ → **corregido el 2026-11-04**: en OpenCode V2 la clave es `permissions` (lista de `{action, resource, effect}`) y la acción de shell es `shell`; `permission` y `bash` son de V1 y quedan deprecados. El archivo ya estaba en el formato V2, no hubo que cambiarlo. El modelo fijo se quitó el 2026-11-04: cada quien usa el que tenga configurado.
 - `README.md` (PR #15): ya no hay seis agentes especializados.
 - `docs/specs/identidad.md`: matriz con "Habilitar plaza de emergencia" solo para Dueño, y la línea de RN-14 que dice "VETERINARIO o DUENIO". Agregar las filas de subir y bajar precio.
-- `docs/specs/cobros.md` (T-06): incluir la regla de RN-22 (bajar precio solo `DUENIO`) en el ajuste de precio y en los endpoints.
 - `qa-tester.md` y `code-reviewer.md` ya no existen en el repo (PR #15); si se retoman, quitar "tamaños mixtos" y usar la matriz de tres roles.
 - Tickets: T-07, T-18 y T-24 (cupo sin factor, regla en una sola función), T-09 (menú Panel solo para Dueño, tres roles), T-10 (tres roles y `GET /api/usuarios`), T-11 (`tamanio` sin factor, `cliente`, domicilio con `referencia`, `tipo_contacto`, `especie` y `raza`), T-12 (DNI bloquea, teléfono y nombre avisan, alta rápida de razas), T-16 (apellido faltante, fecha de corte, gana la fila posterior), T-20 y T-31 (bajar precio solo `DUENIO`), T-33 (habilitar plaza de emergencia solo `DUENIO`) y T-35 (la acción de habilitar plaza de emergencia solo visible para el Dueño).
