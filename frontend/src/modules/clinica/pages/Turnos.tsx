@@ -213,7 +213,7 @@ export function Turnos() {
 
   return (
     <section className={estilos.pagina} aria-labelledby="titulo-turnos">
-      <header className={estilos.cabecera}>
+      <header className={`${estilos.cabecera} ${estilos.cabeceraTurnos}`}>
         <div className={estilos.introduccion}>
           <p className={estilos.antetitulo}>Agenda veterinaria</p>
           <h1 className={estilos.titulo} id="titulo-turnos">
@@ -226,9 +226,11 @@ export function Turnos() {
           </p>
         </div>
         {puedeCrear ? (
-          <Link className={estilos.enlace} to={`/turnos/nueva?fecha=${fechaBase}`}>
-            Nuevo turno
-          </Link>
+          <div className={estilos.acciones}>
+            <Link className={estilos.boton} to={`/turnos/nueva?fecha=${fechaBase}`}>
+              Nuevo turno
+            </Link>
+          </div>
         ) : null}
       </header>
 
