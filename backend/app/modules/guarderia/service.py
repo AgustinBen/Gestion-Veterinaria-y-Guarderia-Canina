@@ -816,6 +816,12 @@ def obtener_reserva(db: Session, reserva_id: int) -> ReservaOut:
     return _reserva_out(db, reserva)
 
 
+def estado_reserva(db: Session, reserva_id: int) -> str | None:
+    """Estado de una reserva para otros módulos, o None si no existe (T-66)."""
+    reserva = repository.obtener_reserva(db, reserva_id)
+    return reserva.estado.value if reserva is not None else None
+
+
 def cancelar_reserva(
     db: Session,
     reserva_id: int,

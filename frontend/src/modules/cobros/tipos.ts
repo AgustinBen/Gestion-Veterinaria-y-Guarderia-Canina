@@ -30,6 +30,8 @@ export type CargoDetalle = {
   origen: string;
   referencia_tipo: string | null;
   referencia_id: number | null;
+  /** T-66: estado de la reserva vinculada; solo llega en cargos de guardería. */
+  reserva_estado: string | null;
   creado_por: number;
   created_at: string;
   total_vigente: number;
