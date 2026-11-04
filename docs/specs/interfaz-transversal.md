@@ -19,8 +19,13 @@ permisos, datos ni reglas de negocio.
   respeta la preferencia de movimiento reducido del sistema.
 - En Administración, Personal y Veterinario se muestran en dos columnas; queda
   un único botón Volver, junto a Crear cuenta.
+- Los campos obligatorios muestran un asterisco rojo junto a su etiqueta; los
+  opcionales no lo muestran. El asterisco se implementa con un componente
+  compartido.
 - Dueños y mascotas muestra el rótulo “Padrón de clientes” y pagina las mascotas
   registradas en grupos de cinco.
+- Historia clínica pagina sus atenciones en grupos de cinco, con el mismo
+  paginado de Dueños y mascotas.
 - La barra superior de navegación comparte el fondo ámbar suave del menú.
 - El resumen visual del Panel presenta las etiquetas Mensual y Anual una al lado
   de la otra.
@@ -51,7 +56,7 @@ permisos, datos ni reglas de negocio.
   de instrucción como “Seleccionar especie”; el placeholder queda solo como
   indicación visual mientras no haya valor elegido.
 - La ilustración de la navegación lateral saluda al usuario autenticado por su
-  nombre, sin consultar datos de Guardería.
+  nombre y muestra cuántas mascotas hay hoy en Guardería.
 - El contador de Deudores queda alineado al extremo derecho del menú y destaca
   con mayor tamaño y contraste, también en el menú secundario móvil.
 

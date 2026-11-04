@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 
+import { listarReservas } from '../../modules/guarderia/api';
 import type { Sesion } from '../auth/almacenSesion';
 import { etiquetaRol, type Seccion } from '../auth/permisos';
 import { PatitaIcon } from '../components/PatitaIcon';
@@ -14,6 +16,13 @@ type Props = {
   onSalir: () => void;
 };
 
+function fechaIsoLocal(fecha: Date): string {
+  const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+  const dia = String(fecha.getDate()).padStart(2, '0');
+
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
+}
+
 export function Sidebar({
   sesion,
   secciones,
@@ -21,6 +30,47 @@ export function Sidebar({
   contadorDeudores,
   onSalir,
 }: Props) {
+  const [huellitasEnCasa, setHuellitasEnCasa] = useState<number | null>(null);
+
+  useEffect(() => {
+    const controlador = new AbortController();
+    let activo = true;
+    const hoy = fechaIsoLocal(new Date());
+
+    listarReservas(hoy, hoy, { signal: controlador.signal })
+      .then((reservas) => {
+        if (!activo || controlador.signal.aborted) {
+          return;
+        }
+
+        const pacientes = new Set<number>();
+
+        reservas
+          .filter(
+            (reserva) =>
+              reserva.estado === 'CONFIRMADA' ||
+              reserva.estado === 'EN_CURSO',
+          )
+          .forEach((reserva) => {
+            reserva.pacientes.forEach((paciente) =>
+              pacientes.add(paciente.paciente_id),
+            );
+          });
+
+        setHuellitasEnCasa(pacientes.size);
+      })
+      .catch(() => {
+        if (activo && !controlador.signal.aborted) {
+          setHuellitasEnCasa(null);
+        }
+      });
+
+    return () => {
+      activo = false;
+      controlador.abort();
+    };
+  }, []);
+
   return (
     <aside className={estilos.sidebar}>
       <div className={estilos.interior}>
@@ -73,6 +123,9 @@ export function Sidebar({
         <div className={estilos.mascota}>
           <img src="/images/mascotas.png" alt="" />
           <p>Hola, {sesion.usuario}!</p>
+          {huellitasEnCasa !== null ? (
+            <p>Hoy hay {huellitasEnCasa} huellitas en casa</p>
+          ) : null}
         </div>
 
         <div className={estilos.pie}>

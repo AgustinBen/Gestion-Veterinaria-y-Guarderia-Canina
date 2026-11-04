@@ -2,6 +2,10 @@ import { useRef, useState, type FormEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 import { ApiError } from '../../core/api/client';
+import {
+  EtiquetaCampo,
+  MarcaObligatorio,
+} from '../../core/components/ui/EtiquetaCampo';
 import type { RolUsuarioCreable } from './servicioUsuarios';
 import { crearUsuario } from './servicioUsuarios';
 import estilos from './CrearCuentaPage.module.css';
@@ -196,7 +200,9 @@ export function CrearCuentaPage() {
           </div>
 
           <div className={estilos.campo}>
-            <label htmlFor="nuevo-username">Usuario</label>
+            <EtiquetaCampo htmlFor="nuevo-username" obligatorio>
+              Usuario
+            </EtiquetaCampo>
             <input
               autoComplete="off"
               id="nuevo-username"
@@ -211,7 +217,9 @@ export function CrearCuentaPage() {
           </div>
 
           <div className={estilos.campo}>
-            <label htmlFor="nueva-password">Contraseña</label>
+            <EtiquetaCampo htmlFor="nueva-password" obligatorio>
+              Contraseña
+            </EtiquetaCampo>
             <input
               autoComplete="new-password"
               id="nueva-password"
@@ -225,7 +233,10 @@ export function CrearCuentaPage() {
           </div>
 
           <fieldset className={estilos.selectorRol}>
-            <legend>Rol</legend>
+            <legend>
+              Rol
+              <MarcaObligatorio />
+            </legend>
             <div className={estilos.opcionesRol}>
               {OPCIONES_ROL.map((opcion) => {
                 const seleccionado = datos.rol === opcion.valor;
@@ -279,7 +290,9 @@ export function CrearCuentaPage() {
           </fieldset>
 
           <div className={estilos.campo}>
-            <label htmlFor="empleado-nombre">Nombre</label>
+            <EtiquetaCampo htmlFor="empleado-nombre" obligatorio>
+              Nombre
+            </EtiquetaCampo>
             <input
               autoComplete="off"
               id="empleado-nombre"
@@ -291,7 +304,9 @@ export function CrearCuentaPage() {
           </div>
 
           <div className={estilos.campo}>
-            <label htmlFor="empleado-apellido">Apellido</label>
+            <EtiquetaCampo htmlFor="empleado-apellido" obligatorio>
+              Apellido
+            </EtiquetaCampo>
             <input
               autoComplete="off"
               id="empleado-apellido"
@@ -303,7 +318,9 @@ export function CrearCuentaPage() {
           </div>
 
           <div className={estilos.campo}>
-            <label htmlFor="empleado-dni">DNI</label>
+            <EtiquetaCampo htmlFor="empleado-dni" obligatorio>
+              DNI
+            </EtiquetaCampo>
             <input
               autoComplete="off"
               id="empleado-dni"
@@ -316,7 +333,9 @@ export function CrearCuentaPage() {
           </div>
 
           <div className={estilos.campo}>
-            <label htmlFor="empleado-telefono">Teléfono</label>
+            <EtiquetaCampo htmlFor="empleado-telefono" obligatorio>
+              Teléfono
+            </EtiquetaCampo>
             <input
               autoComplete="off"
               id="empleado-telefono"

@@ -5,6 +5,7 @@ import { useAuth } from '../../core/auth/contexto';
 import { rutaInicial } from '../../core/auth/permisos';
 import { ApiError } from '../../core/api/client';
 import { PatitaIcon } from '../../core/components/PatitaIcon';
+import { EtiquetaCampo } from '../../core/components/ui/EtiquetaCampo';
 import estilos from './LoginPage.module.css';
 
 
@@ -71,7 +72,9 @@ export function LoginPage() {
 
         <form className={estilos.formulario} onSubmit={manejarEnvio}>
           <div className={estilos.campo}>
-            <label htmlFor="usuario">Usuario</label>
+            <EtiquetaCampo htmlFor="usuario" obligatorio>
+              Usuario
+            </EtiquetaCampo>
             <input
               id="usuario"
               name="usuario"
@@ -84,7 +87,9 @@ export function LoginPage() {
           </div>
 
           <div className={estilos.campo}>
-            <label htmlFor="password">Contraseña</label>
+            <EtiquetaCampo htmlFor="password" obligatorio>
+              Contraseña
+            </EtiquetaCampo>
             <input
               id="password"
               name="password"

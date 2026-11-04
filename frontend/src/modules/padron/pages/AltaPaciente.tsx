@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
+import { EtiquetaCampo } from '../../../core/components/ui/EtiquetaCampo';
 import { Selector } from '../../../core/components/ui/Selector';
 import { SelectorFecha } from '../../../core/components/ui/SelectorFecha';
 import {
@@ -269,7 +270,9 @@ export function AltaPaciente() {
 
       <form className={estilos.formulario} onSubmit={guardar}>
         <div className={estilos.campo}>
-          <label htmlFor="paciente-nombre">Nombre</label>
+          <EtiquetaCampo htmlFor="paciente-nombre" obligatorio>
+            Nombre
+          </EtiquetaCampo>
           <input
             id="paciente-nombre"
             onChange={(evento) => setNombre(evento.target.value)}
@@ -280,7 +283,9 @@ export function AltaPaciente() {
         </div>
 
         <div className={estilos.campo}>
-          <label htmlFor="paciente-especie">Especie</label>
+          <EtiquetaCampo htmlFor="paciente-especie" obligatorio>
+            Especie
+          </EtiquetaCampo>
           <Selector
             id="paciente-especie"
             onChange={(valor) => {

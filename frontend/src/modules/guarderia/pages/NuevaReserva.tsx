@@ -470,6 +470,7 @@ export function NuevaReserva() {
             ayuda="Buscá por nombre, apellido o DNI."
             etiqueta="Tutor"
             id="buscar-tutor"
+            obligatorio
           >
             <input
               autoComplete="off"
@@ -607,6 +608,7 @@ export function NuevaReserva() {
                 ayuda="Importe provisorio; se cotizará automáticamente cuando esté disponible."
                 etiqueta="Total provisorio"
                 id="total-provisorio"
+                obligatorio
               >
                 <input
                   id="total-provisorio"
@@ -638,6 +640,7 @@ export function NuevaReserva() {
                 ayuda="Monto libre, mayor a cero."
                 etiqueta="Seña obligatoria"
                 id="monto-sena"
+                obligatorio
               >
                 <input
                   id="monto-sena"
@@ -649,7 +652,7 @@ export function NuevaReserva() {
                   value={montoSena}
                 />
               </Campo>
-              <Campo etiqueta="Medio de pago de la seña" id="medio-sena">
+              <Campo etiqueta="Medio de pago de la seña" id="medio-sena" obligatorio>
                 <select
                   disabled={enviando || datosSenaReintento !== null}
                   id="medio-sena"

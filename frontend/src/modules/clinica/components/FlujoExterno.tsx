@@ -295,7 +295,7 @@ export function FlujoExterno({
 
           {accion === 'contacto' ? (
             <>
-              <Campo id="externo-medio" etiqueta="Medio de contacto">
+              <Campo id="externo-medio" etiqueta="Medio de contacto" obligatorio>
                 <select
                   id="externo-medio"
                   onChange={(evento) =>
@@ -326,6 +326,7 @@ export function FlujoExterno({
               ayuda="El costo se registra como gasto externo y solo lo ve el Dueño."
               id="externo-costo"
               etiqueta="Costo acordado"
+              obligatorio
             >
               <input
                 id="externo-costo"
@@ -339,7 +340,7 @@ export function FlujoExterno({
           ) : null}
 
           {accion === 'rechazar' ? (
-            <Campo id="externo-motivo" etiqueta="Motivo del rechazo">
+            <Campo id="externo-motivo" etiqueta="Motivo del rechazo" obligatorio>
               <textarea
                 id="externo-motivo"
                 onChange={(evento) => setMotivo(evento.target.value)}
@@ -350,7 +351,7 @@ export function FlujoExterno({
           ) : null}
 
           {accion === 'reemplazar' ? (
-            <Campo id="externo-reemplazo" etiqueta="Nuevo veterinario externo">
+            <Campo id="externo-reemplazo" etiqueta="Nuevo veterinario externo" obligatorio>
               <select
                 id="externo-reemplazo"
                 onChange={(evento) => setExternoId(evento.target.value)}

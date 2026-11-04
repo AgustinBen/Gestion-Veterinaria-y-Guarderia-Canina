@@ -400,7 +400,7 @@ export function DetalleReserva() {
           </Boton>
           {formularioAbierto ? (
             <form className={estilos.formulario} onSubmit={enviarSena}>
-              <Campo etiqueta="Monto de la seña" id="detalle-monto-sena">
+              <Campo etiqueta="Monto de la seña" id="detalle-monto-sena" obligatorio>
                 <input
                   disabled={enviando || datosReintento !== null}
                   id="detalle-monto-sena"
@@ -411,7 +411,7 @@ export function DetalleReserva() {
                   value={montoSena}
                 />
               </Campo>
-              <Campo etiqueta="Medio de pago" id="detalle-medio-sena">
+              <Campo etiqueta="Medio de pago" id="detalle-medio-sena" obligatorio>
                 <select
                   disabled={enviando || datosReintento !== null}
                   id="detalle-medio-sena"

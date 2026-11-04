@@ -192,6 +192,7 @@ export function FormularioPago({
         error={errorMonto}
         etiqueta="Monto"
         id={ID_MONTO}
+        obligatorio
       >
         <input
           autoComplete="off"
@@ -205,7 +206,7 @@ export function FormularioPago({
         />
       </Campo>
 
-      <Campo etiqueta="Medio de pago" id={ID_MEDIO}>
+      <Campo etiqueta="Medio de pago" id={ID_MEDIO} obligatorio>
         <Selector
           id={ID_MEDIO}
           onChange={setMedio}

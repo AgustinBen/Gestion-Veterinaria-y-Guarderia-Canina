@@ -108,6 +108,7 @@ export function Categorias() {
             error={errorAlta}
             etiqueta="Nombre"
             id="categoria-nombre"
+            obligatorio
           >
             <input
               id="categoria-nombre"

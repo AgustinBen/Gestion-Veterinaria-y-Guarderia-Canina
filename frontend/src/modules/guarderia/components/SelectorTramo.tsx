@@ -1,4 +1,5 @@
 import { Boton } from '../../../core/components/ui/Boton';
+import { EtiquetaCampo } from '../../../core/components/ui/EtiquetaCampo';
 import type { Franja } from '../tipos';
 import estilos from '../guarderia.module.css';
 
@@ -40,8 +41,12 @@ export function SelectorTramo({ tramo, bloqueado = false, onChange }: Props) {
         </Boton>
       </div>
       <div className={estilos.grillaFormulario}>
-        <label className={estilos.campo} htmlFor="desde-fecha">
-          Fecha de inicio
+        <EtiquetaCampo
+          className={estilos.campo}
+          etiqueta="Fecha de inicio"
+          htmlFor="desde-fecha"
+          obligatorio
+        >
           <input
             id="desde-fecha"
             onChange={(evento) =>
@@ -51,9 +56,13 @@ export function SelectorTramo({ tramo, bloqueado = false, onChange }: Props) {
             type="date"
             value={tramo.desdeFecha}
           />
-        </label>
-        <label className={estilos.campo} htmlFor="desde-franja">
-          Franja de inicio
+        </EtiquetaCampo>
+        <EtiquetaCampo
+          className={estilos.campo}
+          etiqueta="Franja de inicio"
+          htmlFor="desde-franja"
+          obligatorio
+        >
           <select
             id="desde-franja"
             onChange={(evento) =>
@@ -68,9 +77,13 @@ export function SelectorTramo({ tramo, bloqueado = false, onChange }: Props) {
             <option value="DIA">Día</option>
             <option value="NOCHE">Noche</option>
           </select>
-        </label>
-        <label className={estilos.campo} htmlFor="hasta-fecha">
-          Fecha de fin
+        </EtiquetaCampo>
+        <EtiquetaCampo
+          className={estilos.campo}
+          etiqueta="Fecha de fin"
+          htmlFor="hasta-fecha"
+          obligatorio
+        >
           <input
             id="hasta-fecha"
             onChange={(evento) =>
@@ -80,9 +93,13 @@ export function SelectorTramo({ tramo, bloqueado = false, onChange }: Props) {
             type="date"
             value={tramo.hastaFecha}
           />
-        </label>
-        <label className={estilos.campo} htmlFor="hasta-franja">
-          Franja de fin
+        </EtiquetaCampo>
+        <EtiquetaCampo
+          className={estilos.campo}
+          etiqueta="Franja de fin"
+          htmlFor="hasta-franja"
+          obligatorio
+        >
           <select
             id="hasta-franja"
             onChange={(evento) =>
@@ -97,7 +114,7 @@ export function SelectorTramo({ tramo, bloqueado = false, onChange }: Props) {
             <option value="DIA">Día</option>
             <option value="NOCHE">Noche</option>
           </select>
-        </label>
+        </EtiquetaCampo>
       </div>
     </fieldset>
   );

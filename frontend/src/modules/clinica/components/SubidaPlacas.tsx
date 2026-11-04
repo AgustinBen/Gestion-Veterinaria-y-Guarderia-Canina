@@ -236,7 +236,7 @@ export function SubidaPlacas({ pacienteId, empleados, puedeEscribir }: Props) {
       {puedeEscribir ? (
         <form className={estilos.formulario} onSubmit={(evento) => void registrar(evento)}>
           <div className={estilos.campos}>
-            <Campo id="estudio-tipo" etiqueta="Tipo de estudio">
+            <Campo id="estudio-tipo" etiqueta="Tipo de estudio" obligatorio>
               <select
                 id="estudio-tipo"
                 onChange={(evento) => setTipo(evento.target.value as TipoEstudio)}
@@ -250,7 +250,7 @@ export function SubidaPlacas({ pacienteId, empleados, puedeEscribir }: Props) {
               </select>
             </Campo>
 
-            <Campo id="estudio-fecha" etiqueta="Fecha del estudio">
+            <Campo id="estudio-fecha" etiqueta="Fecha del estudio" obligatorio>
               <input
                 id="estudio-fecha"
                 onChange={(evento) => setFecha(evento.target.value)}
@@ -259,7 +259,7 @@ export function SubidaPlacas({ pacienteId, empleados, puedeEscribir }: Props) {
               />
             </Campo>
 
-            <Campo id="estudio-descripcion" etiqueta="Descripción">
+            <Campo id="estudio-descripcion" etiqueta="Descripción" obligatorio>
               <input
                 id="estudio-descripcion"
                 onChange={(evento) => setDescripcion(evento.target.value)}
@@ -268,7 +268,7 @@ export function SubidaPlacas({ pacienteId, empleados, puedeEscribir }: Props) {
               />
             </Campo>
 
-            <Campo id="estudio-realizado-por" etiqueta="Realizado por">
+            <Campo id="estudio-realizado-por" etiqueta="Realizado por" obligatorio>
               <select
                 id="estudio-realizado-por"
                 onChange={(evento) => setRealizadoPor(evento.target.value)}

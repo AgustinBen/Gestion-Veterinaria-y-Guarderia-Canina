@@ -148,7 +148,7 @@ export function FormularioAtencion({
       ) : null}
 
       <div className={estilos.campos}>
-        <Campo id="atencion-tipo" etiqueta="Tipo de atención">
+        <Campo id="atencion-tipo" etiqueta="Tipo de atención" obligatorio>
           <select
             id="atencion-tipo"
             onChange={(evento) => setTipo(evento.target.value as TipoAtencion)}
@@ -162,7 +162,7 @@ export function FormularioAtencion({
           </select>
         </Campo>
 
-        <Campo id="atencion-veterinario" etiqueta="Veterinario">
+        <Campo id="atencion-veterinario" etiqueta="Veterinario" obligatorio>
           <select
             id="atencion-veterinario"
             onChange={(evento) => setVeterinarioId(evento.target.value)}
@@ -178,7 +178,7 @@ export function FormularioAtencion({
         </Campo>
 
         {tipo === 'CIRUGIA' ? (
-          <Campo id="atencion-cirujano" etiqueta="Cirujano externo">
+          <Campo id="atencion-cirujano" etiqueta="Cirujano externo" obligatorio>
             <select
               id="atencion-cirujano"
               onChange={(evento) => setCirujanoId(evento.target.value)}
@@ -196,7 +196,7 @@ export function FormularioAtencion({
 
         {tipo === 'VACUNA' ? (
           <>
-            <Campo id="atencion-vacuna" etiqueta="Nombre de la vacuna">
+            <Campo id="atencion-vacuna" etiqueta="Nombre de la vacuna" obligatorio>
               <input
                 id="atencion-vacuna"
                 onChange={(evento) => setNombreVacuna(evento.target.value)}
@@ -212,7 +212,7 @@ export function FormularioAtencion({
                 value={lote}
               />
             </Campo>
-            <Campo id="atencion-fecha-vacuna" etiqueta="Fecha de aplicación">
+            <Campo id="atencion-fecha-vacuna" etiqueta="Fecha de aplicación" obligatorio>
               <input
                 id="atencion-fecha-vacuna"
                 onChange={(evento) => setFechaAplicacion(evento.target.value)}

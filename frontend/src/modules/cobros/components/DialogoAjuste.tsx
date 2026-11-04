@@ -143,6 +143,7 @@ export function DialogoAjuste({ abierto, cargo, onCerrar, onAjustado }: Props) {
             error={mensajeMonto}
             etiqueta="Precio nuevo"
             id={ID_NUEVO_TOTAL}
+            obligatorio
           >
             <input
               autoComplete="off"
@@ -153,7 +154,7 @@ export function DialogoAjuste({ abierto, cargo, onCerrar, onAjustado }: Props) {
             />
           </Campo>
 
-          <Campo etiqueta="Motivo" id={ID_MOTIVO}>
+          <Campo etiqueta="Motivo" id={ID_MOTIVO} obligatorio>
             <textarea
               id={ID_MOTIVO}
               onChange={(evento) => setMotivo(evento.target.value)}

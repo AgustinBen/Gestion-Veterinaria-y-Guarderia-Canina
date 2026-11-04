@@ -638,7 +638,7 @@ export function Calendario() {
                   <p>
                     Fecha: <strong>{fechaSeleccionadaISO}</strong>
                   </p>
-                  <Campo etiqueta="Franja" id="franja-emergencia">
+                  <Campo etiqueta="Franja" id="franja-emergencia" obligatorio>
                     <select
                       disabled={enviandoEmergencia}
                       id="franja-emergencia"
@@ -655,7 +655,7 @@ export function Calendario() {
                       <option value="NOCHE">Noche</option>
                     </select>
                   </Campo>
-                  <Campo etiqueta="Motivo" id="motivo-emergencia">
+                  <Campo etiqueta="Motivo" id="motivo-emergencia" obligatorio>
                     <textarea
                       disabled={enviandoEmergencia}
                       id="motivo-emergencia"
