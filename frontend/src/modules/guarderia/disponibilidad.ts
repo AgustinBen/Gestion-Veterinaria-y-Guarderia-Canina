@@ -1,6 +1,25 @@
 import type { Disponibilidad } from './tipos';
 
 /**
+ * RN-13: los cupos públicos son el cupo máximo menos las plazas de emergencia.
+ * Las plazas ocupadas se descuentan una por una, así que cada reserva nueva
+ * reduce este número. Es solo lectura de datos de la API: no crea reglas.
+ */
+export function cuposPublicosLibres(
+  disponibilidad: Pick<
+    Disponibilidad,
+    'cupo_maximo' | 'plazas_emergencia' | 'ocupado'
+  >,
+): number {
+  return Math.max(
+    disponibilidad.cupo_maximo -
+      disponibilidad.plazas_emergencia -
+      disponibilidad.ocupado,
+    0,
+  );
+}
+
+/**
  * Porcentaje del cupo público desde el cual una franja se considera con
  * "últimas plazas". Es una política de presentación: no altera cupos,
  * reservas ni ninguna regla de negocio.
