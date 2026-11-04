@@ -447,4 +447,148 @@ describe('Calendario de guardería', () => {
       screen.queryByRole('button', { name: 'Habilitar plaza de emergencia' }),
     ).not.toBeInTheDocument();
   });
+
+  it.each(['PERSONAL', 'VETERINARIO'] as const)(
+    'avisa a %s que el dueño habilitó la plaza de emergencia y cuántos cupos quedan',
+    async (rol) => {
+      const hoy = fechaLocal(new Date());
+      vi.mocked(listarCalendario).mockResolvedValue([
+        {
+          fecha: hoy,
+          franja: 'DIA',
+          cupo_maximo: 10,
+          plazas_emergencia: 1,
+          habilitadas: 1,
+          publico: 10,
+          ocupado: 4,
+          disponible: 6,
+          exceso_ocupacion: 0,
+        },
+      ]);
+
+      renderizarCalendario(rol);
+
+      const titulo = await screen.findByRole('heading', {
+        name: 'Plazas de emergencia habilitadas',
+      });
+      const seccion = titulo.closest('section') as HTMLElement;
+      expect(
+        within(seccion).getByText(/El dueño habilitó la plaza de emergencia/),
+      ).toBeInTheDocument();
+      expect(
+        within(seccion).getByText(/Quedan 5 cupos públicos/),
+      ).toBeInTheDocument();
+      expect(within(seccion).getByText('Día:')).toBeInTheDocument();
+    },
+  );
+
+  it('no muestra el aviso de emergencia cuando no hay plazas habilitadas', async () => {
+    const hoy = fechaLocal(new Date());
+    vi.mocked(listarCalendario).mockResolvedValue([
+      {
+        fecha: hoy,
+        franja: 'DIA',
+        cupo_maximo: 10,
+        plazas_emergencia: 1,
+        habilitadas: 0,
+        publico: 9,
+        ocupado: 0,
+        disponible: 9,
+        exceso_ocupacion: 0,
+      },
+    ]);
+
+    renderizarCalendario('PERSONAL');
+
+    await screen.findByRole('heading', { name: 'Reservas de guardería' });
+    expect(
+      screen.queryByRole('heading', { name: 'Plazas de emergencia habilitadas' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('confirma al Dueño que la plaza de emergencia quedó habilitada', async () => {
+    const hoy = fechaLocal(new Date());
+    vi.mocked(habilitarPlazaEmergencia).mockResolvedValue({
+      fecha: hoy,
+      franja: 'NOCHE',
+      cupo_maximo: 10,
+      plazas_emergencia: 1,
+      habilitadas: 1,
+      publico: 10,
+      ocupado: 4,
+      disponible: 6,
+      exceso_ocupacion: 0,
+    });
+    renderizarCalendario('DUENIO');
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Habilitar plaza de emergencia',
+      }),
+    );
+    fireEvent.change(screen.getByLabelText('Franja'), {
+      target: { value: 'NOCHE' },
+    });
+    fireEvent.change(screen.getByLabelText('Motivo'), {
+      target: { value: 'Sobreocupación' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirmar habilitación' }),
+    );
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Plaza de emergencia habilitada.',
+    );
+  });
+
+  it('descuenta un cupo público cada vez que se ocupa una plaza', async () => {
+    const hoy = fechaLocal(new Date());
+    const franja = 'NOCHE' as const;
+    const disponibilidad = (ocupado: number, habilitadas: number) => ({
+      fecha: hoy,
+      franja,
+      cupo_maximo: 10,
+      plazas_emergencia: 1,
+      habilitadas,
+      publico: 10 - 1 + habilitadas,
+      ocupado,
+      disponible: 10 - 1 + habilitadas - ocupado,
+      exceso_ocupacion: 0,
+    });
+    vi.mocked(listarCalendario)
+      .mockResolvedValueOnce([disponibilidad(4, 0)])
+      .mockResolvedValue([disponibilidad(5, 1)]);
+    vi.mocked(habilitarPlazaEmergencia).mockResolvedValue(disponibilidad(4, 1));
+    renderizarCalendario('DUENIO');
+
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Habilitar plaza de emergencia',
+      }),
+    );
+    fireEvent.change(screen.getByLabelText('Franja'), {
+      target: { value: 'NOCHE' },
+    });
+    fireEvent.change(screen.getByLabelText('Motivo'), {
+      target: { value: 'Sobreocupación' },
+    });
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Confirmar habilitación' }),
+    );
+
+    const titulo = await screen.findByRole('heading', {
+      name: 'Plazas de emergencia habilitadas',
+    });
+    const seccion = titulo.closest('section') as HTMLElement;
+
+    // El calendario se refresca con una plaza más ocupada: 10 − 1 − 5 = 4.
+    await waitFor(() =>
+      expect(
+        within(seccion).getByText(/Quedan 4 cupos públicos/),
+      ).toBeInTheDocument(),
+    );
+    expect(
+      within(seccion).queryByText(/Quedan 5 cupos públicos/),
+    ).not.toBeInTheDocument();
+  });
 });

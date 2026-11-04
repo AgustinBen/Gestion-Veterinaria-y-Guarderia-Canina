@@ -35,6 +35,13 @@ permisos, datos ni reglas de negocio.
   informativos señalados.
 - Deudores pagina los saldos pendientes en grupos de cinco, con el mismo
   paginado compartido; no usa “Cargar más”.
+- Cuando una franja tiene la plaza de emergencia habilitada, la agenda del día
+  muestra “El dueño habilitó la plaza de emergencia. Quedan X cupos públicos.”
+  para todos los roles con acceso al calendario. Al Dueño, además, se le
+  confirma qué franja habilitó y cuántos cupos públicos quedan. Los cupos
+  públicos se cuentan como cupo máximo − plazas de emergencia − plazas ocupadas
+  (RN-13), y el número se recalcula con los datos vigentes del calendario: cada
+  plaza que se ocupa descuenta un cupo.
 - La cuenta del cliente no muestra el enlace “Ver cuenta” ni el texto auxiliar
   del historial.
 - El login y la marca de huellita tienen animaciones breves que respetan

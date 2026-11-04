@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  cuposPublicosLibres,
   etiquetaNivel,
   nivelDisponibilidad,
 } from '../disponibilidad';
@@ -131,5 +132,41 @@ describe('etiquetaNivel', () => {
     expect(etiquetaNivel('limitada')).toBe('Últimas plazas');
     expect(etiquetaNivel('sin-cupo')).toBe('Completo');
     expect(etiquetaNivel('sin-datos')).toBe('Sin datos');
+  });
+});
+
+describe('cuposPublicosLibres', () => {
+  const CUPO_MAXIMO = 10;
+  const PLAZAS_EMERGENCIA = 1;
+  const CUPO_PUBLICO = CUPO_MAXIMO - PLAZAS_EMERGENCIA;
+
+  it('descuenta las plazas de emergencia del cupo máximo (RN-13)', () => {
+    expect(
+      cuposPublicosLibres({
+        cupo_maximo: CUPO_MAXIMO,
+        plazas_emergencia: PLAZAS_EMERGENCIA,
+        ocupado: 0,
+      }),
+    ).toBe(CUPO_PUBLICO);
+  });
+
+  it('resta un cupo por cada plaza ocupada', () => {
+    const base = {
+      cupo_maximo: CUPO_MAXIMO,
+      plazas_emergencia: PLAZAS_EMERGENCIA,
+    };
+
+    expect(cuposPublicosLibres({ ...base, ocupado: 3 })).toBe(CUPO_PUBLICO - 3);
+    expect(cuposPublicosLibres({ ...base, ocupado: 4 })).toBe(CUPO_PUBLICO - 4);
+  });
+
+  it('no baja de cero cuando la ocupación ya superó el cupo público', () => {
+    expect(
+      cuposPublicosLibres({
+        cupo_maximo: CUPO_MAXIMO,
+        plazas_emergencia: PLAZAS_EMERGENCIA,
+        ocupado: CUPO_MAXIMO + PLAZAS_EMERGENCIA,
+      }),
+    ).toBe(0);
   });
 });
