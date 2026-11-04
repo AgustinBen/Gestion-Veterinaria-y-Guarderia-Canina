@@ -97,6 +97,15 @@ function renderizarCalendario(rol: Rol) {
   );
 }
 
+function etiquetaDeDia(dia: number): string {
+  const hoy = new Date();
+  const fecha = new Date(hoy.getFullYear(), hoy.getMonth(), dia);
+  return `${dia} de ${new Intl.DateTimeFormat('es-AR', {
+    month: 'long',
+    year: 'numeric',
+  }).format(fecha)}`;
+}
+
 describe('Calendario de guardería', () => {
   it('muestra la agenda y permite cambiar el mes y la fecha seleccionada', () => {
     renderizarCalendario('PERSONAL');
@@ -210,10 +219,10 @@ describe('Calendario de guardería', () => {
     renderizarCalendario('PERSONAL');
 
     expect(
-      await screen.findByLabelText('Día: 1 de 3 plazas ocupadas'),
-    ).toBeInTheDocument(    );
-    const cupoDia = screen.getByLabelText('Día: 1 de 3 plazas ocupadas');
-    const cupoNoche = screen.getByLabelText('Noche: 3 de 3 plazas ocupadas');
+      await screen.findByLabelText(/^Día: 1 de 3 plazas ocupadas/),
+    ).toBeInTheDocument();
+    const cupoDia = screen.getByLabelText(/^Día: 1 de 3 plazas ocupadas/);
+    const cupoNoche = screen.getByLabelText(/^Noche: 3 de 3 plazas ocupadas/);
     expect(cupoDia).toHaveTextContent('1/3');
     expect(cupoDia.querySelector('span')?.className).toContain(
       'cupoOcupadoParcial',
@@ -257,6 +266,88 @@ describe('Calendario de guardería', () => {
       }).format(new Date())}`,
     });
     await waitFor(() => expect(diaHoy).toHaveTextContent('3/2'));
+  });
+
+  it('colorea cada franja según la disponibilidad que devuelve la API', async () => {
+    const hoy = new Date();
+    const fecha = (dia: number) =>
+      fechaLocal(new Date(hoy.getFullYear(), hoy.getMonth(), dia));
+
+    vi.mocked(listarCalendario).mockResolvedValue([
+      {
+        fecha: fecha(1),
+        franja: 'DIA',
+        cupo_maximo: 4,
+        plazas_emergencia: 0,
+        habilitadas: 0,
+        publico: 4,
+        ocupado: 4,
+        disponible: 0,
+        exceso_ocupacion: 0,
+      },
+      {
+        fecha: fecha(2),
+        franja: 'DIA',
+        cupo_maximo: 4,
+        plazas_emergencia: 0,
+        habilitadas: 0,
+        publico: 4,
+        ocupado: 3,
+        disponible: 1,
+        exceso_ocupacion: 0,
+      },
+      {
+        fecha: fecha(3),
+        franja: 'DIA',
+        cupo_maximo: 9,
+        plazas_emergencia: 0,
+        habilitadas: 0,
+        publico: 9,
+        ocupado: 3,
+        disponible: 6,
+        exceso_ocupacion: 0,
+      },
+    ]);
+
+    renderizarCalendario('PERSONAL');
+
+    async function chipDelDia(dia: number) {
+      const boton = screen.getByRole('button', { name: etiquetaDeDia(dia) });
+      const consulta = /^Día:/;
+      await waitFor(() =>
+        expect(within(boton).getByLabelText(consulta)).toHaveTextContent('/'),
+      );
+      return within(boton).getByLabelText(consulta);
+    }
+
+    const sinCupo = await chipDelDia(1);
+    expect(sinCupo).toHaveTextContent('4/4');
+    expect(sinCupo).toHaveAccessibleName(/Completo$/);
+    expect(sinCupo.className).toContain('cupoSinCupo');
+    expect(sinCupo.querySelector('span')?.className).toContain(
+      'cupoOcupadoCompleto',
+    );
+
+    const limitada = await chipDelDia(2);
+    expect(limitada).toHaveTextContent('3/4');
+    expect(limitada).toHaveAccessibleName(/Últimas plazas$/);
+    expect(limitada.className).toContain('cupoLimitado');
+    expect(limitada.querySelector('span')?.className).toContain(
+      'cupoOcupadoLimitado',
+    );
+
+    const libre = await chipDelDia(3);
+    expect(libre).toHaveTextContent('3/9');
+    expect(libre).toHaveAccessibleName(/Con lugar$/);
+    expect(libre.className).toContain('cupoLibre');
+    expect(libre.querySelector('span')?.className).toContain(
+      'cupoOcupadoParcial',
+    );
+
+    const nocheSinDatos = within(
+      screen.getByRole('button', { name: etiquetaDeDia(1) }),
+    ).getByLabelText('Noche: cupo sin datos');
+    expect(nocheSinDatos.className).toContain('cupoSinDatos');
   });
 
   it('permite al Dueño habilitar una plaza de emergencia para el día seleccionado', async () => {
