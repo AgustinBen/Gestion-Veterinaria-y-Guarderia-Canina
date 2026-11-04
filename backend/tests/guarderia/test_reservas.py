@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+from decimal import Decimal
 
 import pytest
 from sqlalchemy import func, select
@@ -404,6 +405,69 @@ def test_sin_cupo_devuelve_franjas_que_no_tienen_lugar(
             "disponible": 0,
         }
     ]
+
+
+def test_reserva_multimascota_aplica_descuento_y_lo_explica_en_el_cargo(
+    client,
+    db_session,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    datos = crear_datos_reserva(cantidad_pacientes=2)
+    usuario = crear_usuario(Rol.DUENIO)
+    headers = token_guarderia(usuario)
+    porcentaje = get_param(db_session, "guarderia.descuento_multimascota_pct")
+    total_base = 300000
+    payload = _payload(datos.tutor_persona_id, datos.paciente_ids)
+
+    creada = _crear(client, headers, payload, "reserva-multimascota")
+    reintentada = _crear(client, headers, payload, "reserva-multimascota")
+
+    descuento = (Decimal(total_base) * porcentaje / Decimal("100")).quantize(
+        Decimal("1")
+    )
+    total_con_descuento = total_base - int(descuento)
+    cargo = cobros_service.obtener_cargo_detalle(
+        db_session, creada.json()["cargo_id"]
+    )
+
+    assert creada.status_code == 201
+    assert reintentada.status_code == 200
+    assert creada.json()["total_centavos"] == total_con_descuento
+    assert reintentada.json()["id"] == creada.json()["id"]
+    assert cargo.total_inicial == total_con_descuento
+    assert "Se aplicó un descuento del" in cargo.concepto
+    assert f"{format(porcentaje.normalize(), 'f')}%" in cargo.concepto
+
+
+def test_reserva_de_una_mascota_no_aplica_descuento(
+    client,
+    db_session,
+    sembrar_cupo,
+    crear_datos_reserva,
+    crear_usuario,
+    token_guarderia,
+) -> None:
+    datos = crear_datos_reserva()
+    usuario = crear_usuario(Rol.DUENIO)
+    total_base = 300000
+
+    respuesta = _crear(
+        client,
+        token_guarderia(usuario),
+        _payload(datos.tutor_persona_id, datos.paciente_ids),
+        "reserva-una-mascota",
+    )
+    cargo = cobros_service.obtener_cargo_detalle(
+        db_session, respuesta.json()["cargo_id"]
+    )
+
+    assert respuesta.status_code == 201
+    assert respuesta.json()["total_centavos"] == total_base
+    assert cargo.total_inicial == total_base
+    assert "descuento" not in cargo.concepto.lower()
 
 
 def test_total_de_reserva_refleja_ajuste_de_precio_de_cobros(

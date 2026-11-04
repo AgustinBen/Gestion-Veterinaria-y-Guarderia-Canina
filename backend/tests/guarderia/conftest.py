@@ -19,6 +19,8 @@ from app.modules.guarderia.seed import (
     CUPO_MAXIMO_INICIAL,
     CUPO_MAXIMO_PERMITIDO_INICIAL,
     CUPO_MINIMO_INICIAL,
+    DESCUENTO_MULTIMASCOTA_MINIMO_INICIAL,
+    DESCUENTO_MULTIMASCOTA_PCT_INICIAL,
     PLAZAS_EMERGENCIA_INICIAL,
     RESERVA_MAX_MESES_INICIAL,
 )
@@ -84,6 +86,20 @@ def sembrar_cupo(db_session: Session) -> None:
         db_session,
         "guarderia.reserva_max_meses",
         RESERVA_MAX_MESES_INICIAL,
+        "int",
+        modulo="guarderia",
+    )
+    set_param(
+        db_session,
+        "guarderia.descuento_multimascota_pct",
+        DESCUENTO_MULTIMASCOTA_PCT_INICIAL,
+        "decimal",
+        modulo="guarderia",
+    )
+    set_param(
+        db_session,
+        "guarderia.descuento_multimascota_minimo",
+        DESCUENTO_MULTIMASCOTA_MINIMO_INICIAL,
         "int",
         modulo="guarderia",
     )

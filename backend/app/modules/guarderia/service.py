@@ -5,6 +5,7 @@ from __future__ import annotations
 import calendar
 from collections.abc import Callable
 from datetime import date, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Literal
 
 from sqlalchemy.orm import Session
@@ -97,6 +98,43 @@ def _configuracion_cupo(db: Session) -> tuple[int, int]:
     if type(cupo_maximo) is not int or type(plazas_emergencia) is not int:
         raise ValueError("La configuración de cupo debe contener valores enteros")
     return cupo_maximo, plazas_emergencia
+
+
+def _configuracion_descuento_multimascota(
+    db: Session,
+) -> tuple[int, Decimal]:
+    minimo = get_param(db, "guarderia.descuento_multimascota_minimo")
+    porcentaje = get_param(db, "guarderia.descuento_multimascota_pct")
+    if type(minimo) is not int or minimo < 1:
+        raise ValueError(
+            "La cantidad mínima de mascotas para el descuento debe ser un entero positivo"
+        )
+    if (
+        not isinstance(porcentaje, Decimal)
+        or porcentaje < Decimal("0")
+        or porcentaje > Decimal("100")
+    ):
+        raise ValueError("El descuento multimascota debe estar entre 0 y 100")
+    return minimo, porcentaje
+
+
+def _total_con_descuento(
+    db: Session,
+    solicitud: ReservaCrear,
+) -> tuple[int, Decimal]:
+    """Total a cobrar y porcentaje aplicado por la reserva multimascota (RN-18)."""
+    total = solicitud.total_centavos
+    minimo, porcentaje = _configuracion_descuento_multimascota(db)
+    if porcentaje == 0 or len(solicitud.paciente_ids) < minimo:
+        return total, Decimal("0")
+
+    descuento = (
+        Decimal(total) * porcentaje / Decimal("100")
+    ).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    total_final = total - int(descuento)
+    if total_final <= 0:
+        raise ReservaInvalida("El descuento multimascota deja un total no positivo")
+    return total_final, porcentaje
 
 
 def _obtener_pacientes(
@@ -629,7 +667,7 @@ def _misma_solicitud(
         and reserva.hasta_franja == solicitud.hasta_franja
         and cuidados_existentes == cuidados_solicitados
         and cobros_service.total_inicial_cargo(db, reserva.cargo_id)
-        == solicitud.total_centavos
+        == _total_con_descuento(db, solicitud)[0]
     )
 
 
@@ -747,11 +785,18 @@ def crear_reserva(
                     for fecha, franja in tramos
                 ],
             )
+            total_centavos, descuento_pct = _total_con_descuento(db, solicitud)
+            concepto = f"Reserva de guardería #{reserva.id}"
+            if descuento_pct > 0:
+                concepto = (
+                    f"{concepto} · Se aplicó un descuento del "
+                    f"{format(descuento_pct.normalize(), 'f')}%"
+                )
             cargo = cobros_service.crear_cargo(
                 db,
                 persona_id=solicitud.tutor_persona_id,
-                concepto=f"Reserva de guardería #{reserva.id}",
-                total_centavos=solicitud.total_centavos,
+                concepto=concepto,
+                total_centavos=total_centavos,
                 referencia_tipo="RESERVA",
                 referencia_id=reserva.id,
                 usuario_id=usuario_id,

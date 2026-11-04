@@ -13,6 +13,7 @@ from app.modules.guarderia.seed import (
     CUPO_MAXIMO_INICIAL,
     CUPO_MAXIMO_PERMITIDO_INICIAL,
     CUPO_MINIMO_INICIAL,
+    DESCUENTO_MULTIMASCOTA_MINIMO_INICIAL,
     DESCUENTO_MULTIMASCOTA_PCT_INICIAL,
     PLAZAS_EMERGENCIA_INICIAL,
     RESERVA_MAX_MESES_INICIAL,
@@ -36,6 +37,9 @@ def test_sembrar_parametros_crea_valores_con_tipos_correctos(db_session) -> None
     plazas_emergencia = get_param(db_session, "guarderia.plazas_emergencia")
     reserva_max_meses = get_param(db_session, "guarderia.reserva_max_meses")
     descuento = get_param(db_session, "guarderia.descuento_multimascota_pct")
+    descuento_minimo = get_param(
+        db_session, "guarderia.descuento_multimascota_minimo"
+    )
 
     assert cupo == CUPO_MAXIMO_INICIAL
     assert isinstance(cupo, int)
@@ -47,6 +51,8 @@ def test_sembrar_parametros_crea_valores_con_tipos_correctos(db_session) -> None
     assert isinstance(reserva_max_meses, int)
     assert descuento == DESCUENTO_MULTIMASCOTA_PCT_INICIAL
     assert isinstance(descuento, Decimal)
+    assert descuento_minimo == DESCUENTO_MULTIMASCOTA_MINIMO_INICIAL
+    assert isinstance(descuento_minimo, int)
 
 
 def test_sembrar_dos_veces_no_duplica_ni_pisa_cambios(db_session) -> None:
