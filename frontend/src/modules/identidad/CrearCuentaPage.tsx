@@ -50,6 +50,10 @@ const FORMULARIO_VACIO: DatosFormulario = {
   especialidad: '',
 };
 
+function soloDigitos(valor: string): string {
+  return valor.replace(/\D/g, '');
+}
+
 function detalleDe(fallo: unknown): Record<string, unknown> | null {
   if (
     fallo instanceof ApiError &&
@@ -307,7 +311,7 @@ export function CrearCuentaPage() {
               required={true}
               type="text"
               value={datos.dni}
-              onChange={(evento) => actualizar('dni', evento.target.value)}
+              onChange={(evento) => actualizar('dni', soloDigitos(evento.target.value))}
             />
           </div>
 
@@ -316,11 +320,13 @@ export function CrearCuentaPage() {
             <input
               autoComplete="off"
               id="empleado-telefono"
-              inputMode="tel"
+              inputMode="numeric"
               required={true}
               type="text"
               value={datos.telefono}
-              onChange={(evento) => actualizar('telefono', evento.target.value)}
+              onChange={(evento) =>
+                actualizar('telefono', soloDigitos(evento.target.value))
+              }
             />
           </div>
 

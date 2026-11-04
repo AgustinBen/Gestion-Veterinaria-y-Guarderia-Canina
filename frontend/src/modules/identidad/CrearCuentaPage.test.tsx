@@ -114,6 +114,56 @@ describe('CrearCuentaPage', () => {
     expect(window.localStorage.getItem('huellitas.sesion')).not.toContain('clave-segura');
   });
 
+  it('descarta letras y símbolos en el teléfono', async () => {
+    const usuario = userEvent.setup();
+    crearUsuarioMock.mockResolvedValueOnce({
+      username: 'recepcion',
+      rol: 'PERSONAL',
+      empleado_id: 7,
+    });
+
+    renderizar('DUENIO');
+    await ingresarDatos(usuario);
+    const telefono = screen.getByLabelText('Teléfono');
+
+    await usuario.clear(telefono);
+    await usuario.type(telefono, '11 2345-66u8abc');
+    expect(telefono).toHaveValue('112345668');
+
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+
+    expect(crearUsuarioMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        empleado: expect.objectContaining({ telefono: '112345668' }),
+      }),
+    );
+  });
+
+  it('descarta letras y símbolos en el DNI', async () => {
+    const usuario = userEvent.setup();
+    crearUsuarioMock.mockResolvedValueOnce({
+      username: 'recepcion',
+      rol: 'PERSONAL',
+      empleado_id: 7,
+    });
+
+    renderizar('DUENIO');
+    await ingresarDatos(usuario);
+    const dni = screen.getByLabelText('DNI');
+
+    await usuario.clear(dni);
+    await usuario.type(dni, '30.111.222a');
+    expect(dni).toHaveValue('30111222');
+
+    await usuario.click(screen.getByRole('button', { name: 'Crear cuenta' }));
+
+    expect(crearUsuarioMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        empleado: expect.objectContaining({ dni: '30111222' }),
+      }),
+    );
+  });
+
   it('pide confirmar un posible duplicado y reenvía con la confirmación', async () => {
     const usuario = userEvent.setup();
     crearUsuarioMock
