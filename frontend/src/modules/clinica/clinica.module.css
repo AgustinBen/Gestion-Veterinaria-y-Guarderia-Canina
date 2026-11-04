@@ -22,6 +22,16 @@
   min-width: 0;
 }
 
+.cabeceraTurnos {
+  align-items: center;
+}
+
+@media (max-width: 34rem) {
+  .cabeceraTurnos {
+    align-items: stretch;
+  }
+}
+
 .introduccion {
   display: grid;
   min-width: 0;
@@ -260,6 +270,32 @@
   flex-wrap: wrap;
   gap: var(--space-2);
   min-width: 0;
+}
+
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.9rem;
+  padding: 0 var(--space-5);
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font-weight: var(--weight-semibold);
+  text-align: center;
+  transition: background var(--transition-fast);
+  box-shadow: 0 3px 0 var(--color-primary-hover);
+}
+
+.boton:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+  box-shadow: 0 5px 0 var(--color-primary-hover);
+  transform: translateY(-2px);
+}
+
+.boton:disabled {
+  opacity: 0.55;
 }
 
 .vacio {
