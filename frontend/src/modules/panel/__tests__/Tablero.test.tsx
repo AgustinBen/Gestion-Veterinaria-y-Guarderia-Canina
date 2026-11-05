@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ApiError } from '../../../core/api/client';
-import { listarResumen, obtenerDeudas } from '../api';
+import { listarIngresos, listarResumen, obtenerDeudas } from '../api';
 import { fechaIsoLocal } from '../components/filtrosPanel';
 import { Tablero } from '../pages/Tablero';
 import type { DeudasPanel, ResumenPanel } from '../tipos';
@@ -14,6 +14,7 @@ vi.mock('../api', async (importOriginal) => {
   return {
     ...actual,
     listarResumen: vi.fn(),
+    listarIngresos: vi.fn(),
     obtenerDeudas: vi.fn(),
   };
 });
@@ -38,6 +39,27 @@ const DEUDAS: DeudasPanel = {
   mayores_deudores: [],
 };
 
+const INGRESOS = [
+  {
+    id: 8,
+    cargo_id: 3,
+    monto_centavos: 120_000,
+    tipo: 'PAGO',
+    estado: 'Pago',
+    fecha: '2026-10-30',
+    medio: 'EFECTIVO',
+    medio_pago_id: 1,
+    es_sena: false,
+    concepto: 'Guardería',
+    tipo_servicio: 'GUARDERIA',
+    origen: 'NORMAL',
+    usuario_id: 1,
+    empleado_id: null,
+    motivo: null,
+    created_at: '2026-10-30T10:00:00',
+  },
+];
+
 function renderizar(ruta = '/panel') {
   return render(
     <MemoryRouter initialEntries={[ruta]}>
@@ -49,6 +71,7 @@ function renderizar(ruta = '/panel') {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(listarResumen).mockResolvedValue(RESUMEN);
+  vi.mocked(listarIngresos).mockResolvedValue(INGRESOS);
   vi.mocked(obtenerDeudas).mockResolvedValue(DEUDAS);
 });
 
@@ -82,6 +105,29 @@ describe('Tablero del panel', () => {
     expect(
       within(deudas).getByRole('link', { name: 'Ver deudores' }),
     ).toHaveAttribute('href', '/cobros/deudores');
+  });
+
+  it('abre un modal accesible con el historial de ingresos', async () => {
+    renderizar();
+    await screen.findByRole('region', { name: 'Ingresos' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ver historial' }));
+
+    const dialogo = await screen.findByRole('dialog', {
+      name: 'Historial de ingresos',
+    });
+    expect(dialogo).toHaveTextContent('GUARDERIA');
+    expect(dialogo).toHaveTextContent('$1.200,00');
+    expect(listarIngresos).toHaveBeenCalledWith(
+      expect.objectContaining({ desde: expect.any(String), hasta: expect.any(String) }),
+      expect.anything(),
+    );
+    expect(document.activeElement).toBe(dialogo);
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
   });
 
   it('no repite la búsqueda de clientes ni el detalle por cliente', async () => {

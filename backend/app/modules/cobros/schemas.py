@@ -20,6 +20,7 @@ __all__ = [
     "PagoCrear",
     "PagoRevertir",
     "PagoOut",
+    "IngresoHistorialOut",
     "CargoCuentaOut",
     "CuentaClienteOut",
     "CuentaPacienteOut",
@@ -145,6 +146,25 @@ class PagoOut(BaseModel):
     created_at: datetime
 
 
+class IngresoHistorialOut(BaseModel):
+    id: int
+    cargo_id: int
+    monto_centavos: int
+    tipo: str
+    estado: str
+    fecha: date
+    medio: str
+    medio_pago_id: int
+    es_sena: bool
+    concepto: str
+    tipo_servicio: str
+    origen: str
+    usuario_id: int
+    empleado_id: int | None
+    motivo: str | None
+    created_at: datetime
+
+
 class CargoCuentaOut(BaseModel):
     cargo: CargoDetalleOut
     pagos: list[PagoOut]
@@ -248,4 +268,3 @@ class ServicioDeClienteOut(BaseModel):
     pagado_centavos: int
     saldo_centavos: int
     ajustes: int
-

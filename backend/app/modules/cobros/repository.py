@@ -431,6 +431,55 @@ def total_ingresos(
     return int(db.execute(stmt).scalar_one())
 
 
+def listar_ingresos(
+    db: Session,
+    *,
+    desde: date,
+    hasta: date,
+    tipo_servicio: str | None,
+    medio: str | None,
+    incluir_migracion: bool,
+    limite: int,
+) -> list[Any]:
+    monto = case(
+        (models.Pago.tipo == models.TipoPago.PAGO, models.Pago.monto),
+        else_=-models.Pago.monto,
+    ).label("monto_centavos")
+    stmt = (
+        select(
+            models.Pago.id,
+            models.Pago.cargo_id,
+            monto,
+            models.Pago.tipo,
+            models.Pago.fecha,
+            models.Pago.medio_pago_id,
+            models.MedioPago.codigo.label("medio"),
+            models.Pago.es_sena,
+            models.Pago.usuario_id,
+            models.Pago.empleado_id,
+            models.Pago.motivo,
+            models.Pago.created_at,
+            models.Cargo.concepto,
+            models.Cargo.tipo_servicio,
+            models.Cargo.origen,
+        )
+        .join(models.Cargo, models.Cargo.id == models.Pago.cargo_id)
+        .join(models.MedioPago, models.MedioPago.id == models.Pago.medio_pago_id)
+        .where(
+            *_filtros_ingresos(
+                desde=desde,
+                hasta=hasta,
+                tipo_servicio=tipo_servicio,
+                medio=medio,
+                incluir_migracion=incluir_migracion,
+            )
+        )
+        .order_by(models.Pago.fecha.desc(), models.Pago.id.desc())
+        .limit(limite)
+    )
+    return list(db.execute(stmt).all())
+
+
 def ingresos_agregados(
     db: Session,
     *,
@@ -602,4 +651,3 @@ def servicios_de_persona(db: Session, persona_id: int) -> list[Any]:
         .order_by(models.Cargo.id)
     )
     return list(db.execute(stmt).all())
-

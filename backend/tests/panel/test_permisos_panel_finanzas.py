@@ -14,6 +14,7 @@ def _rutas(panel_escenario: EscenarioPanel) -> list[str]:
         "/api/panel/serie",
         "/api/panel/ingresos-por-servicio",
         "/api/panel/ingresos-por-medio",
+        "/api/panel/ingresos",
         "/api/panel/deudas",
         f"/api/panel/clientes/{panel_escenario.persona_id}/servicios",
     ]
