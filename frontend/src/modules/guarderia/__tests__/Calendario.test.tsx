@@ -235,6 +235,7 @@ describe('Calendario de guardería', () => {
       'href',
       '/guarderia/reservas/71',
     );
+    expect(await screen.findByText('1 mascota: Luna')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Reserva #72' })).not.toBeInTheDocument();
     expect(
       screen.queryByRole('heading', { name: 'Disponibilidad de guardería' }),
