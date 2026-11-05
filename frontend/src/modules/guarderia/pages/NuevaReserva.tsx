@@ -6,7 +6,7 @@ import { ApiError } from '../../../core/api/client';
 import { Alerta } from '../../../core/components/ui/Alerta';
 import { Boton } from '../../../core/components/ui/Boton';
 import { Campo } from '../../../core/components/ui/Campo';
-import { formatearDinero, parsearDinero } from '../../../core/formatos/dinero';
+import { parsearDinero } from '../../../core/formatos/dinero';
 import {
   listarMediosPago,
   obtenerResumenDeuda,
@@ -412,7 +412,6 @@ export function NuevaReserva() {
           <h1 className={estilos.titulo} id="titulo-nueva-reserva">
             Nueva reserva
           </h1>
-          <p className={estilos.subtitulo}>La seña es obligatoria para confirmar el lugar.</p>
         </div>
         <Link className={estilos.enlace} to="/guarderia/calendario">
           Calendario
@@ -602,10 +601,8 @@ export function NuevaReserva() {
             className={estilos.grupoFormulario}
             disabled={bloqueadoTramoMascotasTutor}
           >
-            <legend>Total provisorio</legend>
             <div className={estilos.grillaFormulario}>
               <Campo
-                ayuda="Importe provisorio; se cotizará automáticamente cuando esté disponible."
                 etiqueta="Total provisorio"
                 id="total-provisorio"
                 obligatorio
@@ -620,11 +617,6 @@ export function NuevaReserva() {
                 />
               </Campo>
             </div>
-            {totalCentavos !== null ? (
-              <p className={estilos.importeResumen}>
-                Total: {formatearDinero(totalCentavos)}
-              </p>
-            ) : null}
             {total.trim() && totalCentavos === null ? (
               <p className={estilos.errorTexto}>Ingresá un total mayor a cero.</p>
             ) : null}
@@ -634,7 +626,6 @@ export function NuevaReserva() {
             className={`${estilos.grupoFormulario} ${estilos.grupoSena}`}
             disabled={enviando || datosSenaReintento !== null}
           >
-            <legend>Seña obligatoria</legend>
             <div className={estilos.grillaFormulario}>
               <Campo
                 ayuda="Monto libre, mayor a cero."
