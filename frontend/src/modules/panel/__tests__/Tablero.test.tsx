@@ -111,7 +111,7 @@ describe('Tablero del panel', () => {
     renderizar();
     await screen.findByRole('region', { name: 'Ingresos' });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Ver historial' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Ingresos' }));
 
     const dialogo = await screen.findByRole('dialog', {
       name: 'Historial de ingresos',

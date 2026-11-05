@@ -132,6 +132,16 @@ export function Tablero() {
           </p>
         </div>
         <nav aria-label="Secciones del panel" className={estilos.navegacion}>
+          <Boton
+            className={estilos.botonNavegacion}
+            onClick={() => {
+              setHistorial({ estado: 'cargando' });
+              setHistorialAbierto(true);
+            }}
+            variante="secundario"
+          >
+            Ingresos
+          </Boton>
           <Link to="/panel/egresos">Egresos</Link>
           <Link to="/panel/gastos-externos">Gastos a externos</Link>
           <Link to="/panel/categorias">Categorías</Link>
@@ -165,17 +175,6 @@ export function Tablero() {
         <>
           <div className={estilos.metricas}>
             <TarjetaMetrica
-              pie={
-                <Boton
-                  onClick={() => {
-                    setHistorial({ estado: 'cargando' });
-                    setHistorialAbierto(true);
-                  }}
-                  variante="secundario"
-                >
-                  Ver historial
-                </Boton>
-              }
               titulo="Ingresos"
               valor={carga.datos.resumen.ingresos_centavos}
             />
