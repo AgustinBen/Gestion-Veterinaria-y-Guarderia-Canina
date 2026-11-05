@@ -54,6 +54,25 @@ class IngresoPorMedioOut(BaseModel):
     ingresos_centavos: int
 
 
+class IngresoHistorialOut(BaseModel):
+    id: int
+    cargo_id: int
+    monto_centavos: int
+    tipo: str
+    estado: str
+    fecha: date
+    medio: str
+    medio_pago_id: int
+    es_sena: bool
+    concepto: str
+    tipo_servicio: str
+    origen: str
+    usuario_id: int
+    empleado_id: int | None
+    motivo: str | None
+    created_at: datetime
+
+
 class MayorDeudorOut(BaseModel):
     persona_id: int
     nombre: str

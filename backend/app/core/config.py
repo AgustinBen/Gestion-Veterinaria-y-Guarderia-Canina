@@ -13,6 +13,8 @@ class Settings(BaseSettings):
     password_min_length: int = 8
     guarderia_calendario_max_dias: int = Field(default=366, gt=0)
     panel_rango_max_dias: int = Field(default=366, gt=0)
+    panel_ingresos_historial_limite_default: int = Field(default=20, gt=0)
+    panel_ingresos_historial_limite_max: int = Field(default=100, gt=0)
     panel_zona_horaria: str = "America/Argentina/Buenos_Aires"
     uploads_dir: str = "data/uploads"
     upload_max_bytes: int = Field(default=10_485_760, gt=0)

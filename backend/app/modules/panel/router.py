@@ -12,6 +12,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.core.db import get_db
 from app.modules.cobros import service as cobros_service
 from app.modules.identidad.deps import require_acceso
@@ -132,6 +133,37 @@ def ingresos_por_medio(
             servicio=servicio,
             medio=medio,
             incluir_migracion=incluir_migracion,
+        )
+    except service.PeriodoInvalido as exc:
+        raise _periodo_invalido(exc) from exc
+    except cobros_service.CobrosError as exc:
+        raise _periodo_invalido(exc) from exc
+
+
+@router.get("/ingresos", response_model=list[schemas.IngresoHistorialOut])
+def listar_ingresos(
+    desde: date | None = Query(default=None),
+    hasta: date | None = Query(default=None),
+    servicio: str | None = Query(default=None),
+    medio: str | None = Query(default=None),
+    incluir_migracion: bool = Query(default=False),
+    limite: int = Query(
+        default=get_settings().panel_ingresos_historial_limite_default,
+        gt=0,
+        le=get_settings().panel_ingresos_historial_limite_max,
+    ),
+    db: Session = Depends(get_db),
+    _usuario: UsuarioActual = Depends(_leer_finanzas()),
+) -> list[schemas.IngresoHistorialOut]:
+    try:
+        return service.listar_ingresos(
+            db,
+            desde=desde,
+            hasta=hasta,
+            servicio=servicio,
+            medio=medio,
+            incluir_migracion=incluir_migracion,
+            limite=limite,
         )
     except service.PeriodoInvalido as exc:
         raise _periodo_invalido(exc) from exc

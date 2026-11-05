@@ -16,6 +16,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.modules.cobros import models, repository, schemas
 from app.modules.cobros.dinero import DineroError, formatear_pesos, validar_positivo
 from app.modules.identidad.permisos import Rol
@@ -899,6 +900,58 @@ def total_ingresos(
         medio=medio,
         incluir_migracion=incluir_migracion,
     )
+
+
+def listar_ingresos(
+    db: Session,
+    *,
+    desde: date,
+    hasta: date,
+    tipo_servicio: str | None = None,
+    medio: str | None = None,
+    incluir_migracion: bool = False,
+    limite: int | None = None,
+) -> list[schemas.IngresoHistorialOut]:
+    """Lista ingresos y reversos aplicando los mismos filtros que total_ingresos."""
+    settings = get_settings()
+    limite_resuelto = (
+        settings.panel_ingresos_historial_limite_default
+        if limite is None
+        else limite
+    )
+    if limite_resuelto <= 0 or limite_resuelto > settings.panel_ingresos_historial_limite_max:
+        raise CobrosError("El límite del historial de ingresos es inválido")
+
+    filas = repository.listar_ingresos(
+        db,
+        desde=desde,
+        hasta=hasta,
+        tipo_servicio=_validar_tipo_servicio(tipo_servicio),
+        medio=medio,
+        incluir_migracion=incluir_migracion,
+        limite=limite_resuelto,
+    )
+    return [
+        schemas.IngresoHistorialOut(
+            id=fila.id,
+            cargo_id=fila.cargo_id,
+            monto_centavos=int(fila.monto_centavos),
+            tipo=fila.tipo.value,
+            estado="Reverso" if fila.tipo == models.TipoPago.REVERSO else "Pago",
+            fecha=fila.fecha,
+            medio=fila.medio,
+            medio_pago_id=fila.medio_pago_id,
+            es_sena=fila.es_sena,
+            concepto=fila.concepto,
+            tipo_servicio=fila.tipo_servicio.value,
+            origen=fila.origen.value,
+            usuario_id=fila.usuario_id,
+            empleado_id=fila.empleado_id,
+            motivo=fila.motivo,
+            created_at=fila.created_at,
+        )
+        for fila in filas
+    ]
 
 
 def ingresos_agregados(

@@ -277,6 +277,31 @@ def ingresos_por_medio(
     ]
 
 
+def listar_ingresos(
+    db: Session,
+    *,
+    desde: date | None = None,
+    hasta: date | None = None,
+    servicio: str | None = None,
+    medio: str | None = None,
+    incluir_migracion: bool = False,
+    limite: int | None = None,
+) -> list[schemas.IngresoHistorialOut]:
+    inicio, fin = resolver_periodo(desde, hasta)
+    return [
+        schemas.IngresoHistorialOut.model_validate(ingreso.model_dump())
+        for ingreso in cobros_service.listar_ingresos(
+            db,
+            desde=inicio,
+            hasta=fin,
+            tipo_servicio=servicio,
+            medio=medio,
+            incluir_migracion=incluir_migracion,
+            limite=limite,
+        )
+    ]
+
+
 def deudas(db: Session) -> schemas.DeudasPanelOut:
     resumen_deudas = cobros_service.resumen_deudas_global(db)
     filas = cobros_service.listar_deudores(

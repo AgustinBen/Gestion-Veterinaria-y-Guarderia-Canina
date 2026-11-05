@@ -37,6 +37,25 @@ export type ResumenPanel = {
   calidad_datos: CalidadDatos;
 };
 
+export type IngresoHistorial = {
+  id: number;
+  cargo_id: number;
+  monto_centavos: number;
+  tipo: string;
+  estado: string;
+  fecha: string;
+  medio: string;
+  medio_pago_id: number;
+  es_sena: boolean;
+  concepto: string;
+  tipo_servicio: string;
+  origen: string;
+  usuario_id: number;
+  empleado_id: number | null;
+  motivo: string | null;
+  created_at: string;
+};
+
 export type MayorDeudor = {
   persona_id: number;
   nombre: string;
