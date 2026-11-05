@@ -31,7 +31,6 @@ type EstadoMedios = {
 
 const ID_MONTO = 'pago-monto';
 const ID_MEDIO = 'pago-medio';
-const ID_SENA = 'pago-sena';
 
 /**
  * Registro de un pago (RN-20). El monto sugerido es el saldo, pero se puede
@@ -52,7 +51,6 @@ export function FormularioPago({
   const [reintentoMedios, setReintentoMedios] = useState(0);
   const [montoTexto, setMontoTexto] = useState(() => formatearMonto(cargo.saldo));
   const [medio, setMedio] = useState('');
-  const [esSena, setEsSena] = useState(false);
   const [errorMonto, setErrorMonto] = useState('');
   const [errorEnvio, setErrorEnvio] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -134,7 +132,7 @@ export function FormularioPago({
     try {
       const pago = await registrarPago(
         cargo.id,
-        { monto_centavos: montoCentavos, medio, es_sena: esSena },
+        { monto_centavos: montoCentavos, medio },
         { idempotencyKey },
       );
 
@@ -220,16 +218,6 @@ export function FormularioPago({
           value={medio}
         />
       </Campo>
-
-      <label className={estilos.check} htmlFor={ID_SENA}>
-        <input
-          checked={esSena}
-          id={ID_SENA}
-          onChange={(evento) => setEsSena(evento.target.checked)}
-          type="checkbox"
-        />
-        Es seña
-      </label>
 
       {errorEnvio ? (
         <Alerta role="alert" tono="error">

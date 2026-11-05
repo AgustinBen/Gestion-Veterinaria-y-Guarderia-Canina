@@ -89,7 +89,7 @@ describe('FormularioPago', () => {
       'aria-disabled',
       'true',
     );
-    expect(screen.getByLabelText('Es seña')).not.toBeChecked();
+    expect(screen.queryByLabelText('Es seña')).not.toBeInTheDocument();
   });
 
   it('registra el pago con la Idempotency-Key de la apertura y avisa el éxito', async () => {
@@ -100,7 +100,6 @@ describe('FormularioPago', () => {
     fireEvent.change(await screen.findByLabelText('Monto'), { target: { value: '5.000,50' } });
     fireEvent.click(await screen.findByRole('combobox', { name: 'Medio de pago' }));
     fireEvent.click(screen.getByRole('option', { name: 'Transferencia' }));
-    fireEvent.click(screen.getByLabelText('Es seña'));
     fireEvent.click(screen.getByRole('button', { name: 'Registrar pago' }));
 
     await waitFor(() => expect(onPagado).toHaveBeenCalledWith(PAGO));
@@ -112,7 +111,6 @@ describe('FormularioPago', () => {
     expect(datos).toEqual({
       monto_centavos: 500050,
       medio: 'TRANSFERENCIA',
-      es_sena: true,
     });
     expect(opciones.idempotencyKey).toMatch(/\S+/);
   });
