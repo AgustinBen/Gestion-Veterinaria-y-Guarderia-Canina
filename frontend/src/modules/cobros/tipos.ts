@@ -89,7 +89,6 @@ export type ResumenDeuda = {
 export type PagoNuevo = {
   monto_centavos: number;
   medio: string;
-  es_sena: boolean;
 };
 
 export type AjusteNuevo = {
