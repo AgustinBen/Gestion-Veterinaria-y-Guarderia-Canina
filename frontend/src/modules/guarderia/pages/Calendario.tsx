@@ -262,9 +262,12 @@ export function Calendario() {
           )
           .sort((a, b) => a.inicio.localeCompare(b.inicio))
       : [];
-  const idsMascotasDelDia = turnosDelDia
-    .map((turno) => turno.paciente_id)
-    .join(',');
+  const idsMascotasDelDia = [
+    ...turnosDelDia.map((turno) => turno.paciente_id),
+    ...reservasDelDia.flatMap((reserva) =>
+      reserva.pacientes.map((paciente) => paciente.paciente_id),
+    ),
+  ].join(',');
   const disponibilidadEmergencia =
     cargaDelMes.estado === 'lista'
       ? cargaDelMes.disponibilidad.find(
@@ -675,7 +678,14 @@ export function Calendario() {
                       </span>
                       <span>
                         {reserva.pacientes.length}{' '}
-                        {reserva.pacientes.length === 1 ? 'mascota' : 'mascotas'}
+                        {reserva.pacientes.length === 1 ? 'mascota' : 'mascotas'}:{' '}
+                        {reserva.pacientes
+                          .map(
+                            (paciente) =>
+                              nombresMascotas.get(paciente.paciente_id) ??
+                              `Mascota #${paciente.paciente_id}`,
+                          )
+                          .join(', ')}
                       </span>
                     </li>
                   );
